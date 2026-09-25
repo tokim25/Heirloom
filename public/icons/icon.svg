@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1C1917"/>
+      <stop offset="100%" stop-color="#292524"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bg)"/>
+  <!-- Elegant Cloche / Chef Hat & Pot Silhouette -->
+  <path d="M256 120 C200 120 160 160 160 210 C160 220 165 230 170 238 C150 250 140 270 140 295 C140 330 170 355 210 360 L210 390 C210 395 215 400 220 400 L292 400 C297 400 302 395 302 390 L302 360 C342 355 372 330 372 295 C372 270 362 250 342 238 C347 230 352 220 352 210 C352 160 312 120 256 120 Z" fill="url(#gold)"/>
+  <circle cx="256" cy="100" r="16" fill="url(#gold)"/>
+  <rect x="180" y="360" width="152" height="12" rx="6" fill="#FAF9F5" opacity="0.9"/>
+</svg>

@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "Heirloom — Preserve the recipe. Share the table.",
+  "short_name": "Heirloom",
+  "description": "Preserve the recipe. Share the table. Heirloom is your family recipe archive and kitchen companion — cook hands-free with voice navigation, organize by ingredients, curate shared groceries, and back up securely.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#FAF9F5",
+  "background_color": "#FAF9F5",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
