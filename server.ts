@@ -288,7 +288,7 @@ let groceryLists: GroceryList[] = loadData(LISTS_FILE, [
     householdId: 'household-tokim-kitchen',
     title: 'Weekly Fresh & Produce',
     store: 'Whole Foods Market',
-    inviteCode: 'MISE-7482',
+    inviteCode: 'HEIR-7482',
     collaborators: [
       { id: 'user-tokim', name: 'Tokim', email: 'Tokim25@gmail.com', avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80', color: '#1C1917' },
       { id: 'user-alex', name: 'Alex (Partner)', email: 'alex@family.kitchen', avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80', color: '#0284C7' },
@@ -865,7 +865,7 @@ const handleCreateList = (req: Request, res: Response) => {
     householdId: user?.householdId || 'household-tokim-kitchen',
     title: title || 'New Kitchen List',
     store: store || 'Whole Foods Market',
-    inviteCode: `MISE-${Math.floor(1000 + Math.random() * 9000)}`,
+    inviteCode: `HEIR-${Math.floor(1000 + Math.random() * 9000)}`,
     collaborators: user
       ? [{ id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, color: '#1C1917' }]
       : [{ id: 'user-tokim', name: 'Tokim', email: 'Tokim25@gmail.com', color: '#1C1917' }],
@@ -888,7 +888,14 @@ const handleJoinList = (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Invite code is required' });
   }
 
-  const list = groceryLists.find((l) => l.inviteCode.toUpperCase() === inviteCode.trim().toUpperCase());
+  const raw = inviteCode.trim().toUpperCase();
+  const list = groceryLists.find((l) => {
+    const existing = l.inviteCode.toUpperCase();
+    return (
+      existing === raw ||
+      existing.replace(/^(HEIR|HL|MISE)-/, '') === raw.replace(/^(HEIR|HL|MISE)-/, '')
+    );
+  });
   if (!list) {
     return res.status(404).json({ error: 'Invalid invite code or list not found.' });
   }
@@ -1116,7 +1123,7 @@ app.post('/api/chat', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    const systemInstruction = `You are the Mise Kitchen Studio Executive Culinary Assistant powered by Google Gemini.
+    const systemInstruction = `You are the Heirloom Culinary Assistant powered by Google Gemini.
 Your role is built on a rigorous culinary Information & Data Architecture:
 1. Help home cooks find, generate, and organize delicious recipes across four core dimensions:
    - INGREDIENTS: Hero proteins/elements (Fish & Seafood, Poultry, Meat & Pork, Pasta & Grains, Vegetarian), key produce, and pantry staples.
@@ -1148,14 +1155,14 @@ INTERACTIVE EMBED FORMATS:
   ]
 }
 \`\`\`
-The Mise UI will automatically parse this and render an instant "Save to Cookbook" and "Cook in Stories Mode" button for the user!
+The Heirloom UI will automatically parse this and render an instant "Save to Cookbook" and "Cook in Stories Mode" button for the user!
 
 - If you suggest items to add to their shopping list, you may also output a JSON block labeled \`\`\`grocery-json
 [
   { "name": "Organic Meyer Lemons", "amount": 3, "unit": "whole", "category": "Produce" }
 ]
 \`\`\`
-The Mise UI will display a 1-click "Add Items to Grocery List" card!
+The Heirloom UI will display a 1-click "Add Items to Grocery List" card!
 
 Keep conversational responses elegant, concise, warm, and helpful. Always respond in markdown.`;
 

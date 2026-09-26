@@ -74,6 +74,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
+  const [modalTab, setModalTab] = useState<'create' | 'join'>('create');
   const [newListTitle, setNewListTitle] = useState('');
   const [newListStore, setNewListStore] = useState(() => {
     return (
@@ -98,7 +99,10 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           Create a shared list with your family or partner to plan groceries together.
         </p>
         <button
-          onClick={() => setShowNewListModal(true)}
+          onClick={() => {
+            setModalTab('create');
+            setShowNewListModal(true);
+          }}
           className="mt-4 px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-semibold"
         >
           Create First Grocery List
@@ -106,6 +110,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       </div>
     );
   }
+
+  const cleanInviteCode = (currentList.inviteCode || '').replace(/^MISE-/, 'HEIR-');
 
   const handleToggleCheck = (item: GroceryItem) => {
     sounds.playCheckTick();
@@ -115,9 +121,11 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   };
 
   const handleCopyInvite = () => {
-    navigator.clipboard.writeText(currentList.inviteCode);
+    navigator.clipboard.writeText(
+      `Join my "${currentList.title}" grocery list on Heirloom!\nList Code: ${cleanInviteCode}\nOpen: https://heirloom.tonykim.io`
+    );
     setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
+    setTimeout(() => setCopiedCode(false), 2500);
   };
 
   const handleAddNewItem = (e: React.FormEvent) => {
@@ -198,10 +206,14 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           <h1 className="font-serif text-3xl sm:text-4xl text-stone-900">
             {currentList.title}
           </h1>
-          <p className="text-xs text-stone-500 mt-1 flex items-center gap-2">
+          <p className="text-xs text-stone-500 mt-1 flex items-center gap-2 flex-wrap">
             <span>Store: {currentList.store || 'Whole Foods Market'}</span>
             <span>•</span>
             <span>{pendingItems.length} items remaining to purchase</span>
+            <span>•</span>
+            <span className="font-mono text-[11px] text-stone-400" title="Heirloom List Code">
+              Code: {cleanInviteCode}
+            </span>
           </p>
         </div>
 
@@ -225,28 +237,32 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
           {/* New List / Join List */}
           <button
-            onClick={() => setShowNewListModal(true)}
+            onClick={() => {
+              setModalTab('create');
+              setShowNewListModal(true);
+            }}
             className="p-2 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 shadow-xs"
-            title="Create New Grocery List"
+            title="Create or Join Grocery List"
           >
             <Plus className="w-4 h-4" />
           </button>
 
           {/* Share / Invite Code */}
           <button
+            type="button"
             onClick={handleCopyInvite}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-xs font-medium text-stone-700 shadow-xs transition-all"
-            title="Share list with family & partner"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-xs font-semibold text-stone-700 shadow-xs transition-all active:scale-95"
+            title={`Copy invite link and code (${cleanInviteCode}) for family & partner`}
           >
             {copiedCode ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-700">Copied!</span>
+                <span className="text-emerald-700 font-semibold">Invite Copied!</span>
               </>
             ) : (
               <>
                 <Users className="w-3.5 h-3.5 text-stone-500" />
-                <span>Invite Family ({currentList.inviteCode})</span>
+                <span>Invite Family</span>
               </>
             )}
           </button>
@@ -556,64 +572,139 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         )}
       </div>
 
-      {/* New Grocery List Modal */}
+      {/* New / Join Grocery List Modal */}
       {showNewListModal && (
         <div className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-stone-200">
-            <h3 className="font-serif text-2xl text-stone-900 mb-1">Create Grocery List</h3>
-            <p className="text-xs text-stone-500 mb-4">
-              Give your shopping list a title and choose your preferred supermarket.
-            </p>
-
-            <div className="flex flex-col gap-3">
-              <div>
-                <label className="text-xs font-semibold text-stone-700">List Title</label>
-                <input
-                  type="text"
-                  value={newListTitle}
-                  onChange={(e) => setNewListTitle(e.target.value)}
-                  placeholder="e.g. Dinner Party, Weekend Farmers Market"
-                  className="w-full mt-1 px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-stone-700">Supermarket</label>
-                <select
-                  value={newListStore}
-                  onChange={(e) => setNewListStore(e.target.value)}
-                  className="w-full mt-1 px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl"
-                >
-                  <option value="Whole Foods Market">Whole Foods Market</option>
-                  <option value="Trader Joe's">Trader Joe's</option>
-                  <option value="Safeway">Safeway</option>
-                  <option value="Kroger">Kroger</option>
-                  <option value="Wegmans">Wegmans</option>
-                  <option value="Sprouts">Sprouts</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-6">
+            {/* Tabs */}
+            <div className="flex rounded-xl bg-stone-100 p-1 mb-5">
               <button
-                onClick={() => setShowNewListModal(false)}
-                className="px-4 py-2 text-xs text-stone-600 hover:text-stone-900"
+                type="button"
+                onClick={() => setModalTab('create')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  modalTab === 'create'
+                    ? 'bg-white text-stone-900 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-900'
+                }`}
               >
-                Cancel
+                Create New List
               </button>
               <button
-                onClick={() => {
-                  if (newListTitle.trim()) {
-                    onCreateList(newListTitle.trim(), newListStore);
-                    setShowNewListModal(false);
-                    setNewListTitle('');
-                  }
-                }}
-                className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl"
+                type="button"
+                onClick={() => setModalTab('join')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  modalTab === 'join'
+                    ? 'bg-white text-stone-900 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-900'
+                }`}
               >
-                Create List
+                Join with Code
               </button>
             </div>
+
+            {modalTab === 'create' ? (
+              <>
+                <h3 className="font-serif text-2xl text-stone-900 mb-1">Create Grocery List</h3>
+                <p className="text-xs text-stone-500 mb-4">
+                  Give your shopping list a title and choose your preferred supermarket.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-stone-700">List Title</label>
+                    <input
+                      type="text"
+                      value={newListTitle}
+                      onChange={(e) => setNewListTitle(e.target.value)}
+                      placeholder="e.g. Dinner Party, Weekend Farmers Market"
+                      className="w-full mt-1 px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-stone-700">Supermarket</label>
+                    <select
+                      value={newListStore}
+                      onChange={(e) => setNewListStore(e.target.value)}
+                      className="w-full mt-1 px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl"
+                    >
+                      <option value="Whole Foods Market">Whole Foods Market</option>
+                      <option value="Trader Joe's">Trader Joe's</option>
+                      <option value="Safeway">Safeway</option>
+                      <option value="Kroger">Kroger</option>
+                      <option value="Wegmans">Wegmans</option>
+                      <option value="Sprouts">Sprouts</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewListModal(false)}
+                    className="px-4 py-2 text-xs text-stone-600 hover:text-stone-900"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newListTitle.trim()) {
+                        onCreateList(newListTitle.trim(), newListStore);
+                        setShowNewListModal(false);
+                        setNewListTitle('');
+                      }
+                    }}
+                    className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl"
+                  >
+                    Create List
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-serif text-2xl text-stone-900 mb-1">Join Shared List</h3>
+                <p className="text-xs text-stone-500 mb-4">
+                  Enter the Heirloom invite code shared by your family or partner.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-stone-700">Heirloom List Code</label>
+                    <input
+                      type="text"
+                      value={joinCodeInput}
+                      onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+                      placeholder="e.g. HEIR-7482"
+                      className="w-full mt-1 px-3.5 py-2 text-xs font-mono bg-stone-50 border border-stone-200 rounded-xl uppercase tracking-wider"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewListModal(false)}
+                    className="px-4 py-2 text-xs text-stone-600 hover:text-stone-900"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (joinCodeInput.trim()) {
+                        onJoinList(joinCodeInput.trim());
+                        setShowNewListModal(false);
+                        setJoinCodeInput('');
+                      }
+                    }}
+                    className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl"
+                  >
+                    Join List
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -450,7 +450,7 @@ export default function App() {
       const res = await fetch('/api/groceries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, store }),
+        body: JSON.stringify({ title, store, user }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -460,6 +460,26 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to create new grocery list:', err);
+    }
+  };
+
+  const handleJoinGroceryList = async (code: string) => {
+    try {
+      const res = await fetch('/api/grocery-lists/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode: code, user }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGroceryLists((prev) => {
+          const exists = prev.some((l) => l.id === data.list.id);
+          return exists ? prev.map((l) => (l.id === data.list.id ? data.list : l)) : [data.list, ...prev];
+        });
+        setCurrentListId(data.list.id);
+      }
+    } catch (err) {
+      console.error('Failed to join grocery list:', err);
     }
   };
 
@@ -586,7 +606,7 @@ export default function App() {
             onAddItem={handleAddGroceryItem}
             onClearCompleted={handleClearCompletedGroceries}
             onCreateList={handleCreateNewList}
-            onJoinList={(code) => alert(`Joined grocery list: ${code}`)}
+            onJoinList={handleJoinGroceryList}
             onOpenInstacartForList={(list) => {
               // Convert grocery list items into a temporary recipe format for Instacart cart modal
               const fakeRecipe: Recipe = {
