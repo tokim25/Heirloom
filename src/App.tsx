@@ -507,34 +507,33 @@ export default function App() {
       <main className="flex-1 pb-20 sm:pb-24 w-full max-w-full overflow-x-hidden">
         {activeTab === 'cookbook' ? (
           <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 flex flex-col gap-6 sm:gap-8 w-full max-w-full">
-            {/* Editorial Hero Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 sm:pb-6 border-b border-stone-200/80">
+            {/* Cookbook Header & Action Bar */}
+            <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-stone-200/80">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-widest text-amber-700">
-                  Recipe Archive
-                </span>
-                <h1 className="font-serif text-3xl sm:text-5xl text-stone-900 tracking-tight mt-1">
-                  Heirloom
+                <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 tracking-tight">
+                  Cookbook
                 </h1>
-                <p className="text-xs sm:text-sm text-stone-600 mt-2 max-w-xl leading-relaxed">
-                  Preserve the recipe. Share the table. Cook hands-free with voice navigation, organize by ingredients instantly, and back up securely to Google Drive.
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {recipes.length} family recipes saved
                 </p>
               </div>
 
-              <div className="hidden sm:flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setIsIngredientOrganizerOpen(true)}
-                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-stone-200 text-stone-800 hover:bg-stone-50 text-xs font-semibold shadow-2xs transition-all"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-stone-200 text-stone-800 hover:bg-stone-50 text-xs font-semibold shadow-2xs transition-all"
                 >
                   <span>Organize by Ingredient</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setIsImportOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold shadow-sm transition-all hover:shadow"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold shadow-xs transition-all active:scale-95"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Import Recipe</span>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300 hidden sm:inline" />
                 </button>
               </div>
             </div>

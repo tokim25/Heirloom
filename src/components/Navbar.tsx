@@ -75,19 +75,24 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-4 md:gap-8 min-w-0">
           <div
             onClick={() => setActiveTab('cookbook')}
-            className="cursor-pointer flex flex-col group select-none shrink-0"
+            className="cursor-pointer flex items-center gap-2.5 group select-none shrink-0"
           >
-            <div className="flex items-baseline gap-2">
-              <span className="font-serif text-2xl sm:text-3xl tracking-tight text-stone-900 group-hover:text-stone-700 transition-colors">
-                Heirloom
-              </span>
-              <span className="text-[10px] uppercase tracking-wider text-amber-800 font-bold px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/30 hidden sm:inline">
-                Recipes
+            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs border border-stone-200/80 bg-stone-950 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <img src="/icons/icon.svg" alt="Heirloom" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-baseline gap-2">
+                <span className="font-serif text-2xl sm:text-3xl tracking-tight text-stone-900 group-hover:text-stone-700 transition-colors">
+                  Heirloom
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-amber-800 font-bold px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/30 hidden sm:inline">
+                  Recipes
+                </span>
+              </div>
+              <span className="text-[10px] text-stone-500 font-medium hidden lg:inline tracking-tight -mt-0.5">
+                Preserve the recipe. Share the table.
               </span>
             </div>
-            <span className="text-[10px] text-stone-500 font-medium hidden lg:inline tracking-tight -mt-0.5">
-              Preserve the recipe. Share the table.
-            </span>
           </div>
 
           {/* Desktop Navigation Segments */}

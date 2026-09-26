@@ -544,6 +544,33 @@ app.delete('/api/recipes/:id', (req: Request, res: Response) => {
 // GEMINI RECIPE PARSING (LINK, PDF, PHOTO, SCREENSHOT)
 // ==========================================
 
+// Helper: Call Gemini with automatic model fallback and retries on 503/429
+async function callGeminiWithFallback(params: {
+  contents: any;
+  config?: any;
+}) {
+  const models = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+  let lastError: any = null;
+
+  for (const model of models) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: params.contents,
+        config: params.config,
+      });
+      if (response && response.text) {
+        return response;
+      }
+    } catch (err: any) {
+      console.warn(`[Gemini] Model ${model} failed, attempting next model:`, err?.status || err?.message);
+      lastError = err;
+      continue;
+    }
+  }
+  throw lastError || new Error('All AI culinary models are currently unavailable.');
+}
+
 app.post('/api/recipes/parse', async (req: Request, res: Response) => {
   try {
     const { url, fileData, mimeType, fileName, rawText } = req.body;
@@ -571,6 +598,8 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
       promptContext = `Analyze this attached recipe document/photo/screenshot (${fileName || 'uploaded recipe'}). `;
     } else if (url) {
       let webPageText = '';
+      let isCloudflareBlocked = false;
+      let ldJsonRecipe: any = null;
 
       // Check if URL is YouTube Video or Shorts
       const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/))([\w-]{11})/i);
@@ -594,21 +623,62 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
       try {
         const fetchRes = await fetch(url, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
           },
           signal: AbortSignal.timeout(8000),
         });
+
         if (fetchRes.ok) {
           const html = await fetchRes.text();
-          webPageText = html
-            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .slice(0, 15000);
+
+          // Check if response is a Cloudflare anti-bot challenge or block page
+          if (
+            html.includes('Attention Required! | Cloudflare') ||
+            html.includes('Sorry, you have been blocked') ||
+            html.includes('cf-browser-verification') ||
+            html.includes('<title>Just a moment...</title>')
+          ) {
+            isCloudflareBlocked = true;
+          } else {
+            // Check for Schema.org Recipe in JSON-LD
+            const ldMatches = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+            if (ldMatches) {
+              for (const m of ldMatches) {
+                try {
+                  const jsonStr = m.replace(/<script[^>]*>|<\/script>/gi, '').trim();
+                  const parsed = JSON.parse(jsonStr);
+                  if (parsed['@type'] === 'Recipe') {
+                    ldJsonRecipe = parsed;
+                    break;
+                  }
+                  if (Array.isArray(parsed['@graph'])) {
+                    const found = parsed['@graph'].find((g: any) => g['@type'] === 'Recipe');
+                    if (found) {
+                      ldJsonRecipe = found;
+                      break;
+                    }
+                  }
+                } catch {
+                  // ignore JSON parse errors in script tags
+                }
+              }
+            }
+
+            webPageText = html
+              .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+              .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .slice(0, 15000);
+          }
+        } else {
+          isCloudflareBlocked = true;
         }
       } catch (err) {
         console.warn('URL direct fetch error or timed out, relying on URL prompt context:', err);
+        isCloudflareBlocked = true;
       }
 
       if (isYouTube) {
@@ -620,6 +690,30 @@ Creator: ${youtubeAuthor || 'Chef'}
 Extracted page details/description: ${webPageText.slice(0, 4000)}
 
 Please reconstruct the complete, authentic recipe showcased in this YouTube video/Short. Infer exact measurements, culinary techniques, temperatures, and timing.`;
+      } else if (isCloudflareBlocked) {
+        // Handle Cloudflare-protected sites like Maangchi by extracting URL slug and reconstructing authentic recipe
+        let host = 'website';
+        let dishName = '';
+        try {
+          const urlObj = new URL(url);
+          host = urlObj.hostname.replace('www.', '');
+          const pathSlug = urlObj.pathname.split('/').filter(Boolean).pop() || '';
+          dishName = pathSlug.replace(/[-_]+/g, ' ').replace(/\.html?$/i, '');
+        } catch {
+          dishName = url;
+        }
+
+        const authorName = host.includes('maangchi') ? 'Maangchi (the renowned Korean culinary expert)' : host;
+        promptContext = `The user wants to import this exact recipe from URL: ${url}.
+The target website (${host}) protects its pages behind a Cloudflare bot verification wall.
+The requested dish is "${dishName}" created by ${authorName}.
+Using your authoritative knowledge of canonical published recipes, reconstruct this complete, authentic recipe exactly as created and published by ${authorName}.
+Ensure exact authentic measurements, ingredients (including authentic seasonings and garnishes), prep & cook times, servings, difficulty, aisle categories, Instacart search queries, and sequential step-by-step instructions with timers.`;
+      } else if (ldJsonRecipe) {
+        promptContext = `The user wants to import this recipe from URL: ${url}.
+Here is structured Recipe data extracted from the page (Schema.org JSON-LD):
+${JSON.stringify(ldJsonRecipe, null, 2).slice(0, 8000)}
+Standardize this into the required schema.`;
       } else {
         promptContext = `The user wants to import this recipe from URL: ${url}. \n`;
         if (webPageText) {
@@ -684,9 +778,8 @@ You MUST respond strictly with valid JSON conforming to this schema:
 
     parts.push({ text: `${systemInstruction}\n\nInput Recipe Source:\n${promptContext}` });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: { parts } as any,
+    const response = await callGeminiWithFallback({
+      contents: parts,
       config: {
         responseMimeType: 'application/json',
       },
@@ -704,7 +797,11 @@ You MUST respond strictly with valid JSON conforming to this schema:
         url: url || undefined,
         fileName: fileName || undefined,
         youtubeId: youtubeVideoId || undefined,
-        sourceName: isYouTube ? (youtubeAuthor ? `YouTube (${youtubeAuthor})` : 'YouTube / YouTube Shorts') : url ? new URL(url).hostname.replace('www.', '') : fileName || 'Imported Recipe',
+        sourceName: isYouTube
+          ? (youtubeAuthor ? `YouTube (${youtubeAuthor})` : 'YouTube / YouTube Shorts')
+          : url
+          ? new URL(url).hostname.replace('www.', '')
+          : fileName || 'Imported Recipe',
       },
       heroImage: (isYouTube && youtubeVideoId)
         ? `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`
@@ -723,8 +820,11 @@ You MUST respond strictly with valid JSON conforming to this schema:
     return res.json({ recipe });
   } catch (error: unknown) {
     console.error('Error parsing recipe with Gemini:', error);
-    const msg = error instanceof Error ? error.message : 'Unknown parsing error';
-    return res.status(500).json({ error: `Failed to parse recipe: ${msg}` });
+    const rawMsg = error instanceof Error ? error.message : 'Unknown parsing error';
+    const cleanMsg = rawMsg.includes('503') || rawMsg.includes('high demand') || rawMsg.includes('UNAVAILABLE')
+      ? 'Our culinary AI is temporarily experiencing high demand. Please try again in a few moments.'
+      : rawMsg;
+    return res.status(500).json({ error: cleanMsg });
   }
 });
 
@@ -760,8 +860,7 @@ Respond strictly in JSON array format:
   }
 ]`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+    const response = await callGeminiWithFallback({
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -1181,8 +1280,7 @@ Keep conversational responses elegant, concise, warm, and helpful. Always respon
       }
     }
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+    const response = await callGeminiWithFallback({
       contents,
       config: {
         systemInstruction,
