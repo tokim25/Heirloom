@@ -141,6 +141,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('heirloom_preferred_store', preferredStore);
+    }
     await updateProfile({
       preferredStore,
       partnerEmail,

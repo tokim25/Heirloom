@@ -9,27 +9,90 @@ import {
   Sparkles,
   ArrowRight,
   RefreshCw,
-  Info,
+  Copy,
+  CheckCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Recipe, Ingredient, PantryItem } from '../types/recipe.ts';
+import { useAuth } from '../context/AuthContext.tsx';
 import { scaleQuantity, formatFraction } from '../utils/units.ts';
 import { isIngredientInPantry } from '../utils/pantryDefaults.ts';
 
 interface InstacartModalProps {
   recipe: Recipe;
   servings: number;
+  initialStore?: string;
   onClose: () => void;
   onAddSubstitutionsToList?: (items: unknown[]) => void;
   pantryItems?: PantryItem[];
 }
 
-const STORES = [
-  { id: 'whole-foods', name: 'Whole Foods Market', tagline: 'Organic & Artisan Quality', delivery: '1-2 hrs', minOrder: '$35', color: '#006241' },
-  { id: 'trader-joes', name: "Trader Joe's", tagline: 'Neighborhood Favorites & Value', delivery: '2 hrs', minOrder: '$35', color: '#BA1B1D' },
-  { id: 'safeway', name: 'Safeway', tagline: 'Full Grocery Pantry Staples', delivery: '1 hr', minOrder: '$30', color: '#E31837' },
-  { id: 'kroger', name: 'Kroger', tagline: 'Fresh Savings & Bulk Staples', delivery: '1-2 hrs', minOrder: '$35', color: '#004F9F' },
-  { id: 'wegmans', name: 'Wegmans', tagline: 'Chef-grade Produce & Cheeses', delivery: '2 hrs', minOrder: '$35', color: '#880000' },
-  { id: 'sprouts', name: "Sprouts Farmers Market", tagline: 'Farm-Fresh & Bulk Spices', delivery: '1 hr', minOrder: '$35', color: '#2B5E27' },
+export interface StoreOption {
+  id: string;
+  name: string;
+  slug: string;
+  tagline: string;
+  delivery: string;
+  minOrder: string;
+  color: string;
+}
+
+export const STORES: StoreOption[] = [
+  {
+    id: 'whole-foods',
+    name: 'Whole Foods Market',
+    slug: 'whole-foods',
+    tagline: 'Organic & Artisan Quality',
+    delivery: '1-2 hrs',
+    minOrder: '$35',
+    color: '#006241',
+  },
+  {
+    id: 'trader-joes',
+    name: "Trader Joe's",
+    slug: 'trader-joes',
+    tagline: 'Neighborhood Favorites & Value',
+    delivery: '2 hrs',
+    minOrder: '$35',
+    color: '#BA1B1D',
+  },
+  {
+    id: 'safeway',
+    name: 'Safeway',
+    slug: 'safeway',
+    tagline: 'Full Grocery Pantry Staples',
+    delivery: '1 hr',
+    minOrder: '$30',
+    color: '#E31837',
+  },
+  {
+    id: 'kroger',
+    name: 'Kroger',
+    slug: 'kroger',
+    tagline: 'Fresh Savings & Bulk Staples',
+    delivery: '1-2 hrs',
+    minOrder: '$35',
+    color: '#004F9F',
+  },
+  {
+    id: 'wegmans',
+    name: 'Wegmans',
+    slug: 'wegmans',
+    tagline: 'Chef-grade Produce & Cheeses',
+    delivery: '2 hrs',
+    minOrder: '$35',
+    color: '#880000',
+  },
+  {
+    id: 'sprouts',
+    name: 'Sprouts Farmers Market',
+    slug: 'sprouts',
+    tagline: 'Farm-Fresh & Bulk Spices',
+    delivery: '1 hr',
+    minOrder: '$35',
+    color: '#2B5E27',
+  },
 ];
 
 interface CartItemState {
@@ -55,21 +118,59 @@ interface CartItemState {
 export const InstacartModal: React.FC<InstacartModalProps> = ({
   recipe,
   servings,
+  initialStore,
   onClose,
   onAddSubstitutionsToList,
   pantryItems = [],
 }) => {
-  const [selectedStore, setSelectedStore] = useState(STORES[0]);
+  const { user, updateProfile } = useAuth();
+
+  // Helper to find matching store object
+  const resolveStore = (storeNameOrId?: string): StoreOption => {
+    if (!storeNameOrId) return STORES[0];
+    const clean = storeNameOrId.trim().toLowerCase();
+    const found = STORES.find(
+      (s) => s.name.toLowerCase() === clean || s.id.toLowerCase() === clean || s.slug.toLowerCase() === clean
+    );
+    return found || STORES[0];
+  };
+
+  // Determine starting store: initialStore prop -> user profile preferredStore -> localStorage -> default Whole Foods
+  const [selectedStore, setSelectedStore] = useState<StoreOption>(() => {
+    const savedLocal = typeof window !== 'undefined' ? localStorage.getItem('heirloom_preferred_store') : null;
+    return resolveStore(initialStore || user?.preferredStore || savedLocal || 'Whole Foods Market');
+  });
+
+  const [isChangingStore, setIsChangingStore] = useState(false);
   const [items, setItems] = useState<CartItemState[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderSent, setOrderSent] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Sync if user profile preferredStore updates and no initialStore override was provided
+  useEffect(() => {
+    if (!initialStore && user?.preferredStore) {
+      setSelectedStore(resolveStore(user.preferredStore));
+    }
+  }, [user?.preferredStore, initialStore]);
+
+  // Handle changing store and persisting across the app
+  const handleSelectStore = (store: StoreOption) => {
+    setSelectedStore(store);
+    setIsChangingStore(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('heirloom_preferred_store', store.name);
+    }
+    if (updateProfile) {
+      updateProfile({ preferredStore: store.name }).catch((err) => {
+        console.error('Failed to update preferred store:', err);
+      });
+    }
+  };
 
   // Initialize cart items from recipe ingredients scaled to servings
   useEffect(() => {
-    // Generate realistic stock availability (e.g. 1 item simulated out of stock to demonstrate substitution)
     const initial: CartItemState[] = recipe.ingredients.map((ing, idx) => {
       const scaled = scaleQuantity(ing.amount, recipe.defaultServings, servings);
-      // Simulate out of stock for special herbs/produce occasionally
+      // Simulate out of stock for special produce occasionally to demonstrate chef substitutions
       const outOfStock = idx === 3 && recipe.ingredients.length > 3;
       const inPantry = pantryItems ? isIngredientInPantry(ing.name, pantryItems) : false;
 
@@ -83,10 +184,12 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
         estimatedPrice: ing.estimatedPrice || Math.round((2.49 + (idx * 1.3) % 7) * 100) / 100,
         isOutOfStock: outOfStock,
         isInPantry: inPantry,
-        included: !inPantry, // auto-exclude if already in pantry to save money
+        included: !inPantry, // auto-exclude if already in pantry to save grocery costs
         substitution: outOfStock
           ? {
-              name: ing.name.includes('Butter') ? 'Ghee or High-Heat Avocado Oil' : 'Fresh Oregano or Italian Seasoning',
+              name: ing.name.toLowerCase().includes('butter')
+                ? 'Ghee or High-Heat Avocado Oil'
+                : 'Fresh Oregano or Italian Seasoning',
               ratio: '1:1 ratio direct swap',
               reason: 'Excellent culinary match with identical moisture and flavor profile.',
               instacartQuery: 'Culinary Ghee',
@@ -163,97 +266,152 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
   const totalPrice = includedItems.reduce((sum, item) => sum + item.estimatedPrice, 0);
   const outOfStockCount = includedItems.filter((i) => i.isOutOfStock).length;
 
-  const handleExportCartToInstacart = () => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setOrderSent(true);
-      // Open Instacart search with first item or store link
-      const firstItem = items[0]?.query || recipe.title;
-      const url = `https://www.instacart.com/store/s?k=${encodeURIComponent(firstItem)}`;
-      window.open(url, '_blank');
-    }, 1200);
+  // Build direct store URL and individual item search URLs
+  const storeUrl = selectedStore.slug
+    ? `https://www.instacart.com/store/${selectedStore.slug}/storefront`
+    : `https://www.instacart.com/store/s?k=${encodeURIComponent(selectedStore.name)}`;
+
+  const getItemSearchUrl = (query: string) => {
+    if (selectedStore.slug) {
+      return `https://www.instacart.com/store/${selectedStore.slug}/s?k=${encodeURIComponent(query)}`;
+    }
+    return `https://www.instacart.com/store/s?k=${encodeURIComponent(query)}`;
+  };
+
+  // Copy shopping checklist to clipboard
+  const handleCopyList = () => {
+    const lines = includedItems.map((item) => {
+      const qty = formatFraction(item.scaledAmount);
+      return `• ${qty ? `${qty} ` : ''}${item.unit ? `${item.unit} ` : ''}${item.name}`;
+    });
+    const header = `${recipe.title} — ${selectedStore.name} Grocery List (${includedItems.length} items):\n`;
+    navigator.clipboard.writeText(`${header}\n${lines.join('\n')}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
       <div className="relative w-full max-w-2xl bg-[#FAF9F5] rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col my-auto max-h-[90vh]">
         {/* Modal Header */}
-        <div className="p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between">
+        <div className="p-5 sm:p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between bg-white/70">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white flex items-center justify-center shadow-md shrink-0">
               <ShoppingBag className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
-                  Instacart Grocery Connector
+                  Instacart Connector
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
-                  Live API
+                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold whitespace-nowrap leading-none">
+                  Store Fulfillment
                 </span>
               </div>
-              <h2 className="font-serif text-2xl text-stone-900">
-                Populate Cart for {recipe.title}
+              <h2 className="font-serif text-xl sm:text-2xl text-stone-900 mt-0.5 leading-snug">
+                Fulfill Ingredients for {recipe.title}
               </h2>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-stone-200 text-stone-500 hover:text-stone-900 transition-colors"
+            className="p-2 rounded-full hover:bg-stone-200 text-stone-500 hover:text-stone-900 transition-colors shrink-0"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Store Selector */}
-        <div className="p-4 sm:p-6 bg-white border-b border-stone-200">
-          <label className="text-xs font-semibold text-stone-700 uppercase tracking-wider block mb-2.5">
-            Choose Preferred Grocery Store
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {STORES.map((store) => {
-              const isSelected = selectedStore.id === store.id;
-              return (
-                <button
-                  key={store.id}
-                  onClick={() => setSelectedStore(store)}
-                  className={`p-3 rounded-2xl border text-left flex flex-col gap-1 transition-all ${
-                    isSelected
-                      ? 'border-emerald-600 bg-emerald-50/50 shadow-xs ring-2 ring-emerald-600/20'
-                      : 'border-stone-200 hover:border-stone-300 bg-white hover:bg-stone-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-stone-900 truncate">
-                      {store.name}
-                    </span>
-                    {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                    )}
-                  </div>
-                  <span className="text-[10px] text-stone-500 truncate">
-                    {store.tagline}
+        {/* Selected Store Banner (Compact, Remembers User's Default) */}
+        <div className="p-4 sm:p-5 bg-white border-b border-stone-200/90 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+                <Store className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-stone-900 text-sm sm:text-base truncate">
+                    {selectedStore.name}
                   </span>
-                  <div className="flex items-center gap-2 mt-1 text-[10px] text-stone-600">
-                    <span>⏱ {store.delivery}</span>
-                    <span>•</span>
-                    <span>Min {store.minOrder}</span>
-                  </div>
-                </button>
-              );
-            })}
+                  <span className="inline-flex items-center justify-center gap-1 text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full whitespace-nowrap leading-none">
+                    <Check className="w-3 h-3 text-emerald-700" />
+                    Preferred Store
+                  </span>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                  <span>⏱ {selectedStore.delivery}</span>
+                  <span>•</span>
+                  <span>Min {selectedStore.minOrder}</span>
+                  <span>•</span>
+                  <span className="truncate">{selectedStore.tagline}</span>
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsChangingStore(!isChangingStore)}
+              className="inline-flex items-center justify-center gap-1 text-xs font-semibold text-stone-600 hover:text-stone-900 px-3 py-1.5 rounded-xl border border-stone-200 hover:bg-stone-50 transition-colors shrink-0 whitespace-nowrap"
+            >
+              <span>{isChangingStore ? 'Done' : 'Change Store'}</span>
+              {isChangingStore ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
           </div>
+
+          {/* Expandable Store Picker: Only displayed if user taps "Change Store" */}
+          {isChangingStore && (
+            <div className="pt-3 border-t border-stone-100 animate-in fade-in duration-150">
+              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wider mb-2">
+                Select Your Default Supermarket
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {STORES.map((store) => {
+                  const isSelected = selectedStore.id === store.id;
+                  return (
+                    <button
+                      key={store.id}
+                      type="button"
+                      onClick={() => handleSelectStore(store)}
+                      className={`p-2.5 rounded-2xl border text-left flex flex-col gap-0.5 transition-all ${
+                        isSelected
+                          ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-2 ring-emerald-600/20'
+                          : 'border-stone-200 hover:border-stone-300 bg-white hover:bg-stone-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-stone-900 truncate">
+                          {store.name}
+                        </span>
+                        {isSelected && (
+                          <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        )}
+                      </div>
+                      <span className="text-[10px] text-stone-500 truncate">
+                        {store.tagline}
+                      </span>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-stone-600">
+                        <span>⏱ {store.delivery}</span>
+                        <span>•</span>
+                        <span>Min {store.minOrder}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Items List */}
-        <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-stone-600">
-              Ingredients to Add ({items.length} items for {servings} servings)
+              Ingredients to Fulfill ({includedItems.length} of {items.length} selected • {servings} servings)
             </span>
-            <span className="text-xs font-medium text-stone-800">
+            <span className="text-xs font-semibold text-stone-800">
               Est. Total: ${totalPrice.toFixed(2)}
             </span>
           </div>
@@ -263,7 +421,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
-                  {outOfStockCount} item is currently out of stock at {selectedStore.name}. Smart substitutions suggested below!
+                  {outOfStockCount} item is out of stock at {selectedStore.name}. Smart substitutions suggested below.
                 </span>
               </div>
             </div>
@@ -279,8 +437,8 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                     item.isOutOfStock ? 'bg-amber-50/40' : 'hover:bg-stone-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <input
                         type="checkbox"
                         checked={item.included}
@@ -289,11 +447,11 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                           updated[idx] = { ...item, included: e.target.checked };
                           setItems(updated);
                         }}
-                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                        title={item.included ? 'Item included in cart' : 'Item excluded from cart'}
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
+                        title={item.included ? 'Item included in list' : 'Item excluded from list'}
                       />
 
-                      <div className="flex items-baseline gap-2">
+                      <div className="flex items-baseline gap-1.5 flex-wrap min-w-0">
                         <span className={`font-semibold text-xs sm:text-sm ${item.included ? 'text-stone-900' : 'text-stone-400 line-through'}`}>
                           {qty ? `${qty} ${item.unit}` : item.unit}
                         </span>
@@ -301,31 +459,31 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                           {item.name}
                         </span>
                         {item.isInPantry && (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold border border-emerald-200">
+                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold border border-emerald-200 whitespace-nowrap leading-none">
                             In Pantry
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                       <span className="text-xs text-stone-600 font-mono">
                         ${item.estimatedPrice.toFixed(2)}
                       </span>
 
                       {item.isOutOfStock ? (
-                        <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-semibold">
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-semibold whitespace-nowrap leading-none">
                           Out of Stock
                         </span>
                       ) : (
                         <a
-                          href={`https://www.instacart.com/store/s?k=${encodeURIComponent(item.query)}`}
+                          href={getItemSearchUrl(item.query)}
                           target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 hover:underline font-medium"
-                          title="View product on Instacart"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 font-medium px-2 py-1 rounded-lg hover:bg-emerald-50 border border-emerald-200/80 transition-colors whitespace-nowrap"
+                          title={`Find ${item.name} at ${selectedStore.name} on Instacart`}
                         >
-                          <span>Find</span>
+                          <span>Find Item</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
@@ -341,6 +499,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                           <span>Chef Substitution: {item.substitution.name}</span>
                         </div>
                         <button
+                          type="button"
                           onClick={() => handleApplySubstitution(idx)}
                           className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-medium shadow-xs"
                         >
@@ -357,6 +516,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-amber-800">Need an alternative?</span>
                       <button
+                        type="button"
                         onClick={() => fetchSmartSubstitution(idx)}
                         disabled={item.isLoadingSub}
                         className="flex items-center gap-1 text-emerald-700 font-medium hover:underline text-xs"
@@ -370,47 +530,54 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
               );
             })}
           </div>
+
+          {/* Transparent How-it-Works Explainer */}
+          <div className="p-3 bg-stone-100/70 border border-stone-200 rounded-2xl text-[11px] text-stone-600 leading-relaxed">
+            <span className="font-semibold text-stone-800">How Instacart checkout works:</span> Instacart accounts require logging in directly through Instacart to protect your personal payment details. Tap <strong className="text-stone-800">Open {selectedStore.name}</strong> to launch the store, or tap <strong className="text-stone-800">Find Item</strong> beside any ingredient to add it directly to your cart.
+          </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 sm:p-6 border-t border-stone-200/80 bg-stone-50 flex items-center justify-between gap-4">
-          <div className="flex flex-col">
+        <div className="p-4 sm:p-5 border-t border-stone-200/80 bg-stone-50 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center justify-between w-full sm:w-auto sm:flex-col sm:items-start">
             <span className="text-[11px] text-stone-500">
-              Ready to send to Instacart
+              Ready for {selectedStore.name}
             </span>
             <span className="text-sm font-semibold text-stone-900">
-              {items.length} items at {selectedStore.name}
+              {includedItems.length} items (${totalPrice.toFixed(2)})
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
             <button
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-stone-600 hover:text-stone-900"
+              type="button"
+              onClick={handleCopyList}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors shrink-0"
+              title="Copy formatted ingredient checklist to clipboard"
             >
-              Cancel
-            </button>
-
-            <button
-              onClick={handleExportCartToInstacart}
-              disabled={isSubmitting}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <span>Syncing Cart…</span>
-              ) : orderSent ? (
+              {copied ? (
                 <>
-                  <Check className="w-4 h-4" />
-                  <span>Cart Created in Instacart!</span>
+                  <CheckCheck className="w-4 h-4 text-emerald-600" />
+                  <span className="text-emerald-700">Copied!</span>
                 </>
               ) : (
                 <>
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Send Cart to Instacart</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <Copy className="w-3.5 h-3.5 text-stone-500" />
+                  <span>Copy List</span>
                 </>
               )}
             </button>
+
+            <a
+              href={storeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/20 transition-all active:scale-95 shrink-0"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Open {selectedStore.name}</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
           </div>
         </div>
       </div>

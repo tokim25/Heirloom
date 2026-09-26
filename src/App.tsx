@@ -75,6 +75,7 @@ export default function App() {
   const [instacartModalState, setInstacartModalState] = useState<{
     recipe: Recipe;
     servings: number;
+    initialStore?: string;
   } | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isConverterOpen, setIsConverterOpen] = useState(false);
@@ -309,10 +310,11 @@ export default function App() {
     });
   };
 
-  const handleOpenInstacart = (recipe: Recipe, servings?: number) => {
+  const handleOpenInstacart = (recipe: Recipe, servings?: number, store?: string) => {
     setInstacartModalState({
       recipe,
       servings: servings || recipe.defaultServings,
+      initialStore: store,
     });
   };
 
@@ -613,7 +615,7 @@ export default function App() {
                 createdAt: list.createdAt,
                 updatedAt: list.updatedAt,
               };
-              handleOpenInstacart(fakeRecipe, 2);
+              handleOpenInstacart(fakeRecipe, 2, list.store);
             }}
             partnerNotification={partnerNotification}
             recipes={recipes}
@@ -681,6 +683,7 @@ export default function App() {
         <InstacartModal
           recipe={instacartModalState.recipe}
           servings={instacartModalState.servings}
+          initialStore={instacartModalState.initialStore}
           onClose={() => setInstacartModalState(null)}
           pantryItems={pantryItems}
         />

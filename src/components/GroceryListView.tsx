@@ -75,7 +75,19 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [newListTitle, setNewListTitle] = useState('');
-  const [newListStore, setNewListStore] = useState('Whole Foods Market');
+  const [newListStore, setNewListStore] = useState(() => {
+    return (
+      user?.preferredStore ||
+      (typeof window !== 'undefined' ? localStorage.getItem('heirloom_preferred_store') : null) ||
+      'Whole Foods Market'
+    );
+  });
+
+  useEffect(() => {
+    if (user?.preferredStore) {
+      setNewListStore(user.preferredStore);
+    }
+  }, [user?.preferredStore]);
 
   if (!currentList) {
     return (
