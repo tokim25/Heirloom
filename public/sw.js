@@ -1,5 +1,5 @@
 // Heirloom Kitchen Studio Service Worker - Offline Caching
-const CACHE_NAME = 'heirloom-kitchen-cache-v1';
+const CACHE_NAME = 'heirloom-kitchen-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
