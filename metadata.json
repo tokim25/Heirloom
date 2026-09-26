@@ -1,0 +1,6 @@
+{
+  "name": "Heirloom — Preserve the recipe. Share the table.",
+  "description": "Preserve the recipe. Share the table. Heirloom is your family recipe archive and kitchen companion — cook hands-free with voice navigation, organize by ingredients, curate shared groceries, and back up securely.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
