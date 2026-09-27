@@ -238,6 +238,24 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
         {/* Collaborators & List Switcher */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {currentList.collaborators.length > 0 && (
+            <div className="hidden sm:flex -space-x-2 mr-1" title={`${currentList.collaborators.length} household collaborators`}>
+              {currentList.collaborators.slice(0, 4).map((collaborator) => (
+                <div
+                  key={collaborator.id || collaborator.email}
+                  className="w-8 h-8 rounded-full border-2 border-white bg-stone-200 flex items-center justify-center overflow-hidden text-[10px] font-bold text-stone-700 shadow-xs"
+                  title={collaborator.name}
+                >
+                  {collaborator.avatarUrl ? (
+                    <img src={collaborator.avatarUrl} alt={collaborator.name} className="w-full h-full object-cover" />
+                  ) : (
+                    collaborator.name.charAt(0).toUpperCase()
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* List Switcher dropdown */}
           <select
             value={currentList.id}

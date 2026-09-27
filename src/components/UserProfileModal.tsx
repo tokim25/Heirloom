@@ -50,7 +50,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     isGoogleSignedIn,
     isGoogleConnected,
     signInWithGoogle,
-    disconnectGoogleDrive,
+    logout,
   } = useAuth();
 
   const [preferredStore, setPreferredStore] = useState(user?.preferredStore || 'Whole Foods Market');
@@ -207,9 +207,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={disconnectGoogleDrive}
+                    onClick={logout}
                     className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 px-3 py-1.5 rounded-lg hover:bg-stone-100 transition-colors"
-                    title="Disconnect Google Account"
+                    title="Sign out of account"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Sign Out</span>

@@ -5,7 +5,6 @@ import { signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged, Google
 
 interface AuthContextType {
   user: User | null;
-  allUsers: User[];
   token: string | null;
   googleAccessToken: string | null;
   isGoogleSignedIn: boolean;
@@ -13,8 +12,7 @@ interface AuthContextType {
   login: (email: string) => Promise<void>;
   signup: (userData: Partial<User>) => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
-  switchUser: (targetUser: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   connectGoogleDrive: () => Promise<string | null>;
   signInWithGoogle: () => Promise<string | null>;
   disconnectGoogleDrive: () => Promise<void>;
@@ -33,7 +31,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('mise_auth_token'));
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(false);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
@@ -123,13 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const disconnectGoogleDrive = async () => {
-    try {
-      await firebaseSignOut(auth);
-      setGoogleAccessToken(null);
-      setIsGoogleSignedIn(false);
-    } catch (err) {
-      console.error('Sign out error:', err);
-    }
+    setGoogleAccessToken(null);
   };
 
   // Fetch current user or default user on mount
@@ -149,34 +140,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     loadUser();
   }, [token]);
-
-  // Pre-seed demo users for quick testing
-  useEffect(() => {
-    setAllUsers([
-      {
-        id: 'user-tokim',
-        email: 'Tokim25@gmail.com',
-        name: 'Tokim',
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-        preferredStore: 'Whole Foods Market',
-        dietaryPreferences: ['High-Protein', 'Fresh Herbs'],
-        partnerEmail: 'alex@family.kitchen',
-        householdId: 'household-tokim-kitchen',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'user-alex',
-        email: 'alex@family.kitchen',
-        name: 'Alex (Partner)',
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-        preferredStore: "Trader Joe's",
-        dietaryPreferences: ['Organic', 'Mediterranean'],
-        partnerEmail: 'Tokim25@gmail.com',
-        householdId: 'household-tokim-kitchen',
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-  }, []);
 
   const login = async (email: string) => {
     try {
@@ -237,15 +200,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const switchUser = (targetUser: User) => {
-    setUser(targetUser);
-    setToken(`token-${targetUser.id}`);
-    localStorage.setItem('mise_auth_token', `token-${targetUser.id}`);
-  };
-
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await firebaseSignOut(auth);
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
     setUser(null);
     setToken(null);
+    setGoogleAccessToken(null);
+    setIsGoogleSignedIn(false);
     localStorage.removeItem('mise_auth_token');
   };
 
@@ -253,7 +217,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         user,
-        allUsers,
         token,
         googleAccessToken,
         isGoogleSignedIn,
@@ -261,7 +224,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         signup,
         updateProfile,
-        switchUser,
         logout,
         connectGoogleDrive,
         signInWithGoogle,
