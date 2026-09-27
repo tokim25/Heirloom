@@ -57,6 +57,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const {
     user,
     updateProfile,
+    isGoogleSignedIn,
     isGoogleConnected,
     signInWithGoogle,
     disconnectGoogleDrive,
@@ -187,7 +188,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <div className="overflow-y-auto p-6 flex flex-col gap-6">
           {/* SECTION 1: Standard Google Sign-In / Account Surface */}
           <div className="bg-white rounded-2xl border border-stone-200/90 p-4 sm:p-5 shadow-xs">
-            {isGoogleConnected && user ? (
+            {isGoogleSignedIn && user ? (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -227,8 +228,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
                 <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-600">
                   <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    Google Drive Backup Vault Active
+                    <ShieldCheck className={`w-4 h-4 ${isGoogleConnected ? 'text-emerald-600' : 'text-stone-400'}`} />
+                    {isGoogleConnected
+                      ? 'Google Drive Backup Vault Active'
+                      : 'Google Drive Vault Needs Authorization'}
                   </span>
                   {onOpenDriveBackup && (
                     <button
@@ -239,7 +242,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       }}
                       className="text-amber-700 hover:text-amber-800 font-medium underline flex items-center gap-1"
                     >
-                      <span>Manage Cloud Vault</span>
+                      <span>{isGoogleConnected ? 'Manage Cloud Vault' : 'Authorize Drive Vault'}</span>
                       <ExternalLink className="w-3 h-3" />
                     </button>
                   )}

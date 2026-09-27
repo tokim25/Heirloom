@@ -8,6 +8,7 @@ interface AuthContextType {
   allUsers: User[];
   token: string | null;
   googleAccessToken: string | null;
+  isGoogleSignedIn: boolean;
   isGoogleConnected: boolean;
   login: (email: string) => Promise<void>;
   signup: (userData: Partial<User>) => Promise<void>;
@@ -31,6 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('mise_auth_token'));
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+  const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -40,6 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
+        setIsGoogleSignedIn(true);
         // Automatically sync or create profile with real Google account data
         setUser((prev) => ({
           id: fbUser.uid,
@@ -52,6 +55,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           householdId: prev?.householdId || 'household-tokim-kitchen',
           createdAt: prev?.createdAt || new Date().toISOString(),
         }));
+      } else {
+        setIsGoogleSignedIn(false);
+        setGoogleAccessToken(null);
       }
     });
     return () => unsubscribe();
@@ -67,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setGoogleAccessToken(accessToken);
       }
       if (result.user) {
+        setIsGoogleSignedIn(true);
         setUser((prev) => ({
           id: result.user.uid,
           email: result.user.email || prev?.email || 'Tokim25@gmail.com',
@@ -92,10 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await signInWithPopup(auth, googleSignInProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const accessToken = credential?.accessToken || null;
-      if (accessToken) {
-        setGoogleAccessToken(accessToken);
-      }
+      // Standard Google sign-in returns only identity scopes. Do not treat that
+      // token as Drive authorization; Drive requires the incremental provider.
       if (result.user) {
+        setIsGoogleSignedIn(true);
         setUser((prev) => ({
           id: result.user.uid,
           email: result.user.email || prev?.email || 'Tokim25@gmail.com',
@@ -119,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await firebaseSignOut(auth);
       setGoogleAccessToken(null);
+      setIsGoogleSignedIn(false);
     } catch (err) {
       console.error('Sign out error:', err);
     }
@@ -248,6 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         allUsers,
         token,
         googleAccessToken,
+        isGoogleSignedIn,
         isGoogleConnected: !!googleAccessToken,
         login,
         signup,
