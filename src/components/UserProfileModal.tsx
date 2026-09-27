@@ -19,23 +19,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { Recipe } from '../types/recipe.ts';
+import { STORE_NAMES } from '../utils/storeOptions.ts';
 
 interface UserProfileModalProps {
   onClose: () => void;
   recipes?: Recipe[];
   onOpenDriveBackup?: () => void;
 }
-
-const STORES = [
-  'Whole Foods Market',
-  "Trader Joe's",
-  'Safeway',
-  'Kroger',
-  'Wegmans',
-  'Sprouts',
-  'Costco',
-  'H Mart',
-];
 
 const BASE_DIETARY_TAGS = [
   'High-Protein',
@@ -273,10 +263,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
                   <div>
                     <h3 className="font-semibold text-stone-900 text-sm sm:text-base">
-                      Sign in with Google to Import Profile
+                      Sign in with Google
                     </h3>
                     <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">
-                      Automatically syncs your chef name, photo, household meal plans, and links your private Google Drive recipe backup vault in one step.
+                      Save your cookbook to your account and keep your kitchen profile consistent. Google Drive backup is authorized separately from the vault.
                     </p>
                   </div>
                 </div>
@@ -450,14 +440,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <div>
               <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5 mb-1">
                 <Store className="w-3.5 h-3.5 text-stone-600" />
-                <span>Default Supermarket (Instacart Sync)</span>
+                <span>Default Supermarket</span>
               </label>
               <select
                 value={preferredStore}
                 onChange={(e) => setPreferredStore(e.target.value)}
                 className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 font-medium text-stone-800"
               >
-                {STORES.map((s) => (
+                {STORE_NAMES.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
@@ -478,7 +468,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 text-stone-800"
               />
               <p className="text-[11px] text-stone-500 mt-1">
-                Your partner can check off grocery aisles and sync pantry items with your household in real-time.
+                Use the grocery list invite code to add collaborators today. This email is saved with your kitchen profile for household setup.
               </p>
             </div>
 

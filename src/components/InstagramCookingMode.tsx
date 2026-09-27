@@ -391,6 +391,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
             {/* Hands-Free Kitchen Voice Guide */}
             <button
               onClick={() => {
+                if (!voiceSupported) return;
                 if (isVoiceActive) {
                   setIsVoiceActive(false);
                   stopSpeaking();
@@ -399,12 +400,21 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                   speakCurrentStep(currentStepIndex);
                 }
               }}
+              disabled={!voiceSupported}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                isVoiceActive
+                !voiceSupported
+                  ? 'bg-white/5 text-white/35 cursor-not-allowed'
+                  : isVoiceActive
                   ? 'bg-amber-400 text-stone-950 font-semibold shadow-[0_0_12px_rgba(251,191,36,0.5)]'
                   : 'bg-white/10 hover:bg-white/20 text-white/90'
               }`}
-              title={isVoiceActive ? 'Disable Voice Guide' : 'Enable Hands-Free Kitchen Voice Guide (Reads step aloud)'}
+              title={
+                !voiceSupported
+                  ? 'Voice commands are not supported in this browser'
+                  : isVoiceActive
+                  ? 'Disable Voice Guide'
+                  : 'Enable Hands-Free Kitchen Voice Guide'
+              }
             >
               {isVoiceActive ? (
                 <>
@@ -414,7 +424,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
               ) : (
                 <>
                   <MicOff className="w-3.5 h-3.5 text-stone-400" />
-                  <span className="hidden sm:inline">Voice Guide</span>
+                  <span className="hidden sm:inline">{voiceSupported ? 'Voice Guide' : 'Voice Unavailable'}</span>
                 </>
               )}
             </button>
@@ -431,6 +441,13 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
             </div>
           </div>
         </div>
+
+        {!voiceSupported && (
+          <div className="rounded-2xl bg-amber-500/10 border border-amber-500/25 px-3 py-2 text-[11px] text-amber-100 flex items-center gap-2">
+            <MicOff className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <span>Voice commands are not available in this browser. You can still use read mode controls, timers, arrow keys, and the buttons below.</span>
+          </div>
+        )}
       </div>
 
       {/* Main Story Content Card */}
@@ -438,11 +455,15 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         {/* Invisible Tap Zones for Story Navigation (Left = Back, Right = Next) */}
         <div
           onClick={handlePrevStep}
+          role="button"
+          aria-label="Go to previous cooking step"
           className="absolute left-0 top-0 bottom-0 w-1/4 z-10 cursor-w-resize"
           title="Tap left to go back"
         />
         <div
           onClick={handleNextStep}
+          role="button"
+          aria-label="Go to next cooking step"
           className="absolute right-0 top-0 bottom-0 w-1/4 z-10 cursor-e-resize"
           title="Tap right to advance"
         />
@@ -465,6 +486,25 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                 <span>{currentStep.temperature}</span>
               </div>
             )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-white/70">
+            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+              <span className="block text-white font-semibold">Move</span>
+              Buttons, progress dots, or arrow keys
+            </div>
+            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+              <span className="block text-white font-semibold">Timer</span>
+              Space bar or Start/Pause
+            </div>
+            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+              <span className="block text-white font-semibold">Voice</span>
+              Say "next", "back", or "repeat"
+            </div>
+            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+              <span className="block text-white font-semibold">Close</span>
+              Escape or the top-left button
+            </div>
           </div>
 
           {/* Step Instruction Text */}
@@ -653,8 +693,8 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
           <span>Previous</span>
         </button>
 
-        <span className="text-xs text-white/50 font-medium hidden sm:inline">
-          Tap screen or use arrow keys to navigate
+        <span className="text-xs text-white/60 font-medium hidden sm:inline">
+          Use Previous/Next, progress dots, or arrow keys
         </span>
 
         <button

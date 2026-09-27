@@ -19,7 +19,7 @@ import {
 import { Recipe, GroceryList, GroceryItem } from './types/recipe.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { RecipeCard } from './components/RecipeCard.tsx';
-import { RecipeDetailModal } from './components/RecipeDetailModal.tsx';
+import { RecipeDetailModal, AddToGroceryListResult } from './components/RecipeDetailModal.tsx';
 import { InstagramCookingMode } from './components/InstagramCookingMode.tsx';
 import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { InstacartModal } from './components/InstacartModal.tsx';
@@ -351,8 +351,18 @@ export default function App() {
   };
 
   // Add all recipe ingredients to shared grocery list
-  const handleAddRecipeToGroceryList = async (recipe: Recipe, servings: number = recipe.defaultServings) => {
-    if (!currentGroceryList) return;
+  const handleAddRecipeToGroceryList = async (
+    recipe: Recipe,
+    servings: number = recipe.defaultServings,
+    targetListId: string = currentListId
+  ): Promise<AddToGroceryListResult> => {
+    const targetList = groceryLists.find((list) => list.id === targetListId) || currentGroceryList;
+    if (!targetList) {
+      return {
+        success: false,
+        message: 'Create or choose a grocery list before adding recipe ingredients.',
+      };
+    }
 
     try {
       const itemsToAdd = recipe.ingredients.map((ing) => {
@@ -369,21 +379,37 @@ export default function App() {
         };
       });
 
-      const res = await fetch(`/api/groceries/${currentGroceryList.id}/items/bulk`, {
+      const res = await fetch(`/api/groceries/${targetList.id}/items/bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: itemsToAdd, user, householdId: user?.householdId }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setGroceryLists((prev) =>
-          prev.map((l) => (l.id === data.list.id ? data.list : l))
-        );
-        firestoreService.saveGroceryList(data.list, { householdId: user?.householdId });
+      if (!res.ok) {
+        return {
+          success: false,
+          message: `Could not add ingredients to ${targetList.title}. Please try again.`,
+        };
       }
+
+      const data = await res.json();
+      setGroceryLists((prev) =>
+        prev.map((l) => (l.id === data.list.id ? data.list : l))
+      );
+      setCurrentListId(data.list.id);
+      firestoreService.saveGroceryList(data.list, { householdId: user?.householdId });
+
+      return {
+        success: true,
+        listTitle: data.list.title,
+        message: `Added ${itemsToAdd.length} ingredients to ${data.list.title}.`,
+      };
     } catch (err) {
       console.error('Failed to add recipe to grocery list:', err);
+      return {
+        success: false,
+        message: 'Could not reach the grocery list service. Please check your connection and try again.',
+      };
     }
   };
 
@@ -720,6 +746,12 @@ export default function App() {
           onStartCooking={(r, s, u) => handleStartCooking(r, s, u)}
           onOpenInstacart={(r, s) => handleOpenInstacart(r, s)}
           onAddAllToGroceryList={(r, s) => handleAddRecipeToGroceryList(r, s)}
+          groceryLists={groceryLists}
+          currentListId={currentListId}
+          onViewGroceryList={() => {
+            setSelectedRecipeDetail(null);
+            setActiveTab('groceries');
+          }}
           onDeleteRecipe={(id) => handleDeleteRecipe(id)}
         />
       )}

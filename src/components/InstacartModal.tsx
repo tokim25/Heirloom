@@ -18,6 +18,7 @@ import { Recipe, Ingredient, PantryItem } from '../types/recipe.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { scaleQuantity, formatFraction } from '../utils/units.ts';
 import { isIngredientInPantry } from '../utils/pantryDefaults.ts';
+import { STORES, StoreOption, resolveStore } from '../utils/storeOptions.ts';
 
 interface InstacartModalProps {
   recipe: Recipe;
@@ -27,73 +28,6 @@ interface InstacartModalProps {
   onAddSubstitutionsToList?: (items: unknown[]) => void;
   pantryItems?: PantryItem[];
 }
-
-export interface StoreOption {
-  id: string;
-  name: string;
-  slug: string;
-  tagline: string;
-  delivery: string;
-  minOrder: string;
-  color: string;
-}
-
-export const STORES: StoreOption[] = [
-  {
-    id: 'whole-foods',
-    name: 'Whole Foods Market',
-    slug: 'whole-foods',
-    tagline: 'Organic & Artisan Quality',
-    delivery: '1-2 hrs',
-    minOrder: '$35',
-    color: '#006241',
-  },
-  {
-    id: 'trader-joes',
-    name: "Trader Joe's",
-    slug: 'trader-joes',
-    tagline: 'Neighborhood Favorites & Value',
-    delivery: '2 hrs',
-    minOrder: '$35',
-    color: '#BA1B1D',
-  },
-  {
-    id: 'safeway',
-    name: 'Safeway',
-    slug: 'safeway',
-    tagline: 'Full Grocery Pantry Staples',
-    delivery: '1 hr',
-    minOrder: '$30',
-    color: '#E31837',
-  },
-  {
-    id: 'kroger',
-    name: 'Kroger',
-    slug: 'kroger',
-    tagline: 'Fresh Savings & Bulk Staples',
-    delivery: '1-2 hrs',
-    minOrder: '$35',
-    color: '#004F9F',
-  },
-  {
-    id: 'wegmans',
-    name: 'Wegmans',
-    slug: 'wegmans',
-    tagline: 'Chef-grade Produce & Cheeses',
-    delivery: '2 hrs',
-    minOrder: '$35',
-    color: '#880000',
-  },
-  {
-    id: 'sprouts',
-    name: 'Sprouts Farmers Market',
-    slug: 'sprouts',
-    tagline: 'Farm-Fresh & Bulk Spices',
-    delivery: '1 hr',
-    minOrder: '$35',
-    color: '#2B5E27',
-  },
-];
 
 interface CartItemState {
   ingredientId: string;
@@ -124,16 +58,6 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
   pantryItems = [],
 }) => {
   const { user, updateProfile } = useAuth();
-
-  // Helper to find matching store object
-  const resolveStore = (storeNameOrId?: string): StoreOption => {
-    if (!storeNameOrId) return STORES[0];
-    const clean = storeNameOrId.trim().toLowerCase();
-    const found = STORES.find(
-      (s) => s.name.toLowerCase() === clean || s.id.toLowerCase() === clean || s.slug.toLowerCase() === clean
-    );
-    return found || STORES[0];
-  };
 
   // Determine starting store: initialStore prop -> user profile preferredStore -> localStorage -> default Whole Foods
   const [selectedStore, setSelectedStore] = useState<StoreOption>(() => {
@@ -338,7 +262,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                   </span>
                   <span className="inline-flex items-center justify-center gap-1 text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full whitespace-nowrap leading-none">
                     <Check className="w-3 h-3 text-emerald-700" />
-                    Preferred Store
+                    {selectedStore.isCustom ? 'Custom Store' : 'Preferred Store'}
                   </span>
                 </div>
                 <p className="text-xs text-stone-500 mt-0.5 flex items-center gap-2 flex-wrap">
@@ -348,6 +272,11 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                   <span>•</span>
                   <span className="truncate">{selectedStore.tagline}</span>
                 </p>
+                {selectedStore.isCustom && (
+                  <p className="text-[11px] text-amber-700 mt-1">
+                    This store is saved exactly as chosen. Instacart links will use general search because Heirloom does not have a curated shortcut for it yet.
+                  </p>
+                )}
               </div>
             </div>
 

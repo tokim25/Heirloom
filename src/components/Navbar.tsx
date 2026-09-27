@@ -5,7 +5,6 @@ import {
   Plus,
   Sparkles,
   User as UserIcon,
-  RefreshCw,
   Calculator,
   UtensilsCrossed,
   Bug,
@@ -51,11 +50,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   recipeCount,
   groceryPendingCount,
 }) => {
-  const { user, switchUser, allUsers, setIsProfileOpen, isGoogleConnected } = useAuth();
+  const { user, setIsProfileOpen, isGoogleConnected, isGoogleSignedIn } = useAuth();
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
-
-  const partner = allUsers.find((u) => u.id !== user?.id) || null;
 
   // Close tools dropdown when clicking outside
   useEffect(() => {
@@ -167,25 +164,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Ask Chef AI</span>
           </button>
 
-          {/* Google Drive Vault Backup Button */}
-          {onOpenDriveBackup && (
-            <button
-              onClick={onOpenDriveBackup}
-              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border shadow-xs transition-all ${
-                isGoogleConnected
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950 hover:bg-emerald-500/20'
-                  : 'bg-white border-stone-200/80 text-stone-700 hover:bg-stone-50'
-              }`}
-              title="Google Drive Vault & Automatic Backups"
-            >
-              <Cloud className={`w-4 h-4 ${isGoogleConnected ? 'text-emerald-600' : 'text-amber-600'}`} />
-              <span>Drive Vault</span>
-              {isGoogleConnected && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              )}
-            </button>
-          )}
-
           {/* Import Recipe (Desktop - on mobile it is the prominent center action in bottom bar) */}
           <button
             onClick={onOpenImport}
@@ -216,7 +194,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isToolsMenuOpen && (
               <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-2xl rounded-2xl shadow-xl border border-stone-200/80 py-2 z-50 animate-in fade-in duration-100">
                 <div className="px-3.5 py-2 border-b border-stone-100 text-[11px] font-semibold tracking-wider uppercase text-stone-600">
-                  Kitchen Studio Tools
+                  Tools & Settings
                 </div>
 
                 <div className="py-1">
@@ -226,7 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         setIsToolsMenuOpen(false);
                         onOpenDriveBackup();
                       }}
-                      className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors sm:hidden"
+                      className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                     >
                       <Cloud className="w-4 h-4 text-amber-600 shrink-0" />
                       <div className="flex flex-col min-w-0">
@@ -298,6 +276,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
 
                 <div className="border-t border-stone-100 py-1">
+                  <div className="px-3.5 py-1 text-[10px] font-semibold tracking-wider uppercase text-stone-500">
+                    Support
+                  </div>
                   <button
                     onClick={() => {
                       setIsToolsMenuOpen(false);
@@ -320,33 +301,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span className="truncate">Report a Bug via Sentry</span>
                   </button>
                 </div>
-
-                {partner && (
-                  <div className="border-t border-stone-100 pt-1">
-                    <button
-                      onClick={() => {
-                        setIsToolsMenuOpen(false);
-                        switchUser(partner);
-                      }}
-                      className="w-full px-3.5 py-2 text-xs text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5 text-stone-500 shrink-0" />
-                      <span className="truncate">Switch to {partner.name}</span>
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>
+
+          {!isGoogleSignedIn && (
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-stone-900 hover:bg-stone-800 text-white shadow-xs transition-all active:scale-[0.98]"
+            >
+              <UserIcon className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+          )}
 
           {/* User Profile Avatar */}
           <button
             onClick={() => setIsProfileOpen(true)}
             className="flex items-center gap-2 p-1 rounded-full hover:bg-stone-200/60 transition-colors shrink-0"
-            title="User Profile & Household Settings"
+            title={isGoogleSignedIn ? 'Account & Household Settings' : 'Sign In or Account Settings'}
           >
             <div className="relative">
-              {user?.avatarUrl ? (
+              {isGoogleSignedIn && user?.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
                   alt={user.name}
@@ -357,7 +333,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <UserIcon className="w-3.5 h-3.5" />
                 </div>
               )}
-              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border-2 border-white rounded-full" />
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 border-2 border-white rounded-full ${
+                  isGoogleSignedIn ? 'bg-emerald-500' : 'bg-amber-500'
+                }`}
+              />
             </div>
           </button>
         </div>

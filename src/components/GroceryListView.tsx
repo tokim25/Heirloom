@@ -21,6 +21,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { formatFraction } from '../utils/units.ts';
 import { sounds } from '../utils/sound.ts';
 import { predictGroceryItem, PredictiveGroceryItem } from '../utils/searchEngine.ts';
+import { STORE_NAMES } from '../utils/storeOptions.ts';
 
 interface GroceryListViewProps {
   groceryLists: GroceryList[];
@@ -61,7 +62,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   partnerNotification,
   recipes = [],
 }) => {
-  const { user, allUsers } = useAuth();
+  const { user } = useAuth();
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [newItemName, setNewItemName] = useState('');
@@ -89,6 +90,24 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       setNewListStore(user.preferredStore);
     }
   }, [user?.preferredStore]);
+
+  const assigneeOptions = React.useMemo(() => {
+    const names = new Set<string>(['Anyone']);
+    if (user?.name) names.add(user.name);
+    currentList?.collaborators.forEach((collaborator) => {
+      if (collaborator.name) names.add(collaborator.name);
+    });
+    return Array.from(names);
+  }, [currentList?.collaborators, user?.name]);
+
+  useEffect(() => {
+    if (!assigneeOptions.includes(newItemAssignee)) {
+      setNewItemAssignee('Anyone');
+    }
+    if (filterAssignee !== 'all' && !assigneeOptions.includes(filterAssignee)) {
+      setFilterAssignee('all');
+    }
+  }, [assigneeOptions, filterAssignee, newItemAssignee]);
 
   if (!currentList) {
     return (
@@ -368,9 +387,11 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             className="col-span-1 sm:w-auto px-2.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl text-stone-700 focus:outline-none"
             title="Assign task to family member to avoid duplicate purchases"
           >
-            <option value="Anyone">Assign: Anyone</option>
-            <option value="Tokim">Tokim</option>
-            <option value="Alex (Partner)">Alex (Partner)</option>
+            {assigneeOptions.map((name) => (
+              <option key={name} value={name}>
+                {name === 'Anyone' ? 'Assign: Anyone' : name}
+              </option>
+            ))}
           </select>
 
           <button
@@ -399,26 +420,21 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           >
             All Items ({currentList.items.length})
           </button>
-          <button
-            onClick={() => setFilterAssignee('Tokim')}
-            className={`px-3 py-1 rounded-lg shrink-0 transition-all ${
-              filterAssignee === 'Tokim'
-                ? 'bg-stone-900 text-white font-medium shadow-xs'
-                : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
-            }`}
-          >
-            Tokim’s List ({currentList.items.filter((i) => i.assignedTo === 'Tokim').length})
-          </button>
-          <button
-            onClick={() => setFilterAssignee('Alex (Partner)')}
-            className={`px-3 py-1 rounded-lg shrink-0 transition-all ${
-              filterAssignee === 'Alex (Partner)'
-                ? 'bg-stone-900 text-white font-medium shadow-xs'
-                : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
-            }`}
-          >
-            Alex’s List ({currentList.items.filter((i) => i.assignedTo === 'Alex (Partner)').length})
-          </button>
+          {assigneeOptions
+            .filter((name) => name !== 'Anyone')
+            .map((name) => (
+              <button
+                key={name}
+                onClick={() => setFilterAssignee(name)}
+                className={`px-3 py-1 rounded-lg shrink-0 transition-all ${
+                  filterAssignee === name
+                    ? 'bg-stone-900 text-white font-medium shadow-xs'
+                    : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                }`}
+              >
+                {name} ({currentList.items.filter((i) => i.assignedTo === name).length})
+              </button>
+            ))}
         </div>
 
         {completedItems.length > 0 && (
@@ -508,9 +524,11 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                           className="text-[10px] sm:text-[11px] font-medium px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-700 focus:outline-none"
                           title="Assign to partner or family"
                         >
-                          <option value="Anyone">Anyone</option>
-                          <option value="Tokim">Tokim</option>
-                          <option value="Alex (Partner)">Alex</option>
+                          {assigneeOptions.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
                         </select>
 
                         <button
@@ -628,12 +646,11 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                       onChange={(e) => setNewListStore(e.target.value)}
                       className="w-full mt-1 px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl"
                     >
-                      <option value="Whole Foods Market">Whole Foods Market</option>
-                      <option value="Trader Joe's">Trader Joe's</option>
-                      <option value="Safeway">Safeway</option>
-                      <option value="Kroger">Kroger</option>
-                      <option value="Wegmans">Wegmans</option>
-                      <option value="Sprouts">Sprouts</option>
+                      {STORE_NAMES.map((store) => (
+                        <option key={store} value={store}>
+                          {store}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

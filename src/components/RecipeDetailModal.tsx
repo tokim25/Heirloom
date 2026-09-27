@@ -15,16 +15,26 @@ import {
   Check,
   Youtube,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
-import { Recipe, Ingredient } from '../types/recipe.ts';
+import { Recipe, Ingredient, GroceryList } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, UnitSystem, formatStepTemperatures } from '../utils/units.ts';
+
+export interface AddToGroceryListResult {
+  success: boolean;
+  message: string;
+  listTitle?: string;
+}
 
 interface RecipeDetailModalProps {
   recipe: Recipe;
   onClose: () => void;
   onStartCooking: (recipe: Recipe, servings: number, unitSystem: UnitSystem) => void;
   onOpenInstacart: (recipe: Recipe, servings: number) => void;
-  onAddAllToGroceryList: (recipe: Recipe, servings: number) => void;
+  onAddAllToGroceryList: (recipe: Recipe, servings: number, listId?: string) => Promise<AddToGroceryListResult>;
+  groceryLists?: GroceryList[];
+  currentListId?: string;
+  onViewGroceryList?: () => void;
   onDeleteRecipe?: (id: string) => void;
 }
 
@@ -34,16 +44,26 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   onStartCooking,
   onOpenInstacart,
   onAddAllToGroceryList,
+  groceryLists = [],
+  currentListId,
+  onViewGroceryList,
   onDeleteRecipe,
 }) => {
   const [servings, setServings] = useState(recipe.defaultServings || 2);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('imperial');
-  const [addedToListSuccess, setAddedToListSuccess] = useState(false);
+  const [selectedListId, setSelectedListId] = useState(currentListId || groceryLists[0]?.id || '');
+  const [addListStatus, setAddListStatus] = useState<AddToGroceryListResult | null>(null);
+  const [isAddingToList, setIsAddingToList] = useState(false);
 
-  const handleAddGroceries = () => {
-    onAddAllToGroceryList(recipe, servings);
-    setAddedToListSuccess(true);
-    setTimeout(() => setAddedToListSuccess(false), 2500);
+  const handleAddGroceries = async () => {
+    setIsAddingToList(true);
+    setAddListStatus(null);
+    const result = await onAddAllToGroceryList(recipe, servings, selectedListId || undefined);
+    setAddListStatus(result);
+    setIsAddingToList(false);
+    if (result.success) {
+      setTimeout(() => setAddListStatus(null), 3500);
+    }
   };
 
   // Group ingredients by category
@@ -176,27 +196,71 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               <span>Shop on Instacart</span>
             </button>
 
+            {groceryLists.length > 0 && (
+              <select
+                value={selectedListId}
+                onChange={(e) => setSelectedListId(e.target.value)}
+                className="max-w-[190px] px-3 py-2.5 rounded-xl bg-white border border-stone-300 text-xs font-medium text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                title="Choose destination grocery list"
+              >
+                {groceryLists.map((list) => (
+                  <option key={list.id} value={list.id}>
+                    {list.title}
+                  </option>
+                ))}
+              </select>
+            )}
+
             <button
               onClick={handleAddGroceries}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                addedToListSuccess
+              disabled={isAddingToList}
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all disabled:opacity-60 ${
+                addListStatus?.success
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : addListStatus && !addListStatus.success
+                  ? 'bg-rose-50 text-rose-700 border-rose-300'
                   : 'bg-white hover:bg-stone-50 text-stone-800 border-stone-300 shadow-sm'
               }`}
             >
-              {addedToListSuccess ? (
+              {addListStatus?.success ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Added!</span>
                 </>
+              ) : addListStatus && !addListStatus.success ? (
+                <>
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Needs List</span>
+                </>
               ) : (
                 <>
                   <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Add to Shared List</span>
+                  <span className="hidden sm:inline">{isAddingToList ? 'Adding...' : 'Add to List'}</span>
                 </>
               )}
             </button>
           </div>
+
+          {addListStatus && (
+            <div
+              className={`basis-full text-xs rounded-xl px-3 py-2 flex items-center justify-between gap-3 ${
+                addListStatus.success
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}
+            >
+              <span>{addListStatus.message}</span>
+              {onViewGroceryList && (
+                <button
+                  type="button"
+                  onClick={onViewGroceryList}
+                  className="font-semibold underline underline-offset-2 shrink-0"
+                >
+                  {addListStatus.success ? 'View cart' : 'Open groceries'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Scrollable Content Area */}
