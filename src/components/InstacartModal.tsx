@@ -34,7 +34,7 @@ interface CartItemState {
   unit: string;
   category: string;
   query: string;
-  estimatedPrice: number;
+  estimatedPrice?: number | null;
   isOutOfStock: boolean;
   isInPantry?: boolean;
   included: boolean;
@@ -90,7 +90,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
 
   // Initialize cart items from recipe ingredients scaled to servings
   useEffect(() => {
-    const initial: CartItemState[] = recipe.ingredients.map((ing, idx) => {
+    const initial: CartItemState[] = recipe.ingredients.map((ing) => {
       const scaled = scaleQuantity(ing.amount, recipe.defaultServings, servings);
       const inPantry = pantryItems ? isIngredientInPantry(ing.name, pantryItems) : false;
 
@@ -101,7 +101,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
         unit: ing.unit,
         category: ing.category,
         query: ing.instacartQuery || ing.name,
-        estimatedPrice: ing.estimatedPrice || Math.round((2.49 + (idx * 1.3) % 7) * 100) / 100,
+        estimatedPrice: typeof ing.estimatedPrice === 'number' ? ing.estimatedPrice : null,
         isOutOfStock: false,
         isInPantry: inPantry,
         included: !inPantry, // auto-exclude if already in pantry to save grocery costs
@@ -173,7 +173,9 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
   };
 
   const includedItems = items.filter((i) => i.included);
-  const totalPrice = includedItems.reduce((sum, item) => sum + item.estimatedPrice, 0);
+  const pricedIncludedItems = includedItems.filter((item) => typeof item.estimatedPrice === 'number');
+  const totalPrice = pricedIncludedItems.reduce((sum, item) => sum + (item.estimatedPrice || 0), 0);
+  const missingPriceCount = includedItems.length - pricedIncludedItems.length;
 
   // Build direct store URL and individual item search URLs
   const storeUrl = selectedStore.slug
@@ -326,9 +328,14 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
               Ingredients to Fulfill ({includedItems.length} of {items.length} selected • {servings} servings)
             </span>
             <span className="text-xs font-semibold text-stone-800">
-              Est. Total: ${totalPrice.toFixed(2)}
+              {pricedIncludedItems.length > 0 ? `Known est. subtotal: $${totalPrice.toFixed(2)}` : 'Prices unavailable'}
             </span>
           </div>
+          {missingPriceCount > 0 && (
+            <p className="text-[11px] text-stone-500 -mt-2">
+              {missingPriceCount} selected {missingPriceCount === 1 ? 'item is' : 'items are'} missing sourced pricing. Heirloom does not show live Instacart prices.
+            </p>
+          )}
 
           <div className="divide-y divide-stone-100 bg-white rounded-2xl border border-stone-200 shadow-xs">
             {items.map((item, idx) => {
@@ -370,8 +377,15 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-xs text-stone-600 font-mono">
-                        ${item.estimatedPrice.toFixed(2)}
+                      <span className="text-[11px] text-stone-600 font-medium text-right">
+                        {typeof item.estimatedPrice === 'number' ? (
+                          <>
+                            <span className="font-mono">${item.estimatedPrice.toFixed(2)}</span>
+                            <span className="block text-[10px] text-stone-400">rough est.</span>
+                          </>
+                        ) : (
+                          <span className="text-stone-400">Price unavailable</span>
+                        )}
                       </span>
 
                       <a
@@ -441,8 +455,16 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
               Ready for {selectedStore.name}
             </span>
             <span className="text-sm font-semibold text-stone-900">
-              {includedItems.length} items (${totalPrice.toFixed(2)})
+              {includedItems.length} items
+              {pricedIncludedItems.length > 0
+                ? ` • known est. $${totalPrice.toFixed(2)}`
+                : ' • prices unavailable'}
             </span>
+            {missingPriceCount > 0 && (
+              <span className="text-[10px] text-stone-500">
+                Missing prices are excluded from the subtotal.
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
