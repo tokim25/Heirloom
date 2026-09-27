@@ -64,6 +64,10 @@ export default function App() {
   const [groceryLists, setGroceryLists] = useState<GroceryList[]>([]);
   const [currentListId, setCurrentListId] = useState<string>('');
   const [partnerNotification, setPartnerNotification] = useState<string | null>(null);
+  const [groceryActionMessage, setGroceryActionMessage] = useState<{
+    type: 'error' | 'success';
+    text: string;
+  } | null>(null);
 
   // Modals state
   const [selectedRecipeDetail, setSelectedRecipeDetail] = useState<Recipe | null>(null);
@@ -253,6 +257,15 @@ export default function App() {
     );
   }, [groceryLists]);
 
+  const readActionError = async (res: Response, fallback: string) => {
+    try {
+      const data = await res.json();
+      return data.error || fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   // Index recipes for typo-tolerant fuzzy searching
   const fuseIndex = useMemo(() => createRecipeSearchIndex(recipes), [recipes]);
 
@@ -429,27 +442,47 @@ export default function App() {
           householdId: user?.householdId,
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setGroceryLists((prev) =>
-          prev.map((l) => {
-            if (l.id !== listId) return l;
-            return {
-              ...l,
-              items: l.items.map((i) => (i.id === itemId ? data.item : i)),
-            };
-          })
-        );
+      if (!res.ok) {
+        setGroceryActionMessage({
+          type: 'error',
+          text: await readActionError(res, 'Could not update this item. Please try again.'),
+        });
+        return;
       }
+
+      const data = await res.json();
+      setGroceryActionMessage(null);
+      setGroceryLists((prev) =>
+        prev.map((l) => {
+          if (l.id !== listId) return l;
+          return {
+            ...l,
+            items: l.items.map((i) => (i.id === itemId ? data.item : i)),
+          };
+        })
+      );
     } catch (err) {
       console.error('Failed to update grocery item:', err);
+      setGroceryActionMessage({
+        type: 'error',
+        text: 'Could not reach the grocery list service. Please try again.',
+      });
     }
   };
 
   const handleDeleteGroceryItem = async (listId: string, itemId: string) => {
     try {
       const scope = user?.householdId ? `?householdId=${encodeURIComponent(user.householdId)}` : '';
-      await fetch(`/api/groceries/${listId}/items/${itemId}${scope}`, { method: 'DELETE' });
+      const res = await fetch(`/api/groceries/${listId}/items/${itemId}${scope}`, { method: 'DELETE' });
+      if (!res.ok) {
+        setGroceryActionMessage({
+          type: 'error',
+          text: await readActionError(res, 'Could not delete this item. Please try again.'),
+        });
+        return;
+      }
+
+      setGroceryActionMessage(null);
       setGroceryLists((prev) =>
         prev.map((l) => {
           if (l.id !== listId) return l;
@@ -461,6 +494,10 @@ export default function App() {
       );
     } catch (err) {
       console.error('Failed to delete grocery item:', err);
+      setGroceryActionMessage({
+        type: 'error',
+        text: 'Could not reach the grocery list service. The item was not deleted.',
+      });
     }
   };
 
@@ -471,27 +508,47 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...itemData, user, householdId: user?.householdId }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setGroceryLists((prev) =>
-          prev.map((l) => {
-            if (l.id !== listId) return l;
-            return {
-              ...l,
-              items: [...l.items, data.item],
-            };
-          })
-        );
+      if (!res.ok) {
+        setGroceryActionMessage({
+          type: 'error',
+          text: await readActionError(res, 'Could not add this item. Please try again.'),
+        });
+        return;
       }
+
+      const data = await res.json();
+      setGroceryActionMessage(null);
+      setGroceryLists((prev) =>
+        prev.map((l) => {
+          if (l.id !== listId) return l;
+          return {
+            ...l,
+            items: [...l.items, data.item],
+          };
+        })
+      );
     } catch (err) {
       console.error('Failed to add grocery item:', err);
+      setGroceryActionMessage({
+        type: 'error',
+        text: 'Could not reach the grocery list service. Please try again.',
+      });
     }
   };
 
   const handleClearCompletedGroceries = async (listId: string) => {
     try {
       const scope = user?.householdId ? `?householdId=${encodeURIComponent(user.householdId)}` : '';
-      await fetch(`/api/groceries/${listId}/completed${scope}`, { method: 'DELETE' });
+      const res = await fetch(`/api/groceries/${listId}/completed${scope}`, { method: 'DELETE' });
+      if (!res.ok) {
+        setGroceryActionMessage({
+          type: 'error',
+          text: await readActionError(res, 'Could not clear completed items. Please try again.'),
+        });
+        return;
+      }
+
+      setGroceryActionMessage(null);
       setGroceryLists((prev) =>
         prev.map((l) => {
           if (l.id !== listId) return l;
@@ -503,25 +560,46 @@ export default function App() {
       );
     } catch (err) {
       console.error('Failed to clear completed items:', err);
+      setGroceryActionMessage({
+        type: 'error',
+        text: 'Could not reach the grocery list service. Completed items were not cleared.',
+      });
     }
   };
 
   const handleCreateNewList = async (title: string, store: string) => {
-    if (!user?.householdId) return;
+    if (!user?.householdId) {
+      setGroceryActionMessage({
+        type: 'error',
+        text: 'Sign in before creating a shared grocery list.',
+      });
+      return;
+    }
     try {
       const res = await fetch('/api/groceries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, store, user, householdId: user.householdId }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setGroceryLists((prev) => [data.list, ...prev]);
-        setCurrentListId(data.list.id);
-        firestoreService.saveGroceryList(data.list, { householdId: user?.householdId });
+      if (!res.ok) {
+        setGroceryActionMessage({
+          type: 'error',
+          text: await readActionError(res, 'Could not create this list. Please try again.'),
+        });
+        return;
       }
+
+      const data = await res.json();
+      setGroceryActionMessage(null);
+      setGroceryLists((prev) => [data.list, ...prev]);
+      setCurrentListId(data.list.id);
+      firestoreService.saveGroceryList(data.list, { householdId: user?.householdId });
     } catch (err) {
       console.error('Failed to create new grocery list:', err);
+      setGroceryActionMessage({
+        type: 'error',
+        text: 'Could not reach the grocery list service. Please try again.',
+      });
     }
   };
 
@@ -532,16 +610,27 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inviteCode: code, user }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setGroceryLists((prev) => {
-          const exists = prev.some((l) => l.id === data.list.id);
-          return exists ? prev.map((l) => (l.id === data.list.id ? data.list : l)) : [data.list, ...prev];
+      if (!res.ok) {
+        setGroceryActionMessage({
+          type: 'error',
+          text: await readActionError(res, 'Could not join that list. Check the invite code and try again.'),
         });
-        setCurrentListId(data.list.id);
+        return;
       }
+
+      const data = await res.json();
+      setGroceryActionMessage(null);
+      setGroceryLists((prev) => {
+        const exists = prev.some((l) => l.id === data.list.id);
+        return exists ? prev.map((l) => (l.id === data.list.id ? data.list : l)) : [data.list, ...prev];
+      });
+      setCurrentListId(data.list.id);
     } catch (err) {
       console.error('Failed to join grocery list:', err);
+      setGroceryActionMessage({
+        type: 'error',
+        text: 'Could not reach the grocery list service. Please try again.',
+      });
     }
   };
 
@@ -699,6 +788,8 @@ export default function App() {
               handleOpenInstacart(fakeRecipe, 2, list.store);
             }}
             partnerNotification={partnerNotification}
+            actionMessage={groceryActionMessage}
+            onDismissActionMessage={() => setGroceryActionMessage(null)}
             recipes={recipes}
           />
         )}

@@ -35,6 +35,8 @@ interface GroceryListViewProps {
   onJoinList: (inviteCode: string) => void;
   onOpenInstacartForList: (list: GroceryList) => void;
   partnerNotification: string | null;
+  actionMessage?: { type: 'error' | 'success'; text: string } | null;
+  onDismissActionMessage?: () => void;
   recipes?: Recipe[];
 }
 
@@ -60,6 +62,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   onJoinList,
   onOpenInstacartForList,
   partnerNotification,
+  actionMessage,
+  onDismissActionMessage,
   recipes = [],
 }) => {
   const { user } = useAuth();
@@ -212,6 +216,39 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           <span className="text-[10px] uppercase tracking-wider bg-stone-950/15 px-2 py-0.5 rounded-full font-bold">
             Live Sync
           </span>
+        </div>
+      )}
+
+      {actionMessage && (
+        <div
+          className={`sticky top-20 z-30 p-3.5 rounded-2xl border shadow-lg flex items-start justify-between gap-3 animate-in slide-in-from-top duration-300 ${
+            actionMessage.type === 'error'
+              ? 'bg-rose-50 border-rose-200 text-rose-900'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+          }`}
+        >
+          <div className="flex items-start gap-2 text-xs font-medium">
+            {actionMessage.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <p className="font-semibold">
+                {actionMessage.type === 'error' ? 'Grocery update failed' : 'Grocery update saved'}
+              </p>
+              <p className="mt-0.5">{actionMessage.text}</p>
+            </div>
+          </div>
+          {onDismissActionMessage && (
+            <button
+              type="button"
+              onClick={onDismissActionMessage}
+              className="text-xs font-semibold opacity-70 hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          )}
         </div>
       )}
 
