@@ -71,6 +71,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   const [newItemCategory, setNewItemCategory] = useState<string>('Produce');
   const [newItemAssignee, setNewItemAssignee] = useState<string>('Anyone');
   const [showPredictions, setShowPredictions] = useState(false);
+  const [showQuickAddDetails, setShowQuickAddDetails] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -164,6 +165,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     setNewItemAmount('');
     setNewItemUnit('');
     setShowPredictions(false);
+    setShowQuickAddDetails(false);
   };
 
   // Predictive item auto-completion based on recipes & common kitchen staples
@@ -320,22 +322,32 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       {/* Quick Add Ingredient Bar */}
       <form
         onSubmit={handleAddNewItem}
-        className="bg-white rounded-2xl p-3 sm:p-4 border border-stone-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center gap-2.5 w-full"
+        className="bg-white rounded-2xl p-2.5 sm:p-4 border border-stone-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center gap-2.5 w-full"
       >
         <div className="relative w-full sm:flex-1 min-w-0">
-          <input
-            type="text"
-            value={newItemName}
-            onChange={(e) => {
-              setNewItemName(e.target.value);
-              setShowPredictions(true);
-            }}
-            onFocus={() => {
-              if (newItemName.trim().length > 0) setShowPredictions(true);
-            }}
-            placeholder="Add item (e.g., Greek yogurt, cilantro, sourdough)..."
-            className="w-full px-3.5 py-2 text-xs sm:text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newItemName}
+              onChange={(e) => {
+                setNewItemName(e.target.value);
+                setShowPredictions(true);
+              }}
+              onFocus={() => {
+                if (newItemName.trim().length > 0) setShowPredictions(true);
+              }}
+              placeholder="Add grocery item..."
+              className="w-full min-w-0 px-3.5 py-2.5 sm:py-2 text-base sm:text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+            />
+
+            <button
+              type="submit"
+              className="sm:hidden px-4 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-sm font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-all shrink-0"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>Add</span>
+            </button>
+          </div>
 
           {/* Predictive item suggestions */}
           {showPredictions && newItemName.trim().length > 0 && predictiveItems.length > 0 && (
@@ -370,7 +382,19 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+        <button
+          type="button"
+          onClick={() => setShowQuickAddDetails((isOpen) => !isOpen)}
+          className="sm:hidden self-start px-2 py-1 text-[11px] font-medium text-stone-500 hover:text-stone-800"
+        >
+          {showQuickAddDetails ? 'Hide options' : 'Qty, aisle, or assignee'}
+        </button>
+
+        <div
+          className={`grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto ${
+            showQuickAddDetails ? 'grid' : 'hidden sm:flex'
+          }`}
+        >
           <div className="flex items-center gap-1.5 col-span-1">
             <input
               type="number"
@@ -416,7 +440,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
           <button
             type="submit"
-            className="col-span-1 sm:col-span-1 px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-all"
+            className="hidden sm:flex px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold shadow-xs items-center justify-center gap-1.5 transition-all"
           >
             <Plus className="w-3.5 h-3.5 shrink-0" />
             <span>Add Item</span>
@@ -427,8 +451,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       {/* Filter and Task Division Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-stone-600 w-full">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full max-w-full">
-          <span className="font-medium text-stone-500 uppercase tracking-wider text-[10px] shrink-0">
-            Divide Tasks:
+          <span className="hidden sm:inline font-medium text-stone-500 uppercase tracking-wider text-[10px] shrink-0">
+            Assigned:
           </span>
           <button
             onClick={() => setFilterAssignee('all')}
@@ -452,7 +476,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                     : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
                 }`}
               >
-                {name} ({currentList.items.filter((i) => i.assignedTo === name).length})
+                {name === user?.name ? 'Me' : name} ({currentList.items.filter((i) => i.assignedTo === name).length})
               </button>
             ))}
         </div>
@@ -526,7 +550,9 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                           {item.isOutOfStock && item.substitution && (
                             <div className="mt-1 flex items-center gap-1.5 text-[11px] sm:text-xs text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 w-fit">
                               <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
-                              <span className="truncate">Sub: {item.substitution.name} ({item.substitution.ratio})</span>
+                              <span className="truncate max-w-[220px] sm:max-w-none">
+                                Sub: {item.substitution.name} ({item.substitution.ratio})
+                              </span>
                             </div>
                           )}
                         </div>
@@ -534,6 +560,10 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
                       {/* Right Meta: Assignee pill & Actions */}
                       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                        <span className="sm:hidden max-w-[78px] truncate text-[10px] font-medium px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-600">
+                          {item.assignedTo === user?.name ? 'Me' : item.assignedTo}
+                        </span>
+
                         <select
                           value={item.assignedTo}
                           onChange={(e) =>
@@ -541,7 +571,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                               assignedTo: e.target.value,
                             })
                           }
-                          className="text-[10px] sm:text-[11px] font-medium px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-700 focus:outline-none"
+                          className="hidden sm:block text-[10px] sm:text-[11px] font-medium px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-700 focus:outline-none"
                           title="Assign to partner or family"
                         >
                           {assigneeOptions.map((name) => (

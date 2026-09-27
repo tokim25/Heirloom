@@ -3,8 +3,18 @@ import { getFirestore, collection, doc, setDoc, getDocs, onSnapshot, updateDoc, 
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
+const customAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
+const resolvedFirebaseConfig = {
+  ...firebaseConfig,
+  authDomain:
+    customAuthDomain ||
+    (typeof window !== 'undefined' && window.location.hostname === 'heirloom.tonykim.io'
+      ? 'heirloom.tonykim.io'
+      : firebaseConfig.authDomain),
+};
+
 // Initialize Firebase SDK
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const app = !getApps().length ? initializeApp(resolvedFirebaseConfig) : getApp();
 
 // Use the databaseId provisioned in firebase-applet-config.json
 export const db = firebaseConfig.firestoreDatabaseId
