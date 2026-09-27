@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useTransition } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   ChevronLeft,
@@ -9,15 +9,11 @@ import {
   Plus,
   Flame,
   Lightbulb,
-  CheckCircle2,
   Volume2,
   VolumeX,
-  Share2,
   Sparkles,
-  ShoppingBag,
   Mic,
   MicOff,
-  Headphones,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Recipe } from '../types/recipe.ts';
@@ -32,14 +28,72 @@ interface InstagramCookingModeProps {
   onAddStepIngredientsToGroceries?: (stepIngredients: string[]) => void;
 }
 
+interface StoredCookingSession {
+  recipeId: string;
+  currentStepIndex: number;
+  timerSecondsLeft: number | null;
+  isTimerRunning: boolean;
+  initialTimerDuration: number | null;
+  updatedAt: string;
+}
+
+const getCookingSessionStorageKey = (recipeId: string) => `heirloom_cooking_session_${recipeId}`;
+
+const readStoredCookingSession = (
+  storageKey: string,
+  recipeId: string,
+  totalSteps: number
+): StoredCookingSession | null => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<StoredCookingSession>;
+    if (parsed.recipeId !== recipeId || typeof parsed.currentStepIndex !== 'number') {
+      return null;
+    }
+
+    const currentStepIndex = Math.max(0, Math.min(totalSteps - 1, parsed.currentStepIndex));
+    const timerSecondsLeft =
+      typeof parsed.timerSecondsLeft === 'number' && parsed.timerSecondsLeft >= 0
+        ? parsed.timerSecondsLeft
+        : null;
+    const initialTimerDuration =
+      typeof parsed.initialTimerDuration === 'number' && parsed.initialTimerDuration > 0
+        ? parsed.initialTimerDuration
+        : timerSecondsLeft;
+
+    return {
+      recipeId,
+      currentStepIndex,
+      timerSecondsLeft,
+      isTimerRunning: Boolean(parsed.isTimerRunning && timerSecondsLeft !== null && timerSecondsLeft > 0),
+      initialTimerDuration,
+      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+};
+
 export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   recipe,
   servings,
   unitSystem,
   onClose,
-  onAddStepIngredientsToGroceries,
 }) => {
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const totalSteps = recipe.steps.length;
+  const cookingSessionStorageKey = getCookingSessionStorageKey(recipe.id);
+  const restoredSessionRef = useRef<StoredCookingSession | null>(
+    readStoredCookingSession(cookingSessionStorageKey, recipe.id, totalSteps)
+  );
+  const [hasRestoredSession] = useState(() => restoredSessionRef.current !== null);
+
+  const [currentStepIndex, setCurrentStepIndex] = useState(
+    () => restoredSessionRef.current?.currentStepIndex || 0
+  );
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -48,19 +102,35 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   const [voiceSupported, setVoiceSupported] = useState(true);
 
   // Timer state for current step
-  const [timerSecondsLeft, setTimerSecondsLeft] = useState<number | null>(null);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [initialTimerDuration, setInitialTimerDuration] = useState<number | null>(null);
+  const [timerSecondsLeft, setTimerSecondsLeft] = useState<number | null>(
+    () => restoredSessionRef.current?.timerSecondsLeft ?? null
+  );
+  const [isTimerRunning, setIsTimerRunning] = useState(
+    () => restoredSessionRef.current?.isTimerRunning || false
+  );
+  const [initialTimerDuration, setInitialTimerDuration] = useState<number | null>(
+    () => restoredSessionRef.current?.initialTimerDuration ?? null
+  );
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<any>(null);
 
   const currentStep = recipe.steps[currentStepIndex];
-  const totalSteps = recipe.steps.length;
   const isLastStep = currentStepIndex === totalSteps - 1;
 
   // Sync step timer whenever step changes
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+
+    const restoredSession = restoredSessionRef.current;
+    if (restoredSession && restoredSession.currentStepIndex === currentStepIndex) {
+      setTimerSecondsLeft(restoredSession.timerSecondsLeft);
+      setInitialTimerDuration(restoredSession.initialTimerDuration);
+      setIsTimerRunning(restoredSession.isTimerRunning);
+      restoredSessionRef.current = null;
+      return;
+    }
+
+    restoredSessionRef.current = null;
     setIsTimerRunning(false);
 
     if (currentStep?.timerSeconds && currentStep.timerSeconds > 0) {
@@ -71,6 +141,31 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       setInitialTimerDuration(null);
     }
   }, [currentStepIndex, currentStep]);
+
+  // Auto-save cooking progress so closing Stories mode does not lose place.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const session: StoredCookingSession = {
+      recipeId: recipe.id,
+      currentStepIndex,
+      timerSecondsLeft,
+      isTimerRunning,
+      initialTimerDuration,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      window.localStorage.setItem(cookingSessionStorageKey, JSON.stringify(session));
+    } catch {}
+  }, [
+    cookingSessionStorageKey,
+    currentStepIndex,
+    initialTimerDuration,
+    isTimerRunning,
+    recipe.id,
+    timerSecondsLeft,
+  ]);
 
   // Timer countdown loop
   useEffect(() => {
@@ -154,6 +249,9 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       setCurrentStepIndex((prev) => prev + 1);
     } else {
       // Completed all steps!
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(cookingSessionStorageKey);
+      }
       confetti({
         particleCount: 90,
         spread: 70,
@@ -384,6 +482,11 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
               <span className="text-xs text-white/80 font-serif italic truncate max-w-[110px] xs:max-w-[160px] sm:max-w-md">
                 {recipe.title}
               </span>
+              {hasRestoredSession && (
+                <span className="mt-1 text-[10px] text-emerald-200 font-semibold">
+                  Resumed saved session
+                </span>
+              )}
             </div>
           </div>
 

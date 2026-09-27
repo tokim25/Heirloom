@@ -4,11 +4,9 @@ import {
   User as UserIcon,
   Store,
   Users,
-  Heart,
+  Copy,
   Save,
   Check,
-  Sparkles,
-  Cloud,
   ExternalLink,
   Plus,
   Tag,
@@ -18,12 +16,13 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
-import { Recipe } from '../types/recipe.ts';
+import { GroceryList, Recipe } from '../types/recipe.ts';
 import { STORE_NAMES } from '../utils/storeOptions.ts';
 
 interface UserProfileModalProps {
   onClose: () => void;
   recipes?: Recipe[];
+  groceryLists?: GroceryList[];
   onOpenDriveBackup?: () => void;
 }
 
@@ -42,6 +41,7 @@ const BASE_DIETARY_TAGS = [
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   recipes = [],
+  groceryLists = [],
   onOpenDriveBackup,
 }) => {
   const {
@@ -61,6 +61,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [isSaved, setIsSaved] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [authError, setAuthError] = useState<{ message: string; isDomainError?: boolean } | null>(null);
+  const [copiedInviteCode, setCopiedInviteCode] = useState<string | null>(null);
 
   // Dynamically extract every unique tag present in the user's cookbook
   const dynamicCookbookTags = useMemo(() => {
@@ -87,6 +88,82 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     return Array.from(combined);
   }, [dynamicCookbookTags, dietaryPreferences]);
 
+  const householdMembers = useMemo(() => {
+    const memberMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        email: string;
+        avatarUrl?: string;
+        color?: string;
+        status: 'active' | 'pending';
+        lists: string[];
+        isCurrentUser?: boolean;
+      }
+    >();
+
+    if (user?.email) {
+      memberMap.set(user.email.toLowerCase(), {
+        id: user.id,
+        name: user.name || 'You',
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        color: '#059669',
+        status: 'active',
+        lists: [],
+        isCurrentUser: true,
+      });
+    }
+
+    groceryLists.forEach((list) => {
+      list.collaborators.forEach((collaborator) => {
+        const key = collaborator.email.toLowerCase();
+        const existing = memberMap.get(key);
+        const lists = existing?.lists ? [...existing.lists] : [];
+        if (!lists.includes(list.title)) lists.push(list.title);
+
+        memberMap.set(key, {
+          id: collaborator.id,
+          name: collaborator.name,
+          email: collaborator.email,
+          avatarUrl: collaborator.avatarUrl,
+          color: collaborator.color,
+          status: collaborator.status || 'active',
+          lists,
+          isCurrentUser: existing?.isCurrentUser || collaborator.email === user?.email,
+        });
+      });
+    });
+
+    const pendingPartnerEmail = partnerEmail.trim();
+    if (pendingPartnerEmail && !memberMap.has(pendingPartnerEmail.toLowerCase())) {
+      memberMap.set(pendingPartnerEmail.toLowerCase(), {
+        id: `pending-${pendingPartnerEmail}`,
+        name: pendingPartnerEmail.split('@')[0] || 'Pending invite',
+        email: pendingPartnerEmail,
+        color: '#D97706',
+        status: 'pending',
+        lists: [],
+      });
+    }
+
+    return Array.from(memberMap.values()).sort((a, b) => {
+      if (a.isCurrentUser) return -1;
+      if (b.isCurrentUser) return 1;
+      if (a.status !== b.status) return a.status === 'active' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [groceryLists, partnerEmail, user]);
+
+  const householdStats = useMemo(
+    () => ({
+      active: householdMembers.filter((member) => member.status === 'active').length,
+      pending: householdMembers.filter((member) => member.status === 'pending').length,
+    }),
+    [householdMembers]
+  );
+
   const toggleDiet = (item: string) => {
     setDietaryPreferences((prev) =>
       prev.includes(item) ? prev.filter((d) => d !== item) : [...prev, item]
@@ -100,6 +177,17 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       setDietaryPreferences((prev) => [...prev, clean]);
       setCustomTagInput('');
       setIsAddingTag(false);
+    }
+  };
+
+  const handleCopyInvite = async (list: GroceryList) => {
+    const inviteText = `Join my Heirloom Kitchen grocery list "${list.title}" with invite code ${list.inviteCode}.`;
+    try {
+      await navigator.clipboard.writeText(inviteText);
+      setCopiedInviteCode(list.inviteCode);
+      setTimeout(() => setCopiedInviteCode(null), 1800);
+    } catch {
+      setCopiedInviteCode(null);
     }
   };
 
@@ -437,6 +525,121 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           {/* SECTION 3: Household & Supermarket Preferences */}
           <form onSubmit={handleSave} className="flex flex-col gap-4">
+            <div className="bg-white rounded-2xl border border-stone-200/90 p-4 flex flex-col gap-3 shadow-xs">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Household Members & Invites</span>
+                  </label>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    See who can shop shared lists and copy invite codes for new collaborators.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold">
+                  <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    {householdStats.active} active
+                  </span>
+                  {householdStats.pending > 0 && (
+                    <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100">
+                      {householdStats.pending} pending
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col divide-y divide-stone-100 border border-stone-100 rounded-2xl overflow-hidden">
+                {householdMembers.length > 0 ? (
+                  householdMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between gap-3 p-3 bg-stone-50/60">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {member.avatarUrl ? (
+                          <img
+                            src={member.avatarUrl}
+                            alt={member.name}
+                            className="w-9 h-9 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                            style={{ backgroundColor: member.color || '#57534E' }}
+                          >
+                            {(member.name || member.email).charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-semibold text-stone-900 truncate">
+                              {member.isCurrentUser ? 'You' : member.name}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
+                                member.status === 'active'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {member.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-stone-500 truncate">{member.email}</p>
+                          {member.lists.length > 0 && (
+                            <p className="text-[10px] text-stone-400 truncate">
+                              {member.lists.length === 1
+                                ? member.lists[0]
+                                : `${member.lists.length} shared lists`}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 bg-stone-50/60 text-xs text-stone-500">
+                    Sign in or create a grocery list to start a household.
+                  </div>
+                )}
+              </div>
+
+              {groceryLists.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">
+                    Invite Codes
+                  </span>
+                  <div className="flex flex-col gap-2">
+                    {groceryLists.slice(0, 3).map((list) => (
+                      <div
+                        key={list.id}
+                        className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-stone-100/70 border border-stone-200/80"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-stone-800 truncate">{list.title}</p>
+                          <p className="text-[11px] text-stone-500 font-mono">{list.inviteCode}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyInvite(list)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-stone-200 text-xs font-semibold text-stone-700 hover:text-stone-950 hover:bg-stone-50 transition-colors shrink-0"
+                        >
+                          {copiedInviteCode === list.inviteCode ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-stone-500" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5 mb-1">
                 <Store className="w-3.5 h-3.5 text-stone-600" />

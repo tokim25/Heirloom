@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Filter, Clock, Flame, Utensils, RotateCcw, ChevronDown, Check, Layers, X } from 'lucide-react';
+import { Filter, Clock, Flame, Utensils, RotateCcw, ChevronDown, Layers, X } from 'lucide-react';
 import { Recipe } from '../types/recipe.ts';
 import {
   RecipeOrganizationFilter,
@@ -57,33 +57,47 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
   };
 
   const cuisinesList = ['All', ...facets.cuisines];
+  const timeLabels: Record<TimeBracket, string> = {
+    all: 'Any duration',
+    quick: 'Quick',
+    moderate: '25-45m',
+    slow: '45m+',
+  };
+  const prepLabels: Record<PrepBracket, string> = {
+    all: 'Any prep',
+    express: 'Express prep',
+    involved: 'Involved prep',
+  };
+  const proteinLabels: Record<ProteinCategory, string> = {
+    all: 'Any hero ingredient',
+    seafood: 'Fish & seafood',
+    poultry: 'Poultry',
+    meat: 'Meat & pork',
+    pasta: 'Pasta & grains',
+    vegetarian: 'Vegetarian',
+  };
+  const activeFilterBadges = [
+    filter.cuisine !== 'All' ? `Cuisine: ${filter.cuisine}` : null,
+    filter.proteinCategory !== 'all' ? proteinLabels[filter.proteinCategory] : null,
+    filter.timeBracket !== 'all' ? timeLabels[filter.timeBracket] : null,
+    filter.prepBracket !== 'all' ? prepLabels[filter.prepBracket] : null,
+    filter.searchQuery.trim() ? 'Search active' : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="flex flex-col gap-3 w-full">
-      {/* Primary Organization Row: Cuisines & Quick Toggles */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        {/* Cuisine Selector Strip */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 w-full md:max-w-xl">
-          {cuisinesList.map((c) => {
-            const isSelected = filter.cuisine === c;
-            return (
-              <button
-                key={c}
-                onClick={() => setFilter((prev) => ({ ...prev, cuisine: c }))}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap shrink-0 transition-all ${
-                  isSelected
-                    ? 'bg-stone-900 text-white shadow-xs'
-                    : 'bg-white text-stone-600 hover:text-stone-900 border border-stone-200/70 hover:bg-stone-50'
-                }`}
-              >
-                {c}
-              </button>
-            );
-          })}
+      {/* Primary Organization Row: essential actions only */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold text-stone-900">
+            {totalFilteredCount} {totalFilteredCount === 1 ? 'recipe' : 'recipes'}
+          </span>
+          <span className="text-[11px] text-stone-500">
+            {hasActiveFilters ? `Filtered from ${recipes.length}` : 'Your cookbook'}
+          </span>
         </div>
 
-        {/* Right Controls: Ingredients Index, Dimensions & Sort */}
-        <div className="flex items-center justify-between md:justify-end gap-2 shrink-0">
+        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
           {/* Instant Organize By Ingredient Trigger */}
           {onOpenIngredientOrganizer && (
             <button
@@ -115,35 +129,27 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
             title="Filter by prep time or cooking duration"
           >
             <Filter className="w-3.5 h-3.5 text-amber-600" />
-            <span className="hidden sm:inline">Dimensions</span>
+            <span>Filters</span>
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isAdvancedOpen ? 'rotate-180' : ''}`} />
           </button>
-
-          {/* Sort Selector */}
-          <div className="flex items-center gap-1.5">
-            <select
-              value={filter.sortBy}
-              onChange={(e) =>
-                setFilter((prev) => ({ ...prev, sortBy: e.target.value as typeof prev.sortBy }))
-              }
-              className="px-2.5 py-1.5 bg-white border border-stone-200 text-stone-700 text-xs rounded-xl focus:outline-none shadow-xs"
-            >
-              <option value="newest">Recently Added</option>
-              <option value="quickest">Shortest Cook Time</option>
-              <option value="prepTime">Fastest Prep Time</option>
-              <option value="alphabetical">Title A-Z</option>
-            </select>
-          </div>
         </div>
       </div>
 
-      {/* Active Ingredients Filter Badges */}
-      {selectedIngredientsCount > 0 && (
+      {/* Active Filter Badges */}
+      {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
           <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
             <Layers className="w-3.5 h-3.5 text-amber-600" />
-            Filtering by Ingredients:
+            Active Filters:
           </span>
+          {activeFilterBadges.map((badge) => (
+            <span
+              key={badge}
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-amber-300/80 rounded-xl text-xs font-semibold text-stone-900 shadow-2xs"
+            >
+              {badge}
+            </span>
+          ))}
           {filter.selectedIngredients.map((ing) => (
             <span
               key={ing}
@@ -160,10 +166,10 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
             </span>
           ))}
           <button
-            onClick={() => setFilter((prev) => ({ ...prev, selectedIngredients: [] }))}
+            onClick={handleResetFilters}
             className="text-[11px] font-medium text-amber-800 hover:text-amber-950 underline underline-offset-2 ml-1"
           >
-            Clear all ingredients
+            Clear filters
           </button>
         </div>
       )}
@@ -171,6 +177,43 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
       {/* Advanced Dimensions Drawer: Ingredients & Time Taxonomy */}
       {isAdvancedOpen && (
         <div className="p-4 bg-stone-50/80 border border-stone-200/80 rounded-2xl flex flex-col gap-4 transition-all">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">
+                Cuisine
+              </span>
+              <select
+                value={filter.cuisine}
+                onChange={(e) => setFilter((prev) => ({ ...prev, cuisine: e.target.value }))}
+                className="px-3 py-2 bg-white border border-stone-200 text-stone-800 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+              >
+                {cuisinesList.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">
+                Sort
+              </span>
+              <select
+                value={filter.sortBy}
+                onChange={(e) =>
+                  setFilter((prev) => ({ ...prev, sortBy: e.target.value as typeof prev.sortBy }))
+                }
+                className="px-3 py-2 bg-white border border-stone-200 text-stone-800 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+              >
+                <option value="newest">Recently Added</option>
+                <option value="quickest">Shortest Cook Time</option>
+                <option value="prepTime">Fastest Prep Time</option>
+                <option value="alphabetical">Title A-Z</option>
+              </select>
+            </label>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Dimension 1: Key Ingredient / Protein */}
             <div className="flex flex-col gap-1.5">

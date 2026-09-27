@@ -915,6 +915,7 @@ export default function App() {
         <UserProfileModal
           onClose={() => setIsProfileOpen(false)}
           recipes={recipes}
+          groceryLists={groceryLists}
           onOpenDriveBackup={() => setIsDriveBackupOpen(true)}
         />
       )}
