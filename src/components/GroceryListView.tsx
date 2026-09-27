@@ -158,7 +158,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       unit: newItemUnit.trim(),
       category: newItemCategory as unknown as GroceryItem['category'],
       assignedTo: newItemAssignee,
-      addedBy: user?.name || 'Tokim',
+      addedBy: user?.name || 'Collaborator',
     });
 
     setNewItemName('');

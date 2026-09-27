@@ -35,23 +35,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
 
+  const profileFromFirebaseUser = (
+    fbUser: NonNullable<typeof auth.currentUser>,
+    previousUser: User | null
+  ): User => {
+    const email = fbUser.email || previousUser?.email || '';
+    const name = fbUser.displayName || previousUser?.name || email.split('@')[0] || 'Heirloom User';
+
+    return {
+      id: fbUser.uid,
+      email,
+      name,
+      avatarUrl: fbUser.photoURL || previousUser?.avatarUrl,
+      preferredStore: previousUser?.preferredStore || 'Whole Foods Market',
+      dietaryPreferences: previousUser?.dietaryPreferences || [],
+      partnerEmail: previousUser?.partnerEmail || '',
+      householdId: previousUser?.householdId || `household-${fbUser.uid}`,
+      createdAt: previousUser?.createdAt || new Date().toISOString(),
+    };
+  };
+
   // Monitor Firebase Auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setIsGoogleSignedIn(true);
-        // Automatically sync or create profile with real Google account data
-        setUser((prev) => ({
-          id: fbUser.uid,
-          email: fbUser.email || prev?.email || 'Tokim25@gmail.com',
-          name: fbUser.displayName || prev?.name || 'Tokim',
-          avatarUrl: fbUser.photoURL || prev?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-          preferredStore: prev?.preferredStore || 'Whole Foods Market',
-          dietaryPreferences: prev?.dietaryPreferences || ['High-Protein', 'Fresh Herbs'],
-          partnerEmail: prev?.partnerEmail || 'alex@family.kitchen',
-          householdId: prev?.householdId || 'household-tokim-kitchen',
-          createdAt: prev?.createdAt || new Date().toISOString(),
-        }));
+        setUser((prev) => profileFromFirebaseUser(fbUser, prev));
       } else {
         setIsGoogleSignedIn(false);
         setGoogleAccessToken(null);
@@ -71,17 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       if (result.user) {
         setIsGoogleSignedIn(true);
-        setUser((prev) => ({
-          id: result.user.uid,
-          email: result.user.email || prev?.email || 'Tokim25@gmail.com',
-          name: result.user.displayName || prev?.name || 'Tokim',
-          avatarUrl: result.user.photoURL || prev?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-          preferredStore: prev?.preferredStore || 'Whole Foods Market',
-          dietaryPreferences: prev?.dietaryPreferences || ['High-Protein', 'Fresh Herbs'],
-          partnerEmail: prev?.partnerEmail || 'alex@family.kitchen',
-          householdId: prev?.householdId || 'household-tokim-kitchen',
-          createdAt: prev?.createdAt || new Date().toISOString(),
-        }));
+        setUser((prev) => profileFromFirebaseUser(result.user, prev));
       }
       return accessToken;
     } catch (err: any) {
@@ -100,17 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // token as Drive authorization; Drive requires the incremental provider.
       if (result.user) {
         setIsGoogleSignedIn(true);
-        setUser((prev) => ({
-          id: result.user.uid,
-          email: result.user.email || prev?.email || 'Tokim25@gmail.com',
-          name: result.user.displayName || prev?.name || 'Tokim',
-          avatarUrl: result.user.photoURL || prev?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-          preferredStore: prev?.preferredStore || 'Whole Foods Market',
-          dietaryPreferences: prev?.dietaryPreferences || ['High-Protein', 'Fresh Herbs'],
-          partnerEmail: prev?.partnerEmail || 'alex@family.kitchen',
-          householdId: prev?.householdId || 'household-tokim-kitchen',
-          createdAt: prev?.createdAt || new Date().toISOString(),
-        }));
+        setUser((prev) => profileFromFirebaseUser(result.user, prev));
       }
       return accessToken;
     } catch (err: any) {
@@ -123,9 +112,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGoogleAccessToken(null);
   };
 
-  // Fetch current user or default user on mount
+  // Fetch current token-backed user on mount
   useEffect(() => {
     async function loadUser() {
+      if (!token) return;
       try {
         const res = await fetch('/api/auth/me', {
           headers: token ? { Authorization: `Bearer ${token}` } : {},

@@ -455,9 +455,7 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
   if (user) {
     return res.json({ token: `token-${user.id}`, user });
   }
-  // Default to primary user if email matches or falls back
-  const primary = users[0];
-  return res.json({ token: `token-${primary.id}`, user: primary });
+  return res.status(404).json({ error: 'No account found for that email.' });
 });
 
 app.post('/api/auth/signup', (req: Request, res: Response) => {
@@ -495,8 +493,7 @@ app.get('/api/auth/me', (req: Request, res: Response) => {
     const user = users.find((u) => u.id === userId);
     if (user) return res.json({ user });
   }
-  // Return default Tokim user
-  return res.json({ user: users[0] });
+  return res.status(401).json({ error: 'Authentication required.' });
 });
 
 app.put('/api/auth/profile', (req: Request, res: Response) => {
@@ -991,10 +988,14 @@ app.get('/api/groceries/events', (req: Request, res: Response) => {
 // Create new list
 const handleCreateList = (req: Request, res: Response) => {
   const { title, store, user } = req.body;
-  const householdId = householdIdFromRequest(req) || 'household-tokim-kitchen';
-  const collaborators: GroceryList['collaborators'] = user
-    ? [{ id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, color: '#1C1917', status: 'active' }]
-    : [{ id: 'user-tokim', name: 'Tokim', email: 'Tokim25@gmail.com', color: '#1C1917', status: 'active' }];
+  const householdId = householdIdFromRequest(req);
+  if (!householdId || !user?.id || !user?.email || !user?.name) {
+    return res.status(401).json({ error: 'Sign in before creating a grocery list.' });
+  }
+
+  const collaborators: GroceryList['collaborators'] = [
+    { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, color: '#1C1917', status: 'active' },
+  ];
 
   if (user?.partnerEmail && user.partnerEmail.toLowerCase() !== user.email?.toLowerCase()) {
     collaborators.push({
@@ -1079,8 +1080,9 @@ app.post('/api/grocery-lists/join', handleJoinList);
 // Add items to list (single or bulk from recipe)
 const handleAddItems = (req: Request, res: Response) => {
   const { listId } = req.params;
-  const { items, addedBy } = req.body;
+  const { items, addedBy, user } = req.body;
   const householdId = householdIdFromRequest(req);
+  const actorName = addedBy || user?.name || 'Collaborator';
 
   const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
   if (!list) {
@@ -1098,7 +1100,7 @@ const handleAddItems = (req: Request, res: Response) => {
     recipeTitle: it.recipeTitle,
     assignedTo: it.assignedTo || 'Anyone',
     checked: false,
-    addedBy: addedBy || 'Tokim',
+    addedBy: actorName,
     createdAt: new Date().toISOString(),
     store: list.store,
     estimatedPrice: it.estimatedPrice || (Math.round((2.5 + Math.random() * 5) * 100) / 100),
@@ -1114,8 +1116,8 @@ const handleAddItems = (req: Request, res: Response) => {
     type: 'ITEM_ADDED',
     payload: newItems,
     item: newItems[0],
-    user: addedBy || 'Tokim',
-    message: `${addedBy || 'Tokim'} added ${newItems.length} item${newItems.length > 1 ? 's' : ''} to ${list.title}`,
+    user: actorName,
+    message: `${actorName} added ${newItems.length} item${newItems.length > 1 ? 's' : ''} to ${list.title}`,
   });
 
   return res.status(201).json({ items: newItems, item: newItems[0], list });
@@ -1130,6 +1132,7 @@ const handlePatchItem = (req: Request, res: Response) => {
   const { listId, itemId } = req.params;
   const { checked, assignedTo, userName, substitution } = req.body;
   const householdId = householdIdFromRequest(req);
+  const actorName = userName || 'Collaborator';
 
   const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
   if (!list) {
@@ -1144,7 +1147,7 @@ const handlePatchItem = (req: Request, res: Response) => {
   if (typeof checked === 'boolean') {
     item.checked = checked;
     if (checked) {
-      item.checkedBy = userName || 'Tokim';
+      item.checkedBy = actorName;
       item.checkedAt = new Date().toISOString();
     } else {
       item.checkedBy = undefined;
@@ -1172,11 +1175,11 @@ const handlePatchItem = (req: Request, res: Response) => {
 
   broadcastListUpdate(listId, {
     type: 'ITEM_UPDATED',
-    payload: { listId, item, userName: userName || 'Tokim' },
+    payload: { listId, item, userName: actorName },
     item,
-    user: userName || 'Tokim',
-    userName: userName || 'Tokim',
-    message: `${userName || 'Tokim'} ${actionText}`,
+    user: actorName,
+    userName: actorName,
+    message: `${actorName} ${actionText}`,
   });
 
   return res.json({ item, list });

@@ -180,7 +180,7 @@ export default function App() {
               );
 
               // Play sound and trigger partner notification banner if checked
-              if (item.checked && userName && userName !== (user?.name || 'Tokim')) {
+              if (item.checked && userName && userName !== user?.name) {
                 sounds.playPartnerChime();
                 setPartnerNotification(`${userName} just checked off "${item.name}"!`);
                 setTimeout(() => setPartnerNotification(null), 4000);
@@ -375,7 +375,7 @@ export default function App() {
           recipeId: recipe.id,
           recipeTitle: recipe.title,
           assignedTo: 'Anyone',
-          addedBy: user?.name || 'Tokim',
+          addedBy: user?.name || 'Collaborator',
         };
       });
 
@@ -425,7 +425,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...updates,
-          userName: user?.name || 'Tokim',
+          userName: user?.name || 'Collaborator',
           householdId: user?.householdId,
         }),
       });
@@ -507,11 +507,12 @@ export default function App() {
   };
 
   const handleCreateNewList = async (title: string, store: string) => {
+    if (!user?.householdId) return;
     try {
       const res = await fetch('/api/groceries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, store, user }),
+        body: JSON.stringify({ title, store, user, householdId: user.householdId }),
       });
       if (res.ok) {
         const data = await res.json();

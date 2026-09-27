@@ -54,7 +54,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   } = useAuth();
 
   const [preferredStore, setPreferredStore] = useState(user?.preferredStore || 'Whole Foods Market');
-  const [partnerEmail, setPartnerEmail] = useState(user?.partnerEmail || 'alex@family.kitchen');
+  const [partnerEmail, setPartnerEmail] = useState(user?.partnerEmail || '');
   const [dietaryPreferences, setDietaryPreferences] = useState<string[]>(user?.dietaryPreferences || ['High-Protein']);
   const [customTagInput, setCustomTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
