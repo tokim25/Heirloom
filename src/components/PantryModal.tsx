@@ -135,7 +135,7 @@ export const PantryModal: React.FC<PantryModalProps> = ({
         {/* Info banner */}
         <div className="px-6 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-950 flex items-center justify-between">
           <p>
-            💡 Items marked <strong>In Stock</strong> are automatically filtered out when sending recipes to your Instacart cart or shared grocery list.
+            💡 Items marked <strong>In Stock</strong> are automatically filtered out when preparing Instacart shopping links or shared grocery lists.
           </p>
           <button
             onClick={onResetDefaults}

@@ -610,7 +610,7 @@ export default function App() {
             onCreateList={handleCreateNewList}
             onJoinList={handleJoinGroceryList}
             onOpenInstacartForList={(list) => {
-              // Convert grocery list items into a temporary recipe format for Instacart cart modal
+              // Convert grocery list items into a temporary recipe format for Instacart shopping links
               const fakeRecipe: Recipe = {
                 id: list.id,
                 title: list.title,

@@ -302,14 +302,14 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
-                  Instacart Connector
+                  Instacart Shopping Handoff
                 </span>
                 <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold whitespace-nowrap leading-none">
                   Store Fulfillment
                 </span>
               </div>
               <h2 className="font-serif text-xl sm:text-2xl text-stone-900 mt-0.5 leading-snug">
-                Fulfill Ingredients for {recipe.title}
+                Prepare Shopping Links for {recipe.title}
               </h2>
             </div>
           </div>
@@ -533,7 +533,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
 
           {/* Transparent How-it-Works Explainer */}
           <div className="p-3 bg-stone-100/70 border border-stone-200 rounded-2xl text-[11px] text-stone-600 leading-relaxed">
-            <span className="font-semibold text-stone-800">How Instacart checkout works:</span> Instacart accounts require logging in directly through Instacart to protect your personal payment details. Tap <strong className="text-stone-800">Open {selectedStore.name}</strong> to launch the store, or tap <strong className="text-stone-800">Find Item</strong> beside any ingredient to add it directly to your cart.
+            <span className="font-semibold text-stone-800">How Instacart shopping works:</span> Heirloom does not create or manage an Instacart cart. Tap <strong className="text-stone-800">Open {selectedStore.name}</strong> to launch the store, or tap <strong className="text-stone-800">Find Item</strong> beside any ingredient to search for it directly on Instacart.
           </div>
         </div>
 

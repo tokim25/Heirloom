@@ -170,10 +170,10 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             <button
               onClick={() => onOpenInstacart(recipe, servings)}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-sm transition-all hover:shadow active:scale-95"
-              title="Populate Instacart Cart"
+              title="Prepare Instacart shopping links"
             >
               <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Instacart Cart</span>
+              <span>Shop on Instacart</span>
             </button>
 
             <button

@@ -1,6 +1,6 @@
 # Heirloom — Preserve the recipe. Share the table.
 
-> A minimalist, Apple & Airbnb-inspired digital cookbook and family recipe archive. Curate recipes from web links, YouTube videos, YouTube Shorts, PDFs, cookbook photos, or handwritten clippings. Scale servings dynamically with fractions and unit conversions (Imperial/Metric), cook step-by-step with hands-free voice navigation and an Instagram Stories-style auto-timer mode, automatically populate Instacart shopping carts across your favorite supermarkets with intelligent AI substitutions, and collaborate on real-time shared grocery lists with your partner or family.
+> A minimalist, Apple & Airbnb-inspired digital cookbook and family recipe archive. Curate recipes from web links, YouTube videos, YouTube Shorts, PDFs, cookbook photos, or handwritten clippings. Scale servings dynamically with fractions and unit conversions (Imperial/Metric), cook step-by-step with hands-free voice navigation and an Instagram Stories-style auto-timer mode, prepare Instacart shopping handoffs across your favorite supermarkets with intelligent AI substitutions, and collaborate on real-time shared grocery lists with your partner or family.
 
 ---
 
@@ -39,7 +39,7 @@ Add the following DNS record in your domain registrar / DNS provider (e.g. Cloud
   - Confetti celebration upon recipe completion.
 - **Instacart Integration & Smart Out-of-Stock Substitutions**:
   - Connects to your favorite stores: *Whole Foods Market, Trader Joe's, Safeway, Kroger, Wegmans, and Sprouts*.
-  - Direct cart population with direct product links.
+  - Guided shopping handoff with store and item search links.
   - Smart culinary AI substitutions when items are out of stock (exact substitution ratios and culinary reasoning).
 - **Multi-User Real-time Grocery Lists & Family Task Division**:
   - Divide grocery shopping tasks between partners ("Tokim", "Alex", "Anyone") to avoid duplicate purchases.

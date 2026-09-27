@@ -267,13 +267,13 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             )}
           </button>
 
-          {/* Order with Instacart */}
+          {/* Shop with Instacart */}
           <button
             onClick={() => onOpenInstacartForList(currentList)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Order with Instacart</span>
+            <span>Shop on Instacart</span>
           </button>
         </div>
       </div>
