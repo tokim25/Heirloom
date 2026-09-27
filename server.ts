@@ -993,15 +993,27 @@ app.get('/api/groceries/events', (req: Request, res: Response) => {
 const handleCreateList = (req: Request, res: Response) => {
   const { title, store, user } = req.body;
   const householdId = householdIdFromRequest(req) || 'household-tokim-kitchen';
+  const collaborators: GroceryList['collaborators'] = user
+    ? [{ id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, color: '#1C1917', status: 'active' }]
+    : [{ id: 'user-tokim', name: 'Tokim', email: 'Tokim25@gmail.com', color: '#1C1917', status: 'active' }];
+
+  if (user?.partnerEmail && user.partnerEmail.toLowerCase() !== user.email?.toLowerCase()) {
+    collaborators.push({
+      id: `pending-${Date.now()}`,
+      name: user.partnerEmail,
+      email: user.partnerEmail,
+      color: '#A16207',
+      status: 'pending' as const,
+    });
+  }
+
   const newList: GroceryList = {
     id: `list-${Date.now()}`,
     householdId,
     title: title || 'New Kitchen List',
     store: store || 'Whole Foods Market',
     inviteCode: `HEIR-${Math.floor(1000 + Math.random() * 9000)}`,
-    collaborators: user
-      ? [{ id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, color: '#1C1917' }]
-      : [{ id: 'user-tokim', name: 'Tokim', email: 'Tokim25@gmail.com', color: '#1C1917' }],
+    collaborators,
     items: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -1033,14 +1045,23 @@ const handleJoinList = (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Invalid invite code or list not found.' });
   }
 
-  if (user && !list.collaborators.some((c) => c.email === user.email)) {
-    list.collaborators.push({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatarUrl: user.avatarUrl,
-      color: '#0284C7',
-    });
+  if (user) {
+    const existingCollaborator = list.collaborators.find((c) => c.email.toLowerCase() === user.email.toLowerCase());
+    if (existingCollaborator) {
+      existingCollaborator.id = user.id;
+      existingCollaborator.name = user.name;
+      existingCollaborator.avatarUrl = user.avatarUrl;
+      existingCollaborator.status = 'active';
+    } else {
+      list.collaborators.push({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        color: '#0284C7',
+        status: 'active',
+      });
+    }
     list.updatedAt = new Date().toISOString();
     saveData(LISTS_FILE, groceryLists);
     broadcastListUpdate(list.id, {

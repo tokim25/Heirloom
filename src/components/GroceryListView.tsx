@@ -95,7 +95,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     const names = new Set<string>(['Anyone']);
     if (user?.name) names.add(user.name);
     currentList?.collaborators.forEach((collaborator) => {
-      if (collaborator.name) names.add(collaborator.name);
+      if (collaborator.name && collaborator.status !== 'pending') names.add(collaborator.name);
     });
     return Array.from(names);
   }, [currentList?.collaborators, user?.name]);
@@ -243,8 +243,10 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
               {currentList.collaborators.slice(0, 4).map((collaborator) => (
                 <div
                   key={collaborator.id || collaborator.email}
-                  className="w-8 h-8 rounded-full border-2 border-white bg-stone-200 flex items-center justify-center overflow-hidden text-[10px] font-bold text-stone-700 shadow-xs"
-                  title={collaborator.name}
+                  className={`w-8 h-8 rounded-full border-2 border-white bg-stone-200 flex items-center justify-center overflow-hidden text-[10px] font-bold text-stone-700 shadow-xs ${
+                    collaborator.status === 'pending' ? 'opacity-60 ring-2 ring-amber-300/70' : ''
+                  }`}
+                  title={`${collaborator.name}${collaborator.status === 'pending' ? ' (pending invite)' : ''}`}
                 >
                   {collaborator.avatarUrl ? (
                     <img src={collaborator.avatarUrl} alt={collaborator.name} className="w-full h-full object-cover" />

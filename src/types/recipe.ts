@@ -107,6 +107,7 @@ export interface GroceryList {
     email: string;
     avatarUrl?: string;
     color: string;
+    status?: 'active' | 'pending';
   }[];
   items: GroceryItem[];
   createdAt: string;
@@ -131,5 +132,4 @@ export interface PantryItem {
   notes?: string;
   lastUpdated?: string;
 }
-
 
