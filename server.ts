@@ -35,7 +35,7 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 // Real-time SSE active connections map: listId -> Set of Response objects
 const sseClients = new Map<string, Set<Response>>();
-const globalSseClients = new Set<Response>();
+const globalSseClients = new Map<Response, string | null>();
 
 // Default seed recipes with culinary photography
 const DEFAULT_RECIPES: Recipe[] = [
@@ -397,8 +397,28 @@ let users: User[] = loadData(USERS_FILE, [
 ]);
 
 // Helper to broadcast SSE updates to all subscribers of a list and global subscribers
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function householdIdFromRequest(req: Request): string | undefined {
+  return readString(req.query.householdId)
+    || readString(req.body?.householdId)
+    || readString(req.body?.user?.householdId);
+}
+
+function isRecipeVisibleToHousehold(recipe: Recipe, householdId?: string): boolean {
+  return !householdId || !recipe.householdId || recipe.householdId === householdId;
+}
+
+function isListVisibleToHousehold(list: GroceryList, householdId?: string | null): boolean {
+  return !householdId || list.householdId === householdId;
+}
+
 function broadcastListUpdate(listId: string, event: { type: string; payload: unknown; user?: string; userName?: string; message?: string; item?: unknown; listId?: string; itemId?: string }) {
-  const dataString = `data: ${JSON.stringify({ ...event, listId, timestamp: new Date().toISOString() })}\n\n`;
+  const list = groceryLists.find((candidate) => candidate.id === listId);
+  const householdId = list?.householdId;
+  const dataString = `data: ${JSON.stringify({ ...event, listId, householdId, timestamp: new Date().toISOString() })}\n\n`;
 
   // Broadcast to specific list clients
   const clients = sseClients.get(listId);
@@ -413,7 +433,10 @@ function broadcastListUpdate(listId: string, event: { type: string; payload: unk
   }
 
   // Broadcast to global grocery stream clients
-  for (const res of globalSseClients) {
+  for (const [res, clientHouseholdId] of globalSseClients) {
+    if (clientHouseholdId && clientHouseholdId !== householdId) {
+      continue;
+    }
     try {
       res.write(dataString);
     } catch {
@@ -498,18 +521,22 @@ app.put('/api/auth/profile', (req: Request, res: Response) => {
 // RECIPES ENDPOINTS
 // ==========================================
 
-app.get('/api/recipes', (_req: Request, res: Response) => {
-  return res.json({ recipes });
+app.get('/api/recipes', (req: Request, res: Response) => {
+  const householdId = householdIdFromRequest(req);
+  return res.json({ recipes: recipes.filter((recipe) => isRecipeVisibleToHousehold(recipe, householdId)) });
 });
 
 app.post('/api/recipes', (req: Request, res: Response) => {
   const recipeData = req.body;
+  const householdId = householdIdFromRequest(req);
   if (!recipeData.title) {
     return res.status(400).json({ error: 'Recipe title is required' });
   }
   const newRecipe: Recipe = {
     ...recipeData,
     id: recipeData.id || `recipe-${Date.now()}`,
+    userId: recipeData.userId || recipeData.user?.id,
+    householdId: recipeData.householdId || householdId,
     createdAt: recipeData.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -520,13 +547,15 @@ app.post('/api/recipes', (req: Request, res: Response) => {
 
 app.put('/api/recipes/:id', (req: Request, res: Response) => {
   const { id } = req.params;
-  const idx = recipes.findIndex((r) => r.id === id);
+  const householdId = householdIdFromRequest(req);
+  const idx = recipes.findIndex((r) => r.id === id && isRecipeVisibleToHousehold(r, householdId));
   if (idx === -1) {
     return res.status(404).json({ error: 'Recipe not found' });
   }
   recipes[idx] = {
     ...recipes[idx],
     ...req.body,
+    householdId: req.body.householdId || recipes[idx].householdId || householdId,
     updatedAt: new Date().toISOString(),
   };
   saveData(RECIPES_FILE, recipes);
@@ -535,7 +564,8 @@ app.put('/api/recipes/:id', (req: Request, res: Response) => {
 
 app.delete('/api/recipes/:id', (req: Request, res: Response) => {
   const { id } = req.params;
-  recipes = recipes.filter((r) => r.id !== id);
+  const householdId = householdIdFromRequest(req);
+  recipes = recipes.filter((r) => r.id !== id || !isRecipeVisibleToHousehold(r, householdId));
   saveData(RECIPES_FILE, recipes);
   return res.json({ success: true });
 });
@@ -928,23 +958,26 @@ app.post('/api/instacart/cart', (req: Request, res: Response) => {
 // ==========================================
 
 // Handlers for both /api/groceries and /api/grocery-lists
-const handleGetGroceryLists = (_req: Request, res: Response) => {
+const handleGetGroceryLists = (req: Request, res: Response) => {
+  const householdId = householdIdFromRequest(req);
   res.setHeader('Content-Type', 'application/json');
-  return res.json({ lists: groceryLists });
+  return res.json({ lists: groceryLists.filter((list) => isListVisibleToHousehold(list, householdId)) });
 };
 app.get('/api/groceries', handleGetGroceryLists);
 app.get('/api/grocery-lists', handleGetGroceryLists);
 
 // Global SSE events feed for all list updates
 app.get('/api/groceries/events', (req: Request, res: Response) => {
+  const householdId = householdIdFromRequest(req) || null;
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  globalSseClients.add(res);
-  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: new Date().toISOString() })}\n\n`);
+  globalSseClients.set(res, householdId);
+  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', householdId, timestamp: new Date().toISOString() })}\n\n`);
 
   const heartbeat = setInterval(() => {
     res.write(':heartbeat\n\n');
@@ -959,9 +992,10 @@ app.get('/api/groceries/events', (req: Request, res: Response) => {
 // Create new list
 const handleCreateList = (req: Request, res: Response) => {
   const { title, store, user } = req.body;
+  const householdId = householdIdFromRequest(req) || 'household-tokim-kitchen';
   const newList: GroceryList = {
     id: `list-${Date.now()}`,
-    householdId: user?.householdId || 'household-tokim-kitchen',
+    householdId,
     title: title || 'New Kitchen List',
     store: store || 'Whole Foods Market',
     inviteCode: `HEIR-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -1026,8 +1060,9 @@ app.post('/api/grocery-lists/join', handleJoinList);
 const handleAddItems = (req: Request, res: Response) => {
   const { listId } = req.params;
   const { items, addedBy } = req.body;
+  const householdId = householdIdFromRequest(req);
 
-  const list = groceryLists.find((l) => l.id === listId);
+  const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
   if (!list) {
     return res.status(404).json({ error: 'List not found' });
   }
@@ -1074,8 +1109,9 @@ app.post('/api/grocery-lists/:listId/items/bulk', handleAddItems);
 const handlePatchItem = (req: Request, res: Response) => {
   const { listId, itemId } = req.params;
   const { checked, assignedTo, userName, substitution } = req.body;
+  const householdId = householdIdFromRequest(req);
 
-  const list = groceryLists.find((l) => l.id === listId);
+  const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
   if (!list) {
     return res.status(404).json({ error: 'List not found' });
   }
@@ -1131,7 +1167,8 @@ app.patch('/api/grocery-lists/:listId/items/:itemId', handlePatchItem);
 // Delete grocery item
 const handleDeleteItem = (req: Request, res: Response) => {
   const { listId, itemId } = req.params;
-  const list = groceryLists.find((l) => l.id === listId);
+  const householdId = householdIdFromRequest(req);
+  const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
   if (!list) {
     return res.status(404).json({ error: 'List not found' });
   }
@@ -1157,7 +1194,8 @@ app.delete('/api/grocery-lists/:listId/items/:itemId', handleDeleteItem);
 // Clear checked items
 const handleClearCompleted = (req: Request, res: Response) => {
   const { listId } = req.params;
-  const list = groceryLists.find((l) => l.id === listId);
+  const householdId = householdIdFromRequest(req);
+  const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
   if (!list) {
     return res.status(404).json({ error: 'List not found' });
   }

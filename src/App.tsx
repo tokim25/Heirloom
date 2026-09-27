@@ -97,9 +97,13 @@ export default function App() {
 
   // Load initial recipes
   useEffect(() => {
+    const householdId = user?.householdId;
+    if (!householdId) return;
+    const householdScope = `householdId=${encodeURIComponent(householdId)}`;
+
     async function fetchRecipes() {
       try {
-        const res = await fetch('/api/recipes');
+        const res = await fetch(`/api/recipes?${householdScope}`);
         if (res.ok) {
           const data = await res.json();
           setRecipes(data.recipes || []);
@@ -113,20 +117,28 @@ export default function App() {
     // Subscribe to real-time Firestore recipes
     const unsubscribe = firestoreService.subscribeRecipes((updatedList) => {
       if (updatedList.length > 0) {
-        setRecipes(updatedList);
+        setRecipes((prev) => {
+          const updatedIds = new Set(updatedList.map((recipe) => recipe.id));
+          const publicRecipes = prev.filter((recipe) => !recipe.householdId && !updatedIds.has(recipe.id));
+          return [...updatedList, ...publicRecipes];
+        });
       }
-    });
+    }, householdId);
 
     return () => unsubscribe();
-  }, []);
+  }, [user?.householdId]);
 
   // Load initial grocery lists & subscribe to SSE real-time stream
   useEffect(() => {
+    const householdId = user?.householdId;
+    if (!householdId) return;
+    const householdScope = `householdId=${encodeURIComponent(householdId)}`;
+
     async function fetchLists() {
       try {
-        let res = await fetch('/api/groceries');
+        let res = await fetch(`/api/groceries?${householdScope}`);
         if (!res.ok) {
-          res = await fetch('/api/grocery-lists');
+          res = await fetch(`/api/grocery-lists?${householdScope}`);
         }
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
@@ -149,10 +161,11 @@ export default function App() {
     let eventSource: EventSource | null = null;
     try {
       if (typeof window !== 'undefined' && 'EventSource' in window) {
-        eventSource = new EventSource('/api/groceries/events');
+        eventSource = new EventSource(`/api/groceries/events?${householdScope}`);
         eventSource.onmessage = (e) => {
           try {
             const payload = JSON.parse(e.data);
+            if (payload.householdId && payload.householdId !== householdId) return;
             if (payload.type === 'ITEM_UPDATED') {
               const { listId, item, userName } = payload;
               if (!listId || !item) return;
@@ -219,7 +232,7 @@ export default function App() {
       if (lists.length > 0) {
         setGroceryLists(lists);
       }
-    });
+    }, householdId);
 
     return () => {
       if (eventSource) eventSource.close();
@@ -268,12 +281,20 @@ export default function App() {
 
   // Recipe actions
   const handleRecipeImported = async (newRecipe: Recipe) => {
-    const saved = await firestoreService.saveRecipe(newRecipe);
+    const scopedRecipe = {
+      ...newRecipe,
+      userId: newRecipe.userId || user?.id,
+      householdId: newRecipe.householdId || user?.householdId,
+    };
+    const saved = await firestoreService.saveRecipe(scopedRecipe, {
+      userId: user?.id,
+      householdId: user?.householdId,
+    });
     if (!saved) {
       throw new Error('Recipe was curated, but Heirloom could not save it to your cookbook. Please check your connection and try again.');
     }
-    setRecipes((prev) => [newRecipe, ...prev]);
-    setSelectedRecipeDetail(newRecipe);
+    setRecipes((prev) => [scopedRecipe, ...prev]);
+    setSelectedRecipeDetail(scopedRecipe);
   };
 
   const handleDeleteRecipe = async (id: string) => {
@@ -283,17 +304,25 @@ export default function App() {
 
   const handleRestoreBackup = async (payload: MiseBackupPayload) => {
     if (payload.recipes && payload.recipes.length > 0) {
+      const restoredRecipes = payload.recipes.map((recipe) => ({
+        ...recipe,
+        userId: recipe.userId || user?.id,
+        householdId: recipe.householdId || user?.householdId,
+      }));
       // Merge restored recipes with existing ones
       const existingIds = new Set(recipes.map((r) => r.id));
       const merged = [...recipes];
-      for (const r of payload.recipes) {
+      for (const r of restoredRecipes) {
         if (!existingIds.has(r.id)) {
           merged.push(r);
         }
       }
       setRecipes(merged);
-      for (const r of payload.recipes) {
-        await firestoreService.saveRecipe(r);
+      for (const r of restoredRecipes) {
+        await firestoreService.saveRecipe(r, {
+          userId: user?.id,
+          householdId: user?.householdId,
+        });
       }
     }
     if (payload.groceryLists && payload.groceryLists.length > 0) {
@@ -343,7 +372,7 @@ export default function App() {
       const res = await fetch(`/api/groceries/${currentGroceryList.id}/items/bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsToAdd }),
+        body: JSON.stringify({ items: itemsToAdd, user, householdId: user?.householdId }),
       });
 
       if (res.ok) {
@@ -351,7 +380,7 @@ export default function App() {
         setGroceryLists((prev) =>
           prev.map((l) => (l.id === data.list.id ? data.list : l))
         );
-        firestoreService.saveGroceryList(data.list);
+        firestoreService.saveGroceryList(data.list, { householdId: user?.householdId });
       }
     } catch (err) {
       console.error('Failed to add recipe to grocery list:', err);
@@ -371,6 +400,7 @@ export default function App() {
         body: JSON.stringify({
           ...updates,
           userName: user?.name || 'Tokim',
+          householdId: user?.householdId,
         }),
       });
       if (res.ok) {
@@ -392,7 +422,8 @@ export default function App() {
 
   const handleDeleteGroceryItem = async (listId: string, itemId: string) => {
     try {
-      await fetch(`/api/groceries/${listId}/items/${itemId}`, { method: 'DELETE' });
+      const scope = user?.householdId ? `?householdId=${encodeURIComponent(user.householdId)}` : '';
+      await fetch(`/api/groceries/${listId}/items/${itemId}${scope}`, { method: 'DELETE' });
       setGroceryLists((prev) =>
         prev.map((l) => {
           if (l.id !== listId) return l;
@@ -412,7 +443,7 @@ export default function App() {
       const res = await fetch(`/api/groceries/${listId}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(itemData),
+        body: JSON.stringify({ ...itemData, user, householdId: user?.householdId }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -433,7 +464,8 @@ export default function App() {
 
   const handleClearCompletedGroceries = async (listId: string) => {
     try {
-      await fetch(`/api/groceries/${listId}/completed`, { method: 'DELETE' });
+      const scope = user?.householdId ? `?householdId=${encodeURIComponent(user.householdId)}` : '';
+      await fetch(`/api/groceries/${listId}/completed${scope}`, { method: 'DELETE' });
       setGroceryLists((prev) =>
         prev.map((l) => {
           if (l.id !== listId) return l;
@@ -459,7 +491,7 @@ export default function App() {
         const data = await res.json();
         setGroceryLists((prev) => [data.list, ...prev]);
         setCurrentListId(data.list.id);
-        firestoreService.saveGroceryList(data.list);
+        firestoreService.saveGroceryList(data.list, { householdId: user?.householdId });
       }
     } catch (err) {
       console.error('Failed to create new grocery list:', err);
