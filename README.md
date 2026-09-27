@@ -67,19 +67,19 @@ Add the following DNS record in your domain registrar / DNS provider (e.g. Cloud
 ### Prerequisites
 
 - Node.js (v18 or higher)
-- npm or bun
+- npm
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Tokim25/heirloom.git
-cd heirloom
+git clone https://github.com/tokim25/Heirloom.git
+cd Heirloom
 ```
 
 ### 2. Install dependencies
 
 ```bash
-npm install
+npm ci
 ```
 
 ### 3. Setup environment variables
@@ -101,6 +101,16 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 5. Verify changes
+
+Before opening a pull request or handing work to another agent, run:
+
+```bash
+npm run lint
+npm run build
+npm run test
+```
 
 ---
 
