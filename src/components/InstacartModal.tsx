@@ -5,9 +5,7 @@ import {
   ExternalLink,
   Store,
   Check,
-  AlertTriangle,
   Sparkles,
-  ArrowRight,
   RefreshCw,
   Copy,
   CheckCheck,
@@ -94,8 +92,6 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
   useEffect(() => {
     const initial: CartItemState[] = recipe.ingredients.map((ing, idx) => {
       const scaled = scaleQuantity(ing.amount, recipe.defaultServings, servings);
-      // Simulate out of stock for special produce occasionally to demonstrate chef substitutions
-      const outOfStock = idx === 3 && recipe.ingredients.length > 3;
       const inPantry = pantryItems ? isIngredientInPantry(ing.name, pantryItems) : false;
 
       return {
@@ -106,19 +102,9 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
         category: ing.category,
         query: ing.instacartQuery || ing.name,
         estimatedPrice: ing.estimatedPrice || Math.round((2.49 + (idx * 1.3) % 7) * 100) / 100,
-        isOutOfStock: outOfStock,
+        isOutOfStock: false,
         isInPantry: inPantry,
         included: !inPantry, // auto-exclude if already in pantry to save grocery costs
-        substitution: outOfStock
-          ? {
-              name: ing.name.toLowerCase().includes('butter')
-                ? 'Ghee or High-Heat Avocado Oil'
-                : 'Fresh Oregano or Italian Seasoning',
-              ratio: '1:1 ratio direct swap',
-              reason: 'Excellent culinary match with identical moisture and flavor profile.',
-              instacartQuery: 'Culinary Ghee',
-            }
-          : undefined,
       };
     });
 
@@ -188,7 +174,6 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
 
   const includedItems = items.filter((i) => i.included);
   const totalPrice = includedItems.reduce((sum, item) => sum + item.estimatedPrice, 0);
-  const outOfStockCount = includedItems.filter((i) => i.isOutOfStock).length;
 
   // Build direct store URL and individual item search URLs
   const storeUrl = selectedStore.slug
@@ -345,17 +330,6 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
             </span>
           </div>
 
-          {outOfStockCount > 0 && (
-            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>
-                  {outOfStockCount} item is out of stock at {selectedStore.name}. Smart substitutions suggested below.
-                </span>
-              </div>
-            </div>
-          )}
-
           <div className="divide-y divide-stone-100 bg-white rounded-2xl border border-stone-200 shadow-xs">
             {items.map((item, idx) => {
               const qty = formatFraction(item.scaledAmount);
@@ -400,27 +374,21 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                         ${item.estimatedPrice.toFixed(2)}
                       </span>
 
-                      {item.isOutOfStock ? (
-                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-semibold whitespace-nowrap leading-none">
-                          Out of Stock
-                        </span>
-                      ) : (
-                        <a
-                          href={getItemSearchUrl(item.query)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 font-medium px-2 py-1 rounded-lg hover:bg-emerald-50 border border-emerald-200/80 transition-colors whitespace-nowrap"
-                          title={`Find ${item.name} at ${selectedStore.name} on Instacart`}
-                        >
-                          <span>Find Item</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
+                      <a
+                        href={getItemSearchUrl(item.query)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 font-medium px-2 py-1 rounded-lg hover:bg-emerald-50 border border-emerald-200/80 transition-colors whitespace-nowrap"
+                        title={`Find ${item.name} at ${selectedStore.name} on Instacart`}
+                      >
+                        <span>Find Item</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
                     </div>
                   </div>
 
                   {/* Smart Culinary Substitution Card */}
-                  {item.isOutOfStock && item.substitution && (
+                  {item.substitution && (
                     <div className="mt-1 p-3 rounded-xl bg-amber-100/60 border border-amber-300/80 flex flex-col gap-2 text-xs">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-semibold text-amber-950">
@@ -441,9 +409,9 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                     </div>
                   )}
 
-                  {item.isOutOfStock && !item.substitution && (
+                  {item.included && !item.substitution && (
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-amber-800">Need an alternative?</span>
+                      <span className="text-stone-500">Need a swap?</span>
                       <button
                         type="button"
                         onClick={() => fetchSmartSubstitution(idx)}

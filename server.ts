@@ -922,13 +922,12 @@ Respond strictly in JSON array format:
 app.post('/api/instacart/cart', (req: Request, res: Response) => {
   const { storeId, storeName, items } = req.body;
 
-  // Build simulated Instacart shopping cart with deep links
+  // Build Instacart handoff links without making live inventory claims.
   const processedItems = (items || []).map((item: unknown) => {
     const it = item as { name: string; amount?: number; unit?: string; instacartQuery?: string; estimatedPrice?: number; isOutOfStock?: boolean };
     const query = it.instacartQuery || it.name;
     const directUrl = `https://www.instacart.com/store/s?k=${encodeURIComponent(query)}`;
 
-    // Randomize some item as out of stock if requested to demonstrate substitution engine
     const outOfStock = it.isOutOfStock || false;
 
     return {
