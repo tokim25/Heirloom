@@ -21,8 +21,9 @@ export const GitHubModal: React.FC<GitHubModalProps> = ({ onClose, onOpenBugRepo
   const [copiedRemote, setCopiedRemote] = useState(false);
   const [copiedDns, setCopiedDns] = useState(false);
 
-  const cloneCommand = 'git clone https://github.com/Tokim25/heirloom.git';
-  const remoteCommand = 'git remote add origin https://github.com/Tokim25/heirloom.git\ngit branch -M main\ngit push -u origin main';
+  const repoUrl = 'https://github.com/tokim25/Heirloom';
+  const cloneCommand = 'git clone https://github.com/tokim25/Heirloom.git';
+  const remoteCommand = 'git remote add origin https://github.com/tokim25/Heirloom.git\ngit branch -M main\ngit push -u origin main';
   const dnsRecord = 'Type: CNAME\nName: heirloom\nValue: cname.vercel-dns.com (or tokim25.github.io)';
 
   const handleCopyClone = () => {
@@ -160,7 +161,7 @@ export const GitHubModal: React.FC<GitHubModalProps> = ({ onClose, onOpenBugRepo
                 Open Bug Reporter
               </button>
               <a
-                href="https://github.com/issues"
+                href={`${repoUrl}/issues`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1 text-xs text-stone-700 hover:text-stone-900 font-medium hover:underline"

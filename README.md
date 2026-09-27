@@ -118,6 +118,7 @@ npm run test
 
 1. **Bug Reports**: Open an issue using the [Bug Report template](.github/ISSUE_TEMPLATE/bug_report.md) or submit directly through the in-app Sentry bug modal.
 2. **Feature Requests**: Submit ideas using the [Feature Request template](.github/ISSUE_TEMPLATE/feature_request.md).
+3. **Known Issues**: Review [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for current troubleshooting notes and expected workarounds.
 
 ---
 

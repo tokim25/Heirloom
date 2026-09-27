@@ -56,7 +56,7 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({ onClose }) => {
     const issueBody = encodeURIComponent(
       `### Description\n${description}\n\n### Category\n${category}\n\n### Severity\n${severity}\n\n### User Agent\n${navigator.userAgent}\n\n### URL\n${window.location.href}`
     );
-    return `https://github.com/issues/new?title=${issueTitle}&body=${issueBody}`;
+    return `https://github.com/tokim25/Heirloom/issues/new?title=${issueTitle}&body=${issueBody}`;
   };
 
   return (
