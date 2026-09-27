@@ -15,15 +15,17 @@ const LISTS_COLLECTION = 'grocery_lists';
 
 export const firestoreService = {
   // Save or update a recipe in Firestore
-  async saveRecipe(recipe: Recipe): Promise<void> {
+  async saveRecipe(recipe: Recipe): Promise<boolean> {
     try {
       const recipeRef = doc(db, RECIPES_COLLECTION, recipe.id);
       await setDoc(recipeRef, {
         ...recipe,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
+      return true;
     } catch (err) {
       console.warn('Firestore saveRecipe failed, falling back:', err);
+      return false;
     }
   },
 

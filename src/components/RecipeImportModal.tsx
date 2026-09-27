@@ -16,7 +16,7 @@ import { Recipe } from '../types/recipe.ts';
 
 interface RecipeImportModalProps {
   onClose: () => void;
-  onRecipeImported: (recipe: Recipe) => void;
+  onRecipeImported: (recipe: Recipe) => void | Promise<void>;
 }
 
 type TabType = 'link' | 'media' | 'youtube' | 'text';
@@ -90,7 +90,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
 
       const data = await res.json();
       if (data.recipe) {
-        onRecipeImported(data.recipe);
+        await onRecipeImported(data.recipe);
         onClose();
       } else {
         throw new Error('No recipe content parsed');

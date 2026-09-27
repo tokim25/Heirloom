@@ -268,9 +268,12 @@ export default function App() {
 
   // Recipe actions
   const handleRecipeImported = async (newRecipe: Recipe) => {
+    const saved = await firestoreService.saveRecipe(newRecipe);
+    if (!saved) {
+      throw new Error('Recipe was curated, but Heirloom could not save it to your cookbook. Please check your connection and try again.');
+    }
     setRecipes((prev) => [newRecipe, ...prev]);
     setSelectedRecipeDetail(newRecipe);
-    await firestoreService.saveRecipe(newRecipe);
   };
 
   const handleDeleteRecipe = async (id: string) => {

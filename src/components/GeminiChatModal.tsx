@@ -28,7 +28,7 @@ interface Message {
 
 interface GeminiChatModalProps {
   onClose: () => void;
-  onSaveRecipeToCookbook: (recipe: Recipe) => void;
+  onSaveRecipeToCookbook: (recipe: Recipe) => void | Promise<void>;
   onAddGroceryItems: (items: Partial<GroceryItem>[]) => void;
   activeRecipe?: Recipe | null;
 }
@@ -58,6 +58,8 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [addedRecipeIds, setAddedRecipeIds] = useState<Set<string>>(new Set());
+  const [savingRecipeIds, setSavingRecipeIds] = useState<Set<string>>(new Set());
+  const [recipeSaveErrors, setRecipeSaveErrors] = useState<Record<string, string>>({});
   const [addedGroceryMsgIds, setAddedGroceryMsgIds] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -203,9 +205,27 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
     }
   };
 
-  const handleSaveRecipe = (recipe: Recipe) => {
-    onSaveRecipeToCookbook(recipe);
-    setAddedRecipeIds((prev) => new Set([...prev, recipe.id]));
+  const handleSaveRecipe = async (recipe: Recipe) => {
+    setSavingRecipeIds((prev) => new Set([...prev, recipe.id]));
+    setRecipeSaveErrors((prev) => {
+      const next = { ...prev };
+      delete next[recipe.id];
+      return next;
+    });
+
+    try {
+      await onSaveRecipeToCookbook(recipe);
+      setAddedRecipeIds((prev) => new Set([...prev, recipe.id]));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not save this recipe. Please try again.';
+      setRecipeSaveErrors((prev) => ({ ...prev, [recipe.id]: message }));
+    } finally {
+      setSavingRecipeIds((prev) => {
+        const next = new Set(prev);
+        next.delete(recipe.id);
+        return next;
+      });
+    }
   };
 
   const handleAddGroceries = (msgId: string, items: Partial<GroceryItem>[]) => {
@@ -270,6 +290,8 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
           {messages.map((m) => {
             const isUser = m.role === 'user';
             const isRecipeAdded = m.parsedRecipe && addedRecipeIds.has(m.parsedRecipe.id);
+            const isRecipeSaving = m.parsedRecipe && savingRecipeIds.has(m.parsedRecipe.id);
+            const recipeSaveError = m.parsedRecipe ? recipeSaveErrors[m.parsedRecipe.id] : null;
             const isGroceriesAdded = addedGroceryMsgIds.has(m.id);
 
             return (
@@ -329,10 +351,12 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
 
                       <button
                         onClick={() => handleSaveRecipe(m.parsedRecipe!)}
-                        disabled={isRecipeAdded}
+                        disabled={isRecipeAdded || isRecipeSaving}
                         className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                           isRecipeAdded
                             ? 'bg-emerald-600 text-white cursor-default'
+                            : isRecipeSaving
+                            ? 'bg-stone-500 text-white cursor-wait'
                             : 'bg-stone-900 hover:bg-stone-800 text-white shadow-xs active:scale-95'
                         }`}
                       >
@@ -341,6 +365,11 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                             <Check className="w-3.5 h-3.5" />
                             <span>Saved to Your Cookbook!</span>
                           </>
+                        ) : isRecipeSaving ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Saving to Cookbook...</span>
+                          </>
                         ) : (
                           <>
                             <Plus className="w-3.5 h-3.5" />
@@ -348,6 +377,11 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                           </>
                         )}
                       </button>
+                      {recipeSaveError && (
+                        <div className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-2">
+                          {recipeSaveError}
+                        </div>
+                      )}
                     </div>
                   )}
 
