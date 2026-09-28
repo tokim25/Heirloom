@@ -71,11 +71,12 @@ export default function App() {
   } = useAuth();
   // Screens follow the address bar: / (recipes), /groceries, /add, /profile, /r/:id
   const path = usePath();
-  const [activeTab, setActiveTabState] = useState<'cookbook' | 'groceries'>(path === '/groceries' ? 'groceries' : 'cookbook');
-  useEffect(() => {
-    if (path === '/groceries') setActiveTabState('groceries');
-    else if (path === '/') setActiveTabState('cookbook');
-  }, [path]);
+  // The tab behind a sheet (Add, Profile, a recipe) is whichever of / or /groceries was last shown.
+  // Derived while rendering, so switching tabs never paints one frame of the old screen.
+  const lastTabRef = useRef<'cookbook' | 'groceries'>(path === '/groceries' ? 'groceries' : 'cookbook');
+  if (path === '/groceries') lastTabRef.current = 'groceries';
+  else if (path === '/') lastTabRef.current = 'cookbook';
+  const activeTab = lastTabRef.current;
   const setActiveTab = (tab: 'cookbook' | 'groceries') => navigate(tab === 'groceries' ? '/groceries' : '/');
   const openImport = () => navigate('/add');
   const closeImport = () => closeOverlay('/add');
@@ -675,7 +676,12 @@ export default function App() {
           recipe={cookingState.recipe}
           servings={cookingState.servings}
           unitSystem={cookingState.unitSystem}
-          onClose={() => setCookingState(null)}
+          onClose={() => {
+            // Leaving the cooking view returns to the recipe you were cooking.
+            const cooked = cookingState.recipe;
+            setCookingState(null);
+            openRecipe(cooked);
+          }}
         />
       )}
 
