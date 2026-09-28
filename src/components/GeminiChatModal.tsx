@@ -93,7 +93,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
           cookTimeMinutes: rawObj.cookTimeMinutes || 20,
           totalTimeMinutes: (rawObj.prepTimeMinutes || 15) + (rawObj.cookTimeMinutes || 20),
           defaultServings: rawObj.defaultServings || 2,
-          heroImage: rawObj.heroImage || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1200&q=80',
+          heroImage: '',
           tags: rawObj.tags || ['Chef AI'],
           ingredients: (rawObj.ingredients || []).map((ing: any, i: number) => ({
             id: `ing-${Date.now()}-${i}`,

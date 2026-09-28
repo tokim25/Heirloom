@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Clock,
@@ -10,6 +10,7 @@ import {
   ExternalLink,
   ChevronDown,
   Trash2,
+  Pencil,
   Plus,
   Minus,
   Check,
@@ -37,6 +38,7 @@ interface RecipeDetailModalProps {
   currentListId?: string;
   onViewGroceryList?: () => void;
   onDeleteRecipe?: (id: string) => void;
+  onEditRecipe?: (recipe: Recipe) => void;
 }
 
 export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
@@ -49,6 +51,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   currentListId,
   onViewGroceryList,
   onDeleteRecipe,
+  onEditRecipe,
 }) => {
   const [servings, setServings] = useState(recipe.defaultServings || 2);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('imperial');
@@ -56,6 +59,10 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   const [addListStatus, setAddListStatus] = useState<AddToGroceryListResult | null>(null);
   const [isAddingToList, setIsAddingToList] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [recipe.heroImage]);
 
   const handleAddGroceries = async () => {
     setIsAddingToList(true);
@@ -79,14 +86,27 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-150">
       <div className="relative w-full max-w-4xl bg-[#FAF9F5] rounded-3xl shadow-2xl border border-stone-200 overflow-hidden my-auto max-h-[92vh] flex flex-col">
-        {/* Floating Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-stone-900/60 hover:bg-stone-900 text-white backdrop-blur-md transition-all shadow-md"
-          title="Close Modal"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Floating Edit and Close Buttons */}
+        <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+          {onEditRecipe && (
+            <button
+              type="button"
+              onClick={() => onEditRecipe(recipe)}
+              className="min-h-11 px-4 inline-flex items-center gap-1.5 rounded-full bg-stone-900/60 hover:bg-stone-900 text-white text-sm font-semibold backdrop-blur-md transition-all shadow-md"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-stone-900/60 hover:bg-stone-900 text-white backdrop-blur-md transition-all shadow-md"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         {/* Hero Section */}
         <div className="relative h-64 sm:h-80 w-full overflow-hidden bg-stone-200 shrink-0">

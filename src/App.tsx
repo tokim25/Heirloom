@@ -24,6 +24,7 @@ import { RecipeCard } from './components/RecipeCard.tsx';
 import { RecipeDetailModal, AddToGroceryListResult } from './components/RecipeDetailModal.tsx';
 import { InstagramCookingMode } from './components/InstagramCookingMode.tsx';
 import { RecipeImportModal } from './components/RecipeImportModal.tsx';
+import { RecipeEditModal } from './components/RecipeEditModal.tsx';
 import { InstacartModal } from './components/InstacartModal.tsx';
 import { GroceryListView } from './components/GroceryListView.tsx';
 import { UnitConverterModal } from './components/UnitConverterModal.tsx';
@@ -92,6 +93,7 @@ export default function App() {
 
   // Modals state
   const [selectedRecipeDetail, setSelectedRecipeDetail] = useState<Recipe | null>(null);
+  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [cookingState, setCookingState] = useState<{
     recipe: Recipe;
     servings: number;
@@ -255,6 +257,14 @@ export default function App() {
     runWrite(pending, `"${newRecipe.title}" could not be saved. Try importing it again.`);
     setSelectedRecipeDetail({ ...newRecipe, householdId });
     showNotice('success', `Saved "${newRecipe.title}" to your cookbook.`);
+  };
+
+  const handleSaveEditedRecipe = async (edited: Recipe) => {
+    const householdId = requireHousehold();
+    if (!householdId) throw new Error('Sign in with Google to save changes.');
+    const saved = await firestoreService.saveRecipe(householdId, edited, user?.id);
+    setSelectedRecipeDetail(saved);
+    showNotice('success', `Saved changes to "${saved.title}".`);
   };
 
   const handleDeleteRecipe = async (id: string) => {
@@ -615,7 +625,8 @@ export default function App() {
 
       {selectedRecipeDetail && (
         <RecipeDetailModal
-          recipe={selectedRecipeDetail}
+          recipe={recipes.find((r) => r.id === selectedRecipeDetail.id) ?? selectedRecipeDetail}
+          onEditRecipe={(r) => setEditingRecipe(r)}
           onClose={() => setSelectedRecipeDetail(null)}
           onStartCooking={(r, s, u) => handleStartCooking(r, s, u)}
           onOpenInstacart={(r, s) => handleOpenInstacart(r, s)}
@@ -668,6 +679,14 @@ export default function App() {
             setPantryItems((prev) => [newItem, ...prev]);
           }}
           onResetDefaults={() => setPantryItems(DEFAULT_PANTRY_ITEMS)}
+        />
+      )}
+
+      {editingRecipe && (
+        <RecipeEditModal
+          recipe={editingRecipe}
+          onSave={handleSaveEditedRecipe}
+          onClose={() => setEditingRecipe(null)}
         />
       )}
 
