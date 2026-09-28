@@ -120,14 +120,14 @@ export const Sheet: React.FC<SheetProps> = ({
 
   const isDrawer = placement === 'right';
   const panelClass = isDrawer
-    ? `sheet-drawer w-full ${SIZES[size]} bg-[#FAF9F5] h-full shadow-2xl border-l border-stone-200 flex flex-col overflow-hidden focus:outline-none`
-    : `sheet-panel relative w-full ${SIZES[size]} bg-[#FAF9F5] ${
+    ? `sheet-drawer w-full ${SIZES[size]} bg-canvas h-full shadow-2xl border-l border-stone-200 flex flex-col overflow-hidden focus:outline-none`
+    : `sheet-panel relative w-full ${SIZES[size]} bg-canvas ${
         fullOnMobile ? 'h-[100dvh] rounded-none' : 'rounded-t-3xl max-h-[94dvh]'
       } sm:h-auto sm:rounded-3xl sm:max-h-[90dvh] shadow-2xl border border-stone-200 flex flex-col overflow-hidden focus:outline-none`;
 
   return createPortal(
     <div
-      className={`sheet-backdrop fixed inset-0 z-50 bg-stone-950/55 backdrop-blur-sm flex ${
+      className={`sheet-backdrop fixed inset-0 z-50 bg-ink-deep/55 backdrop-blur-sm flex ${
         isDrawer ? 'justify-end' : 'items-end sm:items-center justify-center sm:p-6'
       }`}
       onMouseDown={(event) => {
@@ -233,7 +233,7 @@ export const ConfirmSheet: React.FC<ConfirmSheetProps> = ({
           onClick={onConfirm}
           disabled={busy}
           className={`min-h-12 px-6 rounded-xl text-base font-semibold text-white disabled:opacity-50 ${
-            destructive ? 'bg-rose-700 hover:bg-rose-800' : 'bg-stone-900 hover:bg-stone-800'
+            destructive ? 'bg-rose-700 hover:bg-rose-800' : 'bg-ink hover:bg-ink-hover'
           }`}
         >
           {confirmLabel}

@@ -65,7 +65,7 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({ recipe, onSave
             type="button"
             onClick={handleSave}
             disabled={isSaving || !isDirty}
-            className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white text-base font-semibold"
+            className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-ink hover:bg-ink-hover disabled:opacity-40 text-white text-base font-semibold"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             Save changes
@@ -74,7 +74,7 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({ recipe, onSave
       }
     >
       {error && (
-        <div ref={errorRef} role="alert" className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2">
+        <div ref={errorRef} role="alert" className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800/50">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>

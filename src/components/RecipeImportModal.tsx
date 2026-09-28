@@ -216,7 +216,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                 type="button"
                 onClick={handleSave}
                 disabled={isProcessing}
-                className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white text-base font-semibold"
+                className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-ink hover:bg-ink-hover disabled:opacity-50 text-white text-base font-semibold"
               >
                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                 Save recipe
@@ -235,7 +235,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                 type="button"
                 onClick={handleImport}
                 disabled={isProcessing || isPreparingFile}
-                className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white text-base font-semibold"
+                className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-ink hover:bg-ink-hover disabled:opacity-50 text-white text-base font-semibold"
               >
                 {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
                 {isProcessing ? 'Reading recipe…' : 'Read recipe'}
@@ -259,7 +259,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                   setPastedFromUrl(null);
                 }}
                 className={`flex-1 min-h-11 text-sm font-medium rounded-xl flex items-center justify-center gap-1.5 transition-colors ${
-                  activeTab === tab.id ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                  activeTab === tab.id ? 'bg-surface text-stone-900 shadow-xs' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
                 {tab.icon}
@@ -271,7 +271,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
 
 
           {problem && (
-            <div ref={problemRef} role="alert" className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex flex-col gap-2.5">
+            <div ref={problemRef} role="alert" className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex flex-col gap-2.5 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800/50">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{problem.message}</span>
@@ -296,7 +296,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
           {parsedRecipe ? (
             <>
               {warnings.length > 0 && (
-                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex flex-col gap-1.5">
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex flex-col gap-1.5 dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-800/50">
                   <span className="font-semibold">Worth a look</span>
                   <ul className="list-disc pl-5">
                     {warnings.map((warning) => (
@@ -323,7 +323,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                     onChange={(e) => setUrlInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !isProcessing && handleImport()}
                     placeholder="https://"
-                    className="w-full px-4 min-h-12 text-base bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                    className="w-full px-4 min-h-12 text-base bg-surface border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/40"
                   />
                   <p className="text-sm text-stone-600">
                     Works with recipe sites and YouTube videos or Shorts. Heirloom only saves what the page or video actually says.
@@ -332,7 +332,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                     <button
                       type="button"
                       onClick={onAskChefAi}
-                      className="self-start inline-flex items-center gap-1.5 min-h-11 -ml-1 px-2 text-sm font-semibold text-amber-800 hover:text-amber-950 rounded-xl"
+                      className="self-start inline-flex items-center gap-1.5 min-h-11 -ml-1 px-2 text-sm font-semibold text-amber-800 hover:text-amber-950 rounded-xl dark:text-amber-200 dark:hover:text-amber-100"
                     >
                       <Sparkles className="w-4 h-4" aria-hidden="true" />
                       No recipe yet? Ask Chef AI
@@ -347,7 +347,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-stone-300 hover:border-amber-500/70 bg-white/60 rounded-2xl p-6 flex flex-col items-center justify-center text-center min-h-44"
+                    className="border-2 border-dashed border-stone-300 hover:border-amber-500/70 bg-surface/60 rounded-2xl p-6 flex flex-col items-center justify-center text-center min-h-44"
                   >
                     {isPreparingFile ? (
                       <span className="flex items-center gap-2 text-sm text-stone-700">
@@ -359,7 +359,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                         {upload.previewUrl ? (
                           <img src={upload.previewUrl} alt="Selected recipe" className="w-32 h-32 object-cover rounded-xl border border-stone-200" />
                         ) : (
-                          <span className="w-16 h-16 rounded-xl bg-red-100 text-red-600 flex items-center justify-center">
+                          <span className="w-16 h-16 rounded-xl bg-red-100 text-red-600 flex items-center justify-center dark:bg-red-900/40 dark:text-red-400">
                             <FileText className="w-8 h-8" />
                           </span>
                         )}
@@ -392,7 +392,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                     <button
                       type="button"
                       onClick={handlePasteFromClipboard}
-                      className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-sm font-semibold text-stone-800"
+                      className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-stone-300 bg-surface hover:bg-stone-50 text-sm font-semibold text-stone-800"
                     >
                       <ClipboardPaste className="w-4 h-4" />
                       Paste from clipboard
@@ -405,7 +405,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                     value={rawTextInput}
                     onChange={(e) => setRawTextInput(e.target.value)}
                     placeholder="Ingredients and steps, however they're written"
-                    className="w-full p-3.5 text-base bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                    className="w-full p-3.5 text-base bg-surface border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/40"
                   />
                 </div>
               )}

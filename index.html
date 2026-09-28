@@ -14,7 +14,8 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Heirloom — Preserve the recipe. Share the table." />
     <meta name="twitter:description" content="Preserve the recipe. Share the table. Heirloom is your family recipe archive and kitchen companion — cook hands-free with voice navigation, organize by ingredients, curate shared groceries, and back up securely." />
-    <meta name="theme-color" content="#FAF9F5" />
+    <meta name="theme-color" content="#FAF9F5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1A1816" media="(prefers-color-scheme: dark)" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
     <link rel="apple-touch-icon" href="/icons/icon-180.png" />
@@ -49,7 +50,7 @@
     }
     </script>
   </head>
-  <body class="bg-[#FAF9F5] text-stone-900 antialiased selection:bg-stone-200">
+  <body class="bg-canvas text-stone-900 antialiased selection:bg-stone-200">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

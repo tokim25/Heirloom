@@ -67,11 +67,11 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
         {/* Header */}
         <div className="p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500 text-stone-950">
+            <div className="p-2 rounded-xl bg-amber-500 text-on-accent">
               <Calculator className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
                 Kitchen Tool
               </span>
               <h2 className="font-serif text-2xl text-stone-900">
@@ -94,7 +94,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
             onClick={() => setActiveTab('cupsToGrams')}
             className={`flex-1 py-2 rounded-xl text-center transition-all ${
               activeTab === 'cupsToGrams'
-                ? 'bg-white text-stone-900 shadow-xs'
+                ? 'bg-surface text-stone-900 shadow-xs'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
@@ -104,7 +104,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
             onClick={() => setActiveTab('temperature')}
             className={`flex-1 py-2 rounded-xl text-center transition-all ${
               activeTab === 'temperature'
-                ? 'bg-white text-stone-900 shadow-xs'
+                ? 'bg-surface text-stone-900 shadow-xs'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
@@ -114,7 +114,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
             onClick={() => setActiveTab('liquids')}
             className={`flex-1 py-2 rounded-xl text-center transition-all ${
               activeTab === 'liquids'
-                ? 'bg-white text-stone-900 shadow-xs'
+                ? 'bg-surface text-stone-900 shadow-xs'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
@@ -124,7 +124,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
             onClick={() => setActiveTab('weights')}
             className={`flex-1 py-2 rounded-xl text-center transition-all ${
               activeTab === 'weights'
-                ? 'bg-white text-stone-900 shadow-xs'
+                ? 'bg-surface text-stone-900 shadow-xs'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
@@ -147,7 +147,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                     const found = INGREDIENTS.find((i) => i.name === e.target.value);
                     if (found) setSelectedIngredient(found);
                   }}
-                  className="w-full px-3.5 py-2.5 bg-white border border-stone-300 rounded-xl text-xs sm:text-sm text-stone-900 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-surface border border-stone-300 rounded-xl text-xs sm:text-sm text-stone-900 focus:outline-none"
                 >
                   {INGREDIENTS.map((item) => (
                     <option key={item.name} value={item.name}>
@@ -158,7 +158,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
               </div>
 
               <div className="grid grid-cols-2 gap-4 items-center">
-                <div className="bg-white p-4 rounded-2xl border border-stone-200">
+                <div className="bg-surface p-4 rounded-2xl border border-stone-200">
                   <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
                     Volume in Cups
                   </span>
@@ -183,14 +183,14 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                   </div>
                 </div>
 
-                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl text-amber-950">
-                  <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider">
+                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl text-amber-950 dark:text-amber-100">
+                  <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider dark:text-amber-100">
                     Weight in Grams
                   </span>
-                  <p className="text-3xl font-serif font-bold text-amber-950 mt-1">
+                  <p className="text-3xl font-serif font-bold text-amber-950 mt-1 dark:text-amber-100">
                     {calculatedGrams()} g
                   </p>
-                  <span className="text-xs text-amber-800 mt-2 block">
+                  <span className="text-xs text-amber-800 mt-2 block dark:text-amber-200">
                     Exact weight for {selectedIngredient.name}
                   </span>
                 </div>
@@ -202,7 +202,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
           {activeTab === 'temperature' && (
             <div className="flex flex-col gap-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded-2xl border border-stone-200 flex flex-col">
+                <div className="bg-surface p-4 rounded-2xl border border-stone-200 flex flex-col">
                   <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
                     Fahrenheit (°F)
                   </span>
@@ -217,17 +217,17 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                   </span>
                 </div>
 
-                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex flex-col text-amber-950">
-                  <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider">
+                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex flex-col text-amber-950 dark:text-amber-100">
+                  <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider dark:text-amber-100">
                     Celsius (°C)
                   </span>
                   <input
                     type="number"
                     value={tempC}
                     onChange={(e) => handleCelsiusChange(Number(e.target.value))}
-                    className="text-3xl font-serif text-amber-950 font-bold bg-transparent focus:outline-none mt-1"
+                    className="text-3xl font-serif text-amber-950 font-bold bg-transparent focus:outline-none mt-1 dark:text-amber-100"
                   />
-                  <span className="text-xs text-amber-800 mt-2">
+                  <span className="text-xs text-amber-800 mt-2 dark:text-amber-200">
                     European / Metric Oven
                   </span>
                 </div>
@@ -253,8 +253,8 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                       onClick={() => handleFahrenheitChange(preset.f)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
                         tempF === preset.f
-                          ? 'bg-amber-500 text-stone-950 border-amber-600 font-bold'
-                          : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
+                          ? 'bg-amber-500 text-on-accent border-amber-600 font-bold'
+                          : 'bg-surface border-stone-200 text-stone-700 hover:bg-stone-50'
                       }`}
                     >
                       {preset.f}°F — {preset.name}
@@ -268,7 +268,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
           {/* Liquid Volume Converter */}
           {activeTab === 'liquids' && (
             <div className="flex flex-col gap-4">
-              <div className="bg-white p-4 rounded-2xl border border-stone-200">
+              <div className="bg-surface p-4 rounded-2xl border border-stone-200">
                 <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
                   Tablespoons (tbsp)
                 </span>
@@ -313,7 +313,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
           {/* Weight Converter */}
           {activeTab === 'weights' && (
             <div className="flex flex-col gap-4">
-              <div className="bg-white p-4 rounded-2xl border border-stone-200">
+              <div className="bg-surface p-4 rounded-2xl border border-stone-200">
                 <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
                   Weight in Ounces (oz)
                 </span>
@@ -327,9 +327,9 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-950">
-                  <span className="text-amber-800 font-semibold">Grams (g):</span>
-                  <p className="text-xl font-serif font-bold text-amber-950 mt-0.5">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-950 dark:text-amber-100">
+                  <span className="text-amber-800 font-semibold dark:text-amber-200">Grams (g):</span>
+                  <p className="text-xl font-serif font-bold text-amber-950 mt-0.5 dark:text-amber-100">
                     {Math.round((parseFloat(ozInput) || 0) * 28.3495)} g
                   </p>
                 </div>
@@ -348,7 +348,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
         <div className="p-4 bg-stone-100/70 border-t border-stone-200/80 flex items-center justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold"
+            className="px-5 py-2 rounded-xl bg-ink hover:bg-ink-hover text-white text-xs font-semibold"
           >
             Done
           </button>

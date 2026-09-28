@@ -237,17 +237,17 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
   return (
     <Sheet open onClose={onClose} title="Chef AI chat" variant="bare" size="xl" placement="right">
         {/* Chat Header */}
-        <div className="p-4 sm:p-5 border-b border-stone-200 bg-white/80 backdrop-blur-md flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-stone-200 bg-surface/80 backdrop-blur-md flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-amber-500 text-stone-950 flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 rounded-2xl bg-amber-500 text-on-accent flex items-center justify-center shadow-sm">
               <Sparkles className="w-4 h-4 fill-current" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-amber-800">
+                <span className="text-xs font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-200">
                   Chef Gemini AI
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold dark:bg-amber-900/40 dark:text-amber-100">
                   Gemini 3.8 Flash
                 </span>
               </div>
@@ -302,8 +302,8 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                 <div
                   className={`max-w-[85%] sm:max-w-[80%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
                     isUser
-                      ? 'bg-stone-900 text-white rounded-br-xs shadow-xs'
-                      : 'bg-white text-stone-800 border border-stone-200/80 rounded-bl-xs shadow-xs'
+                      ? 'bg-ink text-white rounded-br-xs shadow-xs'
+                      : 'bg-surface text-stone-800 border border-stone-200/80 rounded-bl-xs shadow-xs'
                   }`}
                 >
                   {/* Markdown content rendering */}
@@ -326,10 +326,10 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
 
                   {/* Interactive Recipe Embed Box if Gemini provided one */}
                   {m.parsedRecipe && (
-                    <div className="mt-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 flex flex-col gap-2.5">
+                    <div className="mt-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 flex flex-col gap-2.5 dark:bg-amber-950/40 dark:border-amber-800/50">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                          <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
                             Chef Recipe Generated
                           </span>
                           <h4 className="font-serif text-base text-stone-900 font-semibold mt-0.5">
@@ -344,7 +344,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                           <img
                             src={m.parsedRecipe.heroImage}
                             alt={m.parsedRecipe.title}
-                            className="w-14 h-14 rounded-lg object-cover border border-amber-200 shrink-0"
+                            className="w-14 h-14 rounded-lg object-cover border border-amber-200 shrink-0 dark:border-amber-800/50"
                           />
                         )}
                       </div>
@@ -357,7 +357,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                             ? 'bg-emerald-600 text-white cursor-default'
                             : isRecipeSaving
                             ? 'bg-stone-500 text-white cursor-wait'
-                            : 'bg-stone-900 hover:bg-stone-800 text-white shadow-xs active:scale-95'
+                            : 'bg-ink hover:bg-ink-hover text-white shadow-xs active:scale-95'
                         }`}
                       >
                         {isRecipeAdded ? (
@@ -378,7 +378,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                         )}
                       </button>
                       {recipeSaveError && (
-                        <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-2">
+                        <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-2 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50">
                           {recipeSaveError}
                         </div>
                       )}
@@ -387,12 +387,12 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
 
                   {/* Interactive Grocery List Embed Box */}
                   {m.parsedGroceryItems && m.parsedGroceryItems.length > 0 && (
-                    <div className="mt-3 p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col gap-2.5">
+                    <div className="mt-3 p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col gap-2.5 dark:bg-emerald-950/40 dark:border-emerald-800/50">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
                           Suggested Shopping Items ({m.parsedGroceryItems.length})
                         </span>
-                        <ShoppingBag className="w-4 h-4 text-emerald-700" />
+                        <ShoppingBag className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
                       </div>
 
                       <ul className="text-xs text-stone-700 space-y-1">
@@ -440,8 +440,8 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
           })}
 
           {isLoading && (
-            <div className="flex items-center gap-2 p-3.5 bg-white border border-stone-200/80 rounded-2xl rounded-bl-xs w-fit text-xs text-stone-500 shadow-xs">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+            <div className="flex items-center gap-2 p-3.5 bg-surface border border-stone-200/80 rounded-2xl rounded-bl-xs w-fit text-xs text-stone-500 shadow-xs">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600 dark:text-amber-400" />
               <span>Chef Gemini is thinking…</span>
             </div>
           )}
@@ -455,7 +455,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
             <button
               key={i}
               onClick={() => handleSendMessage(prompt)}
-              className="text-xs px-3 py-1.5 rounded-full bg-white hover:bg-stone-50 text-stone-700 border border-stone-200 whitespace-nowrap shadow-xs transition-colors shrink-0"
+              className="text-xs px-3 py-1.5 rounded-full bg-surface hover:bg-stone-50 text-stone-700 border border-stone-200 whitespace-nowrap shadow-xs transition-colors shrink-0"
             >
               {prompt}
             </button>
@@ -468,7 +468,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
             e.preventDefault();
             handleSendMessage();
           }}
-          className="p-3 sm:p-4 bg-white border-t border-stone-200 flex items-center gap-2"
+          className="p-3 sm:p-4 bg-surface border-t border-stone-200 flex items-center gap-2"
         >
           <input
             type="text"
@@ -482,7 +482,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="p-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold transition-all disabled:opacity-40 shadow-xs"
+            className="p-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-on-accent font-semibold transition-all disabled:opacity-40 shadow-xs"
             title="Send Message"
           >
             <Send className="w-4 h-4" />

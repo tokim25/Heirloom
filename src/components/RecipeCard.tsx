@@ -20,7 +20,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
   return (
     <article
       onClick={() => onSelect(recipe)}
-      className="group bg-white rounded-3xl overflow-hidden border border-stone-200/70 hover:border-stone-300 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] transition-all duration-300 flex flex-col cursor-pointer transform hover:-translate-y-1"
+      className="group bg-surface rounded-3xl overflow-hidden border border-stone-200/70 hover:border-stone-300 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] transition-all duration-300 flex flex-col cursor-pointer transform hover:-translate-y-1"
     >
       {/* Cinematic Photography Frame */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
@@ -65,7 +65,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
               e.stopPropagation();
               onStartCooking(recipe);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-stone-900 text-xs font-semibold shadow-md backdrop-blur-md transition-all active:scale-95 group-hover:bg-amber-400 group-hover:text-stone-950"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/90 hover:bg-surface text-stone-900 text-xs font-semibold shadow-md backdrop-blur-md transition-all active:scale-95 group-hover:bg-amber-400 group-hover:text-on-accent"
             title="Start Instagram Stories Cooking Mode"
           >
             <Play className="w-3 h-3 fill-current" />

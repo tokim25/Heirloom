@@ -125,7 +125,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
           }}
           onKeyDown={handleKeyDown}
           placeholder="Search recipes, ingredients (e.g. olive oil, burrata)..."
-          className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-white border border-stone-200/80 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/40 shadow-xs transition-all"
+          className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-surface border border-stone-200/80 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/40 shadow-xs transition-all"
         />
 
         {searchQuery ? (
@@ -145,7 +145,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
 
       {/* Predictive Suggestions Dropdown */}
       {isOpen && searchQuery.trim().length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-stone-200 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-stone-100 max-h-[420px] overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1.5 bg-surface/95 backdrop-blur-xl border border-stone-200 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-stone-100 max-h-[420px] overflow-y-auto">
           {/* Header pill indicator */}
           <div className="px-3.5 py-2 bg-stone-50/80 flex items-center justify-between text-xs text-stone-500">
             <div className="flex items-center gap-1.5">
@@ -203,7 +203,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
                             {recipe.title}
                           </div>
                           <div className="flex items-center gap-2 text-xs text-stone-500 mt-0.5">
-                            <span className="font-medium text-amber-800">{recipe.cuisine}</span>
+                            <span className="font-medium text-amber-800 dark:text-amber-200">{recipe.cuisine}</span>
                             <span>•</span>
                             <span className="flex items-center gap-0.5">
                               <Clock className="w-2.5 h-2.5" />
@@ -291,8 +291,8 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
 
           {/* Footer keyboard hint */}
           <div className="px-3.5 py-1.5 bg-stone-50/60 text-xs text-stone-400 flex items-center justify-between">
-            <span>Press <kbd className="px-1 py-0.5 bg-white border border-stone-200 rounded text-xs">↓</kbd> <kbd className="px-1 py-0.5 bg-white border border-stone-200 rounded text-xs">↑</kbd> to navigate</span>
-            <span><kbd className="px-1 py-0.5 bg-white border border-stone-200 rounded text-xs">Enter</kbd> to select</span>
+            <span>Press <kbd className="px-1 py-0.5 bg-surface border border-stone-200 rounded text-xs">↓</kbd> <kbd className="px-1 py-0.5 bg-surface border border-stone-200 rounded text-xs">↑</kbd> to navigate</span>
+            <span><kbd className="px-1 py-0.5 bg-surface border border-stone-200 rounded text-xs">Enter</kbd> to select</span>
           </div>
         </div>
       )}

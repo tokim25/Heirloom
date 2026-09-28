@@ -205,17 +205,17 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
   return (
     <Sheet open onClose={onClose} title="Shop on Instacart" variant="bare" size="2xl">
         {/* Modal Header */}
-        <div className="p-5 sm:p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between bg-white/70">
+        <div className="p-5 sm:p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between bg-surface/70">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white flex items-center justify-center shadow-md shrink-0">
               <ShoppingBag className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
+                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
                   Instacart Shopping Handoff
                 </span>
-                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold whitespace-nowrap leading-none">
+                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold whitespace-nowrap leading-none dark:bg-emerald-900/40 dark:text-emerald-200">
                   Store Fulfillment
                 </span>
               </div>
@@ -236,10 +236,10 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
         </div>
 
         {/* Selected Store Banner (Compact, Remembers User's Default) */}
-        <div className="p-4 sm:p-5 bg-white border-b border-stone-200/90 flex flex-col gap-3">
+        <div className="p-4 sm:p-5 bg-surface border-b border-stone-200/90 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50">
                 <Store className="w-4 h-4" />
               </div>
               <div className="min-w-0">
@@ -247,8 +247,8 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                   <span className="font-semibold text-stone-900 text-sm sm:text-base truncate">
                     {selectedStore.name}
                   </span>
-                  <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full whitespace-nowrap leading-none">
-                    <Check className="w-3 h-3 text-emerald-700" />
+                  <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full whitespace-nowrap leading-none dark:bg-emerald-900/40 dark:text-emerald-200">
+                    <Check className="w-3 h-3 text-emerald-700 dark:text-emerald-300" />
                     {selectedStore.isCustom ? 'Custom Store' : 'Preferred Store'}
                   </span>
                 </div>
@@ -260,7 +260,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                   <span className="truncate">{selectedStore.tagline}</span>
                 </p>
                 {selectedStore.isCustom && (
-                  <p className="text-xs text-amber-700 mt-1">
+                  <p className="text-xs text-amber-700 mt-1 dark:text-amber-300">
                     This store is saved exactly as chosen. Instacart links will use general search because Heirloom does not have a curated shortcut for it yet.
                   </p>
                 )}
@@ -293,8 +293,8 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                       onClick={() => handleSelectStore(store)}
                       className={`p-2.5 rounded-2xl border text-left flex flex-col gap-0.5 transition-all ${
                         isSelected
-                          ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-2 ring-emerald-600/20'
-                          : 'border-stone-200 hover:border-stone-300 bg-white hover:bg-stone-50'
+                          ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-2 ring-emerald-600/20 dark:bg-emerald-950/40'
+                          : 'border-stone-200 hover:border-stone-300 bg-surface hover:bg-stone-50'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -302,7 +302,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                           {store.name}
                         </span>
                         {isSelected && (
-                          <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                          <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0 dark:text-emerald-300" />
                         )}
                       </div>
                       <span className="text-xs text-stone-500 truncate">
@@ -337,14 +337,14 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
             </p>
           )}
 
-          <div className="divide-y divide-stone-100 bg-white rounded-2xl border border-stone-200 shadow-xs">
+          <div className="divide-y divide-stone-100 bg-surface rounded-2xl border border-stone-200 shadow-xs">
             {items.map((item, idx) => {
               const qty = formatFraction(item.scaledAmount);
               return (
                 <div
                   key={item.ingredientId}
                   className={`p-3.5 flex flex-col gap-2 transition-colors ${
-                    item.isOutOfStock ? 'bg-amber-50/40' : 'hover:bg-stone-50'
+                    item.isOutOfStock ? 'bg-amber-50/40 dark:bg-amber-950/40' : 'hover:bg-stone-50'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -357,7 +357,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                           updated[idx] = { ...item, included: e.target.checked };
                           setItems(updated);
                         }}
-                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0 dark:text-emerald-400"
                         title={item.included ? 'Item included in list' : 'Item excluded from list'}
                       />
 
@@ -369,7 +369,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                           {item.name}
                         </span>
                         {item.isInPantry && (
-                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200 whitespace-nowrap leading-none">
+                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200 whitespace-nowrap leading-none dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/50">
                             In Pantry
                           </span>
                         )}
@@ -392,7 +392,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                         href={getItemSearchUrl(item.query)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-medium px-2 py-1 rounded-lg hover:bg-emerald-50 border border-emerald-200/80 transition-colors whitespace-nowrap"
+                        className="inline-flex items-center justify-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-medium px-2 py-1 rounded-lg hover:bg-emerald-50 border border-emerald-200/80 transition-colors whitespace-nowrap dark:hover:bg-emerald-950/40 dark:text-emerald-300 dark:hover:text-emerald-200 dark:border-emerald-800/50"
                         title={`Find ${item.name} at ${selectedStore.name} on Instacart`}
                       >
                         <span>Find Item</span>
@@ -403,10 +403,10 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
 
                   {/* Smart Culinary Substitution Card */}
                   {item.substitution && (
-                    <div className="mt-1 p-3 rounded-xl bg-amber-100/60 border border-amber-300/80 flex flex-col gap-2 text-xs">
+                    <div className="mt-1 p-3 rounded-xl bg-amber-100/60 border border-amber-300/80 flex flex-col gap-2 text-xs dark:bg-amber-900/40 dark:border-amber-700/60">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 font-semibold text-amber-950">
-                          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        <div className="flex items-center gap-1.5 font-semibold text-amber-950 dark:text-amber-100">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                           <span>Chef Substitution: {item.substitution.name}</span>
                         </div>
                         <button
@@ -430,7 +430,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                         type="button"
                         onClick={() => fetchSmartSubstitution(idx)}
                         disabled={item.isLoadingSub}
-                        className="flex items-center gap-1 text-emerald-700 font-medium hover:underline text-xs"
+                        className="flex items-center gap-1 text-emerald-700 font-medium hover:underline text-xs dark:text-emerald-300"
                       >
                         <RefreshCw className={`w-3 h-3 ${item.isLoadingSub ? 'animate-spin' : ''}`} />
                         <span>{item.isLoadingSub ? 'Consulting Chef…' : 'Suggest AI Substitution'}</span>
@@ -471,13 +471,13 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
             <button
               type="button"
               onClick={handleCopyList}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors shrink-0"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-300 bg-surface hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors shrink-0"
               title="Copy formatted ingredient checklist to clipboard"
             >
               {copied ? (
                 <>
-                  <CheckCheck className="w-4 h-4 text-emerald-600" />
-                  <span className="text-emerald-700">Copied!</span>
+                  <CheckCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-emerald-700 dark:text-emerald-300">Copied!</span>
                 </>
               ) : (
                 <>

@@ -515,7 +515,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   });
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} onClick={handleStoryTap} onTouchStart={handleStoryTouchStart} onTouchEnd={handleStoryTouchEnd} data-story-surface className="fixed inset-0 z-50 cursor-pointer bg-stone-950/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} onClick={handleStoryTap} onTouchStart={handleStoryTouchStart} onTouchEnd={handleStoryTouchEnd} data-story-surface className="stone-original fixed inset-0 z-50 cursor-pointer bg-ink-deep/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
       {/* Background Ambient Glow */}
       <div
         className="absolute inset-0 bg-cover bg-center opacity-15 filter blur-3xl scale-110 pointer-events-none"
@@ -604,7 +604,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                 !voiceSupported
                   ? 'bg-white/5 text-white/35 cursor-not-allowed'
                   : isVoiceActive
-                  ? 'bg-amber-400 text-stone-950 font-semibold shadow-[0_0_12px_rgba(251,191,36,0.5)]'
+                  ? 'bg-amber-400 text-on-accent font-semibold shadow-[0_0_12px_rgba(251,191,36,0.5)]'
                   : 'bg-white/10 hover:bg-white/20 text-white/90'
               }`}
               title={
@@ -653,7 +653,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       <div className="flex-1 min-h-0 w-full flex justify-center overflow-y-auto overscroll-contain z-10">
       <div className="relative w-full max-w-2xl px-4 py-2 my-auto">
         {/* The Card */}
-        <div className="w-full bg-stone-900/80 border border-white/15 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6 relative z-20">
+        <div className="w-full bg-ink/80 border border-white/15 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6 relative z-20">
           {/* Step Header */}
           <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
             <div>
@@ -679,7 +679,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
 
           {/* Interactive Cooking Timer (if step has timer) */}
           {timerSecondsLeft !== null && (
-            <div className="bg-stone-950/45 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-inner">
+            <div className="bg-ink-deep/45 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-inner">
               <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                 {/* Circular timer progress badge */}
                 <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
@@ -738,7 +738,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                   className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md transition-all ${
                     isTimerRunning
                       ? 'bg-white/20 hover:bg-white/30 text-white'
-                      : 'bg-amber-500 hover:bg-amber-400 text-stone-950'
+                      : 'bg-amber-500 hover:bg-amber-400 text-on-accent'
                   }`}
                 >
                   {isTimerRunning ? (
@@ -819,7 +819,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       {/* Hands-Free Dirty-Hands Voice Assistant Floating HUD */}
       {isVoiceActive && (
         <div className="w-full max-w-2xl px-4 z-30 flex flex-col items-center gap-1.5 animate-in slide-in-from-bottom-3 duration-200">
-          <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-stone-900/90 border border-amber-500/40 shadow-xl backdrop-blur-xl text-xs text-stone-200">
+          <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-ink/90 border border-amber-500/40 shadow-xl backdrop-blur-xl text-xs text-stone-200">
             <div className="relative flex items-center justify-center">
               <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-amber-400 opacity-75" />
               <Mic className="w-4 h-4 text-amber-400 relative z-10" />
@@ -830,7 +830,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                 Hands-Free Active:
               </span>
               {recognizedCommand ? (
-                <span className="px-2 py-0.5 rounded-lg bg-amber-400 text-stone-950 font-bold text-xs shadow-xs">
+                <span className="px-2 py-0.5 rounded-lg bg-amber-400 text-on-accent font-bold text-xs shadow-xs">
                   Heard: "{recognizedCommand}"
                 </span>
               ) : isSpeaking ? (
@@ -869,7 +869,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
 
         <button
           onClick={handleNextStep}
-          className="flex items-center gap-2 min-h-12 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-sm font-semibold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+          className="flex items-center gap-2 min-h-12 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 text-on-accent text-sm font-semibold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
         >
           {isLastStep ? (
             <>

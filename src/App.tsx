@@ -460,7 +460,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F5] text-stone-900 flex flex-col selection:bg-stone-200 w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen bg-canvas text-stone-900 flex flex-col selection:bg-stone-200 w-full max-w-full overflow-x-hidden">
       {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
@@ -502,7 +502,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setIsIngredientOrganizerOpen(true)}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-stone-200 text-stone-800 hover:bg-stone-50 text-xs font-semibold shadow-2xs transition-all"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface border border-stone-200 text-stone-800 hover:bg-stone-50 text-xs font-semibold shadow-2xs transition-all"
                 >
                   <span>Organize by Ingredient</span>
                 </button>
@@ -543,7 +543,7 @@ export default function App() {
                 aria-label="Loading your recipes"
               >
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="rounded-3xl overflow-hidden border border-stone-200/70 bg-white animate-pulse">
+                  <div key={i} className="rounded-3xl overflow-hidden border border-stone-200/70 bg-surface animate-pulse">
                     <div className="h-48 bg-stone-200/70" />
                     <div className="p-5 flex flex-col gap-3">
                       <div className="h-3 w-1/3 rounded bg-stone-200/70" />
@@ -554,7 +554,7 @@ export default function App() {
                 ))}
               </div>
             ) : filteredRecipes.length === 0 ? (
-              <div className="py-20 text-center bg-white rounded-3xl border border-stone-200/80 p-8">
+              <div className="py-20 text-center bg-surface rounded-3xl border border-stone-200/80 p-8">
                 <ChefHat className="w-12 h-12 text-stone-300 mx-auto mb-3" />
                 <h3 className="font-serif text-2xl text-stone-900">
                   {recipes.length === 0 ? 'Add your first recipe' : 'No matching recipes'}
@@ -566,7 +566,7 @@ export default function App() {
                 </p>
                 <button
                   onClick={openImport}
-                  className="mt-4 px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                  className="mt-4 px-4 py-2 rounded-xl bg-ink text-white text-xs font-semibold inline-flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Import Recipe Now</span>
@@ -754,7 +754,7 @@ export default function App() {
           role="status"
           aria-live="polite"
           className={`fixed left-4 right-4 bottom-24 xl:bottom-6 z-[60] mx-auto max-w-md rounded-2xl px-4 py-3 shadow-2xl flex items-start gap-3 text-sm ${
-            notice.type === 'error' ? 'bg-rose-700 text-white' : 'bg-stone-900 text-white'
+            notice.type === 'error' ? 'bg-rose-700 text-white' : 'bg-ink text-white'
           }`}
         >
           <span className="flex-1 leading-snug">{notice.text}</span>

@@ -28,7 +28,7 @@ export const getRecipeReviewWarnings = (recipe: Recipe): string[] =>
 
 const labelClass = 'text-xs font-semibold uppercase tracking-wider text-stone-600';
 const inputClass =
-  'px-3 min-h-11 bg-white border rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40';
+  'px-3 min-h-11 bg-surface border rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40';
 const borderFor = (missing: boolean) => (missing ? 'border-amber-500' : 'border-stone-300');
 
 export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) => {
@@ -153,7 +153,7 @@ export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) 
           <button
             type="button"
             onClick={addIngredient}
-            className="inline-flex items-center gap-1 min-h-11 px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 rounded-xl"
+            className="inline-flex items-center gap-1 min-h-11 px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 rounded-xl dark:hover:bg-amber-950/40 dark:text-amber-200"
           >
             <Plus className="w-4 h-4" />
             Add ingredient
@@ -161,7 +161,7 @@ export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) 
         </div>
         <div className="flex flex-col gap-2">
           {recipe.ingredients.map((ingredient, index) => (
-            <div key={ingredient.id} className="grid grid-cols-12 gap-2 p-2.5 bg-white border border-stone-200 rounded-2xl">
+            <div key={ingredient.id} className="grid grid-cols-12 gap-2 p-2.5 bg-surface border border-stone-200 rounded-2xl">
               <input
                 aria-label="Quantity"
                 inputMode="decimal"
@@ -181,7 +181,7 @@ export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) 
                 type="button"
                 onClick={() => removeIngredient(index)}
                 aria-label={`Remove ${ingredient.name || 'ingredient'}`}
-                className="col-span-5 sm:col-span-5 justify-self-end min-h-11 min-w-11 inline-flex items-center justify-center text-stone-500 hover:text-rose-600 rounded-xl"
+                className="col-span-5 sm:col-span-5 justify-self-end min-h-11 min-w-11 inline-flex items-center justify-center text-stone-500 hover:text-rose-600 rounded-xl dark:hover:text-rose-400"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -215,7 +215,7 @@ export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) 
           <button
             type="button"
             onClick={addStep}
-            className="inline-flex items-center gap-1 min-h-11 px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 rounded-xl"
+            className="inline-flex items-center gap-1 min-h-11 px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 rounded-xl dark:hover:bg-amber-950/40 dark:text-amber-200"
           >
             <Plus className="w-4 h-4" />
             Add step
@@ -223,9 +223,9 @@ export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) 
         </div>
         <div className="flex flex-col gap-2">
           {recipe.steps.map((step, index) => (
-            <div key={index} className="p-3 bg-white border border-stone-200 rounded-2xl flex flex-col gap-2">
+            <div key={index} className="p-3 bg-surface border border-stone-200 rounded-2xl flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full bg-stone-900 text-white text-sm font-bold flex items-center justify-center shrink-0">
+                <span className="w-8 h-8 rounded-full bg-ink text-white text-sm font-bold flex items-center justify-center shrink-0">
                   {index + 1}
                 </span>
                 <input
@@ -239,7 +239,7 @@ export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) 
                   type="button"
                   onClick={() => removeStep(index)}
                   aria-label={`Remove step ${index + 1}`}
-                  className="min-h-11 min-w-11 inline-flex items-center justify-center text-stone-500 hover:text-rose-600 rounded-xl"
+                  className="min-h-11 min-w-11 inline-flex items-center justify-center text-stone-500 hover:text-rose-600 rounded-xl dark:hover:text-rose-400"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
