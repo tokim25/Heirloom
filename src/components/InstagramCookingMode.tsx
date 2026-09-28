@@ -78,6 +78,8 @@ const readStoredCookingSession = (
   }
 };
 
+const COOKING_HINT_KEY = 'heirloom_cooking_hint_seen';
+
 export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   recipe,
   servings,
@@ -113,6 +115,14 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   );
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<any>(null);
+
+  const [showHint, setShowHint] = useState(() => {
+    try {
+      return window.localStorage.getItem(COOKING_HINT_KEY) !== '1';
+    } catch {
+      return true;
+    }
+  });
 
   const currentStep = recipe.steps[currentStepIndex];
   const isLastStep = currentStepIndex === totalSteps - 1;
@@ -244,6 +254,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   };
 
   const handleNextStep = () => {
+    dismissHint();
     if (soundEnabled) sounds.playCheckTick();
     if (currentStepIndex < totalSteps - 1) {
       setCurrentStepIndex((prev) => prev + 1);
@@ -263,34 +274,59 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   };
 
   const handlePrevStep = () => {
+    dismissHint();
     if (currentStepIndex > 0) {
       if (soundEnabled) sounds.playCheckTick();
       setCurrentStepIndex((prev) => prev - 1);
     }
   };
 
-  // Story navigation: tap the left third to go back, anywhere else to go forward, or swipe.
-  // Buttons, links and form fields inside the card keep their own behavior.
-  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  // Story navigation, like Instagram: tap the left third of the screen to go back and the rest to
+  // go forward; swipe left/right to move and swipe up to close. Buttons, links and form fields keep
+  // their own behavior, and text selection or scrolling a long step never navigates.
+  const swipeStartRef = useRef<{ x: number; y: number; inScrollable: boolean } | null>(null);
   const ignoreTapUntilRef = useRef(0);
+
+  const dismissHint = () => {
+    setShowHint(false);
+    try {
+      window.localStorage.setItem(COOKING_HINT_KEY, '1');
+    } catch {
+      // Private mode: the hint just shows again next time.
+    }
+  };
 
   const handleStoryTap = (e: React.MouseEvent<HTMLDivElement>) => {
     if (Date.now() < ignoreTapUntilRef.current) return;
     const target = e.target as HTMLElement;
     if (target.closest('button, a, input, select, textarea, label, summary, [data-no-tap]')) return;
-    if (window.getSelection()?.toString()) return; // the reader is selecting text, not navigating
+    if (window.getSelection()?.toString()) return;
+    dismissHint();
     const rect = e.currentTarget.getBoundingClientRect();
     if (e.clientX - rect.left < rect.width * 0.3) {
       handlePrevStep();
     } else if (!isLastStep) {
-      // On the last step, only the Finish button finishes, so a stray tap cannot fire the confetti.
+      // On the last step only the Finish button finishes, so a stray tap cannot fire the confetti.
       handleNextStep();
     }
   };
 
+  // True when the touch began inside something that can still scroll vertically (a long step).
+  const startsInScrollableArea = (target: EventTarget | null, root: HTMLElement) => {
+    let node = target as HTMLElement | null;
+    while (node && node !== root) {
+      const overflowY = window.getComputedStyle(node).overflowY;
+      if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 1) return true;
+      node = node.parentElement;
+    }
+    return false;
+  };
+
   const handleStoryTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     const touch = e.touches[0];
-    swipeStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    swipeStartRef.current = touch
+      ? { x: touch.clientX, y: touch.clientY, inScrollable: startsInScrollableArea(e.target, e.currentTarget) }
+      : null;
   };
 
   const handleStoryTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -300,8 +336,16 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     if (!start || !touch) return;
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
+
+    // Swipe up closes the cooking view (unless the finger was scrolling a long step).
+    if (dy < -80 && Math.abs(dy) > Math.abs(dx) * 1.5 && !start.inScrollable) {
+      ignoreTapUntilRef.current = Date.now() + 400;
+      onClose();
+      return;
+    }
     if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
     ignoreTapUntilRef.current = Date.now() + 400; // a swipe must not also count as a tap
+    dismissHint();
     if (dx < 0) {
       if (!isLastStep) handleNextStep();
     } else {
@@ -471,7 +515,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   });
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} className="fixed inset-0 z-50 bg-stone-950/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} onClick={handleStoryTap} onTouchStart={handleStoryTouchStart} onTouchEnd={handleStoryTouchEnd} data-story-surface className="fixed inset-0 z-50 cursor-pointer bg-stone-950/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
       {/* Background Ambient Glow */}
       <div
         className="absolute inset-0 bg-cover bg-center opacity-15 filter blur-3xl scale-110 pointer-events-none"
@@ -509,6 +553,12 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
             );
           })}
         </div>
+
+        {showHint && (
+          <p role="status" className="self-center rounded-full bg-white/10 px-4 py-2 text-sm text-white/90 text-center">
+            Tap the right side for next, the left for back. Swipe up to close.
+          </p>
+        )}
 
         {/* Top Controls Bar */}
         <div className="flex items-center justify-between text-white/90">
@@ -599,15 +649,9 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         )}
       </div>
 
-      {/* Main Story Content Card. The whole area is the tap surface: left third = back, rest = next. */}
-      <div
-        onClick={handleStoryTap}
-        onTouchStart={handleStoryTouchStart}
-        onTouchEnd={handleStoryTouchEnd}
-        data-story-surface
-        className="flex-1 w-full flex justify-center z-10 cursor-pointer"
-      >
-      <div className="relative flex-1 w-full max-w-2xl px-4 py-2 flex flex-col justify-center">
+      {/* Main Story Content Card. Long steps scroll inside this area. */}
+      <div className="flex-1 min-h-0 w-full flex justify-center overflow-y-auto overscroll-contain z-10">
+      <div className="relative w-full max-w-2xl px-4 py-2 my-auto">
         {/* The Card */}
         <div className="w-full bg-stone-900/80 border border-white/15 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6 relative z-20">
           {/* Step Header */}
@@ -626,25 +670,6 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                 <span>{currentStep.temperature}</span>
               </div>
             )}
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-white/70">
-            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
-              <span className="block text-white font-semibold">Move</span>
-              Tap left or right, swipe, or arrow keys
-            </div>
-            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
-              <span className="block text-white font-semibold">Timer</span>
-              Space bar or Start/Pause
-            </div>
-            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
-              <span className="block text-white font-semibold">Voice</span>
-              Say "next", "back", or "repeat"
-            </div>
-            <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
-              <span className="block text-white font-semibold">Close</span>
-              Escape or the top-left button
-            </div>
           </div>
 
           {/* Step Instruction Text */}
@@ -839,7 +864,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         </button>
 
         <span className="text-xs text-white/60 font-medium hidden sm:inline">
-          Tap the left or right of the card, swipe, or use arrow keys
+          Tap the sides, swipe, or use arrow keys. Swipe up to close.
         </span>
 
         <button
