@@ -9,7 +9,7 @@ interface WelcomeScreenProps {
 const FEATURES = [
   { icon: Sparkles, title: 'Import from anywhere', body: 'Links, videos, photos of recipe cards, and PDFs become clean recipes.' },
   { icon: BookOpen, title: 'On every device', body: 'Your cookbook syncs automatically, with an optional copy in Google Drive.' },
-  { icon: ShoppingBag, title: 'Shop together', body: 'Share grocery lists with your household and send them to Instacart.' },
+  { icon: ShoppingBag, title: 'Shop together', body: 'Share grocery lists with your household, then shop them at your store on Instacart.' },
 ];
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSignIn, errorMessage }) => {

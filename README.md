@@ -37,10 +37,11 @@ Add the following DNS record in your domain registrar / DNS provider (e.g. Cloud
   - Built-in per-step countdown kitchen timers with audio alarms, "+1 min" adjustments, and background ambient ticks.
   - Temperature highlights with conversion tooltips.
   - Confetti celebration upon recipe completion.
-- **Instacart Integration & Smart Out-of-Stock Substitutions**:
-  - Connects to your favorite stores: *Whole Foods Market, Trader Joe's, Safeway, Kroger, Wegmans, and Sprouts*.
-  - Guided shopping handoff with store and item search links.
-  - Smart culinary AI substitutions when items are out of stock (exact substitution ratios and culinary reasoning).
+- **Shop on Instacart (manual, fast)**:
+  - The shopping screen lists only what you still need, grouped by store aisle, with a one-tap Instacart search for each item at your chosen store (Whole Foods, Trader Joe's, Safeway, Kroger, Wegmans, Sprouts, Costco, H Mart).
+  - Tick an item once it is in your Instacart cart; that checks it off the shared list for everyone in the household.
+  - Adding a recipe combines repeats (1 lb + 2 lb of beef becomes 3 lb) instead of listing them twice. AI suggests a swap when an item is out of stock. Copy or share the list, grouped by aisle.
+  - Heirloom cannot fill an Instacart cart in one step: that needs Instacart's Developer Platform API, whose program is currently closed to new applicants.
 - **Shared Household**:
   - Invite a partner or family member with one code. Everyone in the household shares the cookbook and grocery lists.
   - Grocery lists update live on every device; checking an item off plays a chime for everyone else.

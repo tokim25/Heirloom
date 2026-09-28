@@ -27,6 +27,7 @@ import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
 export interface AddToGroceryListResult {
   success: boolean;
   message: string;
+  listId?: string;
   listTitle?: string;
 }
 
@@ -395,8 +396,8 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
           <button
             type="button"
             onClick={() => onOpenInstacart(recipe, servings)}
-            aria-label="Shop on Instacart"
-            title="Shop on Instacart"
+            aria-label="Add to list and shop on Instacart"
+            title="Add to list and shop on Instacart"
             className="min-h-12 min-w-12 sm:px-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium active:scale-[0.98] transition-all"
           >
             <ShoppingBag className="w-5 h-5" aria-hidden="true" />
