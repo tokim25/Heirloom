@@ -17,12 +17,26 @@ interface SheetProps {
   description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl';
+  /**
+   * 'bare' supplies only the backdrop, panel and behavior and lets the children draw their own
+   * header and body (for windows with a custom layout). 'standard' adds the title bar and footer.
+   */
+  variant?: 'standard' | 'bare';
+  /** 'right' makes a full-height drawer (used by Chef AI chat). */
+  placement?: 'center' | 'right';
   /** Set false while something is saving so the sheet cannot be dismissed mid-write. */
   dismissible?: boolean;
 }
 
-const SIZES = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-xl', xl: 'sm:max-w-4xl' } as const;
+const SIZES = {
+  sm: 'sm:max-w-sm',
+  md: 'sm:max-w-md',
+  lg: 'sm:max-w-lg',
+  xl: 'sm:max-w-xl',
+  '2xl': 'sm:max-w-2xl',
+  '4xl': 'sm:max-w-4xl',
+} as const;
 
 /**
  * The one dialog primitive for Heirloom: a bottom sheet on phones and a centered card on larger
@@ -35,7 +49,9 @@ export const Sheet: React.FC<SheetProps> = ({
   description,
   children,
   footer,
-  size = 'lg',
+  size = 'xl',
+  variant = 'standard',
+  placement = 'center',
   dismissible = true,
 }) => {
   const id = useId();
@@ -99,9 +115,16 @@ export const Sheet: React.FC<SheetProps> = ({
 
   if (!open) return null;
 
+  const isDrawer = placement === 'right';
+  const panelClass = isDrawer
+    ? `sheet-drawer w-full ${SIZES[size]} bg-[#FAF9F5] h-full shadow-2xl border-l border-stone-200 flex flex-col overflow-hidden focus:outline-none`
+    : `sheet-panel relative w-full ${SIZES[size]} bg-[#FAF9F5] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 flex flex-col max-h-[94dvh] sm:max-h-[90dvh] overflow-hidden focus:outline-none`;
+
   return createPortal(
     <div
-      className="sheet-backdrop fixed inset-0 z-50 bg-stone-950/55 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-6"
+      className={`sheet-backdrop fixed inset-0 z-50 bg-stone-950/55 backdrop-blur-sm flex ${
+        isDrawer ? 'justify-end' : 'items-end sm:items-center justify-center sm:p-6'
+      }`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && dismissible) onClose();
       }}
@@ -110,39 +133,51 @@ export const Sheet: React.FC<SheetProps> = ({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={`${id}-title`}
+        aria-label={variant === 'bare' ? title : undefined}
+        aria-labelledby={variant === 'bare' ? undefined : `${id}-title`}
         aria-describedby={description ? `${id}-desc` : undefined}
         tabIndex={-1}
-        className={`sheet-panel w-full ${SIZES[size]} bg-[#FAF9F5] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 flex flex-col max-h-[94dvh] sm:max-h-[90dvh] overflow-hidden focus:outline-none`}
+        className={panelClass}
       >
-        <div className="px-6 pt-5 pb-4 border-b border-stone-200/80 flex items-start justify-between gap-3 shrink-0">
-          <div className="min-w-0">
-            <h2 id={`${id}-title`} className="font-serif text-2xl text-stone-900 leading-tight">
-              {title}
-            </h2>
-            {description && (
-              <p id={`${id}-desc`} className="text-sm text-stone-600 mt-0.5">
-                {description}
-              </p>
+        {variant === 'bare' ? (
+          children
+        ) : (
+          <>
+            <div className="px-6 pt-5 pb-4 border-b border-stone-200/80 flex items-start justify-between gap-3 shrink-0">
+              <div className="min-w-0">
+                <h2 id={`${id}-title`} className="font-serif text-2xl text-stone-900 leading-tight">
+                  {title}
+                </h2>
+                {description && (
+                  <p id={`${id}-desc`} className="text-sm text-stone-600 mt-0.5">
+                    {description}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={!dismissible}
+                aria-label="Close"
+                className="min-h-11 min-w-11 -mr-2 -mt-1 inline-flex items-center justify-center rounded-full text-stone-500 hover:bg-stone-200 hover:text-stone-900 disabled:opacity-40"
+              >
+                <X className="w-5 h-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div data-sheet-body className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 flex flex-col gap-4">
+              {children}
+            </div>
+
+            {footer && (
+              <div
+                data-sheet-footer
+                className="px-4 sm:px-6 pt-3 border-t border-stone-200/80 flex items-center justify-end gap-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              >
+                {footer}
+              </div>
             )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={!dismissible}
-            aria-label="Close"
-            className="min-h-11 min-w-11 -mr-2 -mt-1 inline-flex items-center justify-center rounded-full text-stone-500 hover:bg-stone-200 hover:text-stone-900 disabled:opacity-40"
-          >
-            <X className="w-5 h-5" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div data-sheet-body className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 flex flex-col gap-4">{children}</div>
-
-        {footer && (
-          <div data-sheet-footer className="px-4 sm:px-6 pt-3 border-t border-stone-200/80 flex items-center justify-end gap-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            {footer}
-          </div>
+          </>
         )}
       </div>
     </div>,

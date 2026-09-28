@@ -9,6 +9,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { fahrenheitToCelsius, celsiusToFahrenheit } from '../utils/units.ts';
+import { Sheet } from './ui/Sheet.tsx';
 
 interface UnitConverterModalProps {
   onClose: () => void;
@@ -62,8 +63,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-lg bg-[#FAF9F5] rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col my-auto">
+    <Sheet open onClose={onClose} title="Culinary converter" variant="bare" size="lg">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -353,7 +353,6 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
             Done
           </button>
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };

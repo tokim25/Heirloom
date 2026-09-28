@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Recipe, Ingredient, GroceryList } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, UnitSystem, formatStepTemperatures } from '../utils/units.ts';
+import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
 
 export interface AddToGroceryListResult {
   success: boolean;
@@ -59,6 +60,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   const [addListStatus, setAddListStatus] = useState<AddToGroceryListResult | null>(null);
   const [isAddingToList, setIsAddingToList] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     setImageFailed(false);
@@ -84,8 +86,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   }, {});
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-4xl bg-[#FAF9F5] rounded-3xl shadow-2xl border border-stone-200 overflow-hidden my-auto max-h-[92vh] flex flex-col">
+    <Sheet open onClose={onClose} title={recipe.title} variant="bare" size="4xl">
         {/* Floating Edit and Close Buttons */}
         <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
           {onEditRecipe && (
@@ -451,12 +452,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
           {onDeleteRecipe && (
             <div className="pt-6 border-t border-stone-200 flex justify-end">
               <button
-                onClick={() => {
-                  if (confirm(`Delete "${recipe.title}" from your cookbook?`)) {
-                    onDeleteRecipe(recipe.id);
-                    onClose();
-                  }
-                }}
+                onClick={() => setConfirmingDelete(true)}
                 className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 hover:underline"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -465,7 +461,19 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      <ConfirmSheet
+        open={confirmingDelete}
+        title={`Delete "${recipe.title}"?`}
+        message="This removes the recipe from your cookbook for everyone in your household. This can't be undone."
+        confirmLabel="Delete recipe"
+        destructive
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => {
+          setConfirmingDelete(false);
+          onDeleteRecipe?.(recipe.id);
+          onClose();
+        }}
+      />
+    </Sheet>
   );
 };

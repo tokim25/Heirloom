@@ -49,6 +49,7 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({ recipe, onSave
       open
       onClose={requestClose}
       title="Edit recipe"
+      size="xl"
       dismissible={!isSaving}
       footer={
         <>
