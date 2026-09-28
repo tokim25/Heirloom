@@ -16,6 +16,7 @@ import {
   Youtube,
   Sparkles,
   AlertCircle,
+  ChefHat,
 } from 'lucide-react';
 import { Recipe, Ingredient, GroceryList } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, UnitSystem, formatStepTemperatures } from '../utils/units.ts';
@@ -54,6 +55,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   const [selectedListId, setSelectedListId] = useState(currentListId || groceryLists[0]?.id || '');
   const [addListStatus, setAddListStatus] = useState<AddToGroceryListResult | null>(null);
   const [isAddingToList, setIsAddingToList] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   const handleAddGroceries = async () => {
     setIsAddingToList(true);
@@ -88,11 +90,19 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
 
         {/* Hero Section */}
         <div className="relative h-64 sm:h-80 w-full overflow-hidden bg-stone-200 shrink-0">
-          <img
-            src={recipe.heroImage}
-            alt={recipe.title}
-            className="w-full h-full object-cover"
-          />
+          {recipe.heroImage && !imageFailed ? (
+            <img
+              src={recipe.heroImage}
+              alt={recipe.title}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-amber-50 via-stone-100 to-stone-300 flex items-center justify-center">
+              <ChefHat className="w-14 h-14 text-amber-800/60" />
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
           {/* Hero Content Overlay */}

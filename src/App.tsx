@@ -55,6 +55,14 @@ import { createRecipeSearchIndex } from './utils/searchEngine.ts';
 
 const localRecipesKey = (householdId?: string) => `heirloom_saved_recipes_${householdId || 'local'}`;
 
+const DEFAULT_RECIPE_IDS = new Set([
+  'salmon-skillet-01',
+  'tuscan-kale-stew-02',
+  'biang-biang-noodles-03',
+]);
+
+const isDefaultRecipe = (recipe: Recipe) => DEFAULT_RECIPE_IDS.has(recipe.id);
+
 const readLocalRecipes = (householdId?: string): Recipe[] => {
   if (typeof window === 'undefined') return [];
   try {
@@ -153,7 +161,11 @@ export default function App() {
         const res = await fetch(`/api/recipes?${householdScope}`);
         if (res.ok) {
           const data = await res.json();
-          setRecipes(mergeRecipesById(readLocalRecipes(householdId), data.recipes || []));
+          const localRecipes = readLocalRecipes(householdId);
+          const serverRecipes = Array.isArray(data.recipes) ? data.recipes : [];
+          const visibleServerRecipes =
+            localRecipes.length > 0 ? serverRecipes.filter((recipe: Recipe) => !isDefaultRecipe(recipe)) : serverRecipes;
+          setRecipes(mergeRecipesById(localRecipes, visibleServerRecipes));
         }
       } catch (err) {
         console.error('Failed to load recipes:', err);

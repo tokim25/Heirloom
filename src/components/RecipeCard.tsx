@@ -1,5 +1,5 @@
-import React from 'react';
-import { Clock, Users, Play, ShoppingBag, Youtube, ExternalLink, Bookmark } from 'lucide-react';
+import React, { useState } from 'react';
+import { Play, ShoppingBag, Youtube, ExternalLink, ChefHat } from 'lucide-react';
 import { Recipe } from '../types/recipe.ts';
 
 interface RecipeCardProps {
@@ -15,6 +15,8 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
   onStartCooking,
   onAddToGroceries,
 }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+
   return (
     <article
       onClick={() => onSelect(recipe)}
@@ -22,13 +24,21 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
     >
       {/* Cinematic Photography Frame */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
-        <img
-          src={recipe.heroImage}
-          alt={recipe.title}
-          className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500 ease-out"
-          loading="lazy"
-          referrerPolicy="no-referrer"
-        />
+        {recipe.heroImage && !imageFailed ? (
+          <img
+            src={recipe.heroImage}
+            alt={recipe.title}
+            className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500 ease-out"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-amber-50 via-stone-100 to-stone-200 flex flex-col items-center justify-center text-center px-6">
+            <ChefHat className="w-9 h-9 text-amber-700/70 mb-3" />
+            <span className="font-serif text-lg text-stone-800 line-clamp-2">{recipe.title}</span>
+          </div>
+        )}
 
         {/* Ambient Dark Gradient for depth */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-40 group-hover:opacity-60 transition-opacity" />

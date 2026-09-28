@@ -259,6 +259,8 @@ const DEFAULT_RECIPES: Recipe[] = [
   },
 ];
 
+const DEFAULT_RECIPE_IDS = new Set(DEFAULT_RECIPES.map((recipe) => recipe.id));
+
 // Helper functions for persistent files
 function loadData<T>(file: string, fallback: T): T {
   try {
@@ -411,6 +413,10 @@ function isRecipeVisibleToHousehold(recipe: Recipe, householdId?: string): boole
   return !householdId || !recipe.householdId || recipe.householdId === householdId;
 }
 
+function isDefaultRecipe(recipe: Recipe): boolean {
+  return DEFAULT_RECIPE_IDS.has(recipe.id);
+}
+
 function isListVisibleToHousehold(list: GroceryList, householdId?: string | null): boolean {
   return !householdId || list.householdId === householdId;
 }
@@ -552,7 +558,14 @@ app.put('/api/auth/profile', (req: Request, res: Response) => {
 
 app.get('/api/recipes', (req: Request, res: Response) => {
   const householdId = householdIdFromRequest(req);
-  return res.json({ recipes: recipes.filter((recipe) => isRecipeVisibleToHousehold(recipe, householdId)) });
+  if (!householdId) {
+    return res.json({ recipes: recipes.filter(isDefaultRecipe) });
+  }
+
+  const householdRecipes = recipes.filter((recipe) => recipe.householdId === householdId);
+  return res.json({
+    recipes: householdRecipes.length > 0 ? householdRecipes : recipes.filter(isDefaultRecipe),
+  });
 });
 
 app.post('/api/recipes', (req: Request, res: Response) => {
