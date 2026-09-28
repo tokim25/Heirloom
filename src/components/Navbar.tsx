@@ -7,8 +7,6 @@ import {
   User as UserIcon,
   Calculator,
   UtensilsCrossed,
-  Bug,
-  Github,
   Download,
   MoreHorizontal,
   ChevronDown,
@@ -24,8 +22,6 @@ interface NavbarProps {
   onOpenConverter: () => void;
   onOpenChat: () => void;
   onOpenPantry: () => void;
-  onOpenBugReport: () => void;
-  onOpenGitHub: () => void;
   onOpenDriveBackup?: () => void;
   onOpenIngredientOrganizer?: () => void;
   canInstallPwa?: boolean;
@@ -41,8 +37,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenConverter,
   onOpenChat,
   onOpenPantry,
-  onOpenBugReport,
-  onOpenGitHub,
   onOpenDriveBackup,
   onOpenIngredientOrganizer,
   canInstallPwa,
@@ -208,8 +202,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <Cloud className="w-4 h-4 text-amber-600 shrink-0" />
                       <div className="flex flex-col min-w-0">
-                        <span className="font-medium">Google Drive Vault</span>
-                        <span className="text-[10px] text-stone-600 truncate">Recipe file storage & backups</span>
+                        <span className="font-medium">Google Drive Copy</span>
+                        <span className="text-[10px] text-stone-600 truncate">Automatic copy of your cookbook</span>
                       </div>
                     </button>
                   )}
@@ -275,32 +269,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </div>
 
-                <div className="border-t border-stone-100 py-1">
-                  <div className="px-3.5 py-1 text-[10px] font-semibold tracking-wider uppercase text-stone-500">
-                    Support
-                  </div>
-                  <button
-                    onClick={() => {
-                      setIsToolsMenuOpen(false);
-                      onOpenGitHub();
-                    }}
-                    className="w-full px-3.5 py-1.5 text-xs text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
-                  >
-                    <Github className="w-3.5 h-3.5 text-stone-500 shrink-0" />
-                    <span className="truncate">GitHub Repository & Issues</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsToolsMenuOpen(false);
-                      onOpenBugReport();
-                    }}
-                    className="w-full px-3.5 py-1.5 text-xs text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
-                  >
-                    <Bug className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                    <span className="truncate">Report a Bug via Sentry</span>
-                  </button>
-                </div>
               </div>
             )}
           </div>

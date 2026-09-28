@@ -41,23 +41,23 @@ Add the following DNS record in your domain registrar / DNS provider (e.g. Cloud
   - Connects to your favorite stores: *Whole Foods Market, Trader Joe's, Safeway, Kroger, Wegmans, and Sprouts*.
   - Guided shopping handoff with store and item search links.
   - Smart culinary AI substitutions when items are out of stock (exact substitution ratios and culinary reasoning).
-- **Multi-User Real-time Grocery Lists & Family Task Division**:
-  - Divide grocery shopping tasks between partners ("Tokim", "Alex", "Anyone") to avoid duplicate purchases.
-  - Organized by supermarket aisles (Produce, Dairy, Meat & Seafood, Pantry, Bakery, etc.).
-  - Real-time Server-Sent Events (SSE) and Firebase Firestore synchronization with instant audio chimes and partner activity banners when items are checked off.
-- **Persistence & Cloud Sync**:
-  - Backed by Firebase Firestore for cross-device synchronization and persistent cloud storage.
-- **Sentry Telemetry & Bug Tracking**:
-  - Client-side error tracking and in-app bug reporting modal capturing diagnostic breadcrumbs, browser metadata, and direct submission to Sentry & GitHub Issues.
+- **Shared Household**:
+  - Invite a partner or family member with one code. Everyone in the household shares the cookbook and grocery lists.
+  - Grocery lists update live on every device; checking an item off plays a chime for everyone else.
+- **Sync & Google Drive Copy**:
+  - Firestore is the single source of truth. Recipes and lists sync across devices and stay readable offline.
+  - Optional Google Drive copy: one `Heirloom Recipes.json` file in your Drive, kept up to date while you use the app.
+- **Sentry Telemetry**:
+  - Client-side error tracking.
 
 ---
 
 ## 🛠 Tech Stack
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS v4, Lucide Icons, Canvas Confetti
-- **Backend / Proxy**: Node.js, Express, Server-Sent Events (SSE)
+- **Backend**: Stateless Express AI proxy on Vercel. Every `/api` call requires a Firebase ID token.
 - **AI & Vision Engine**: `@google/genai` (Gemini 2.5 Flash)
-- **Database & Sync**: Firebase Firestore & SSE real-time broadcast
+- **Database & Sync**: Firebase Auth + Firestore (offline cache, household-scoped security rules in `firestore.rules`)
 - **Monitoring & Crash Reporting**: `@sentry/react`
 
 ---
@@ -92,7 +92,21 @@ cp .env.example .env.local
 
 Required keys:
 - `GEMINI_API_KEY`: Google Gemini API key for recipe parsing and smart culinary substitutions.
+- `VITE_FIREBASE_AUTH_DOMAIN`: production only, set to `heirloom.tonykim.io` (see below).
 - `VITE_SENTRY_DSN`: Sentry DSN for error telemetry (optional).
+
+### Deploy Firestore security rules
+
+The app stores everything in Firestore under `users/`, `households/` and `invites/`. Deploy the rules before shipping:
+
+```bash
+npx firebase-tools deploy --only firestore:rules --project nth-imagery-298121
+```
+
+### Same-origin Google sign-in (iOS Safari and the installed app)
+
+1. In Google Cloud Console > APIs & Services > Credentials, open the OAuth web client used by Firebase and add `https://heirloom.tonykim.io/__/auth/handler` to **Authorized redirect URIs**.
+2. In Vercel, set `VITE_FIREBASE_AUTH_DOMAIN=heirloom.tonykim.io` and redeploy. `vercel.json` already proxies `/__/auth/*` to Firebase.
 
 ### 4. Run the development server
 

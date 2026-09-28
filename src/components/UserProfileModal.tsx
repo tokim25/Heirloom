@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { GroceryList, Recipe } from '../types/recipe.ts';
+import { formatInviteCode } from '../utils/firestoreService.ts';
 import { STORE_NAMES } from '../utils/storeOptions.ts';
 
 interface UserProfileModalProps {
@@ -49,6 +50,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     updateProfile,
     isGoogleSignedIn,
     isGoogleConnected,
+    isDriveCopyEnabled,
+    household,
     signInWithGoogle,
     authErrorMessage,
     clearAuthError,
@@ -60,14 +63,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       typeof window !== 'undefined' ? localStorage.getItem('heirloom_preferred_store') : null;
     return savedLocal || user?.preferredStore || 'Whole Foods Market';
   });
-  const [partnerEmail, setPartnerEmail] = useState(user?.partnerEmail || '');
   const [dietaryPreferences, setDietaryPreferences] = useState<string[]>(user?.dietaryPreferences || ['High-Protein']);
   const [customTagInput, setCustomTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [authError, setAuthError] = useState<{ message: string; isDomainError?: boolean } | null>(null);
-  const [copiedInviteCode, setCopiedInviteCode] = useState<string | null>(null);
+  const [copiedInvite, setCopiedInvite] = useState(false);
 
   // Dynamically extract every unique tag present in the user's cookbook
   const dynamicCookbookTags = useMemo(() => {
@@ -94,81 +96,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     return Array.from(combined);
   }, [dynamicCookbookTags, dietaryPreferences]);
 
-  const householdMembers = useMemo(() => {
-    const memberMap = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        email: string;
-        avatarUrl?: string;
-        color?: string;
-        status: 'active' | 'pending';
-        lists: string[];
-        isCurrentUser?: boolean;
-      }
-    >();
-
-    if (user?.email) {
-      memberMap.set(user.email.toLowerCase(), {
-        id: user.id,
-        name: user.name || 'You',
-        email: user.email,
-        avatarUrl: user.avatarUrl,
-        color: '#059669',
-        status: 'active',
-        lists: [],
-        isCurrentUser: true,
-      });
-    }
-
-    groceryLists.forEach((list) => {
-      list.collaborators.forEach((collaborator) => {
-        const key = collaborator.email.toLowerCase();
-        const existing = memberMap.get(key);
-        const lists = existing?.lists ? [...existing.lists] : [];
-        if (!lists.includes(list.title)) lists.push(list.title);
-
-        memberMap.set(key, {
-          id: collaborator.id,
-          name: collaborator.name,
-          email: collaborator.email,
-          avatarUrl: collaborator.avatarUrl,
-          color: collaborator.color,
-          status: collaborator.status || 'active',
-          lists,
-          isCurrentUser: existing?.isCurrentUser || collaborator.email === user?.email,
-        });
-      });
-    });
-
-    const pendingPartnerEmail = partnerEmail.trim();
-    if (pendingPartnerEmail && !memberMap.has(pendingPartnerEmail.toLowerCase())) {
-      memberMap.set(pendingPartnerEmail.toLowerCase(), {
-        id: `pending-${pendingPartnerEmail}`,
-        name: pendingPartnerEmail.split('@')[0] || 'Pending invite',
-        email: pendingPartnerEmail,
-        color: '#D97706',
-        status: 'pending',
-        lists: [],
-      });
-    }
-
-    return Array.from(memberMap.values()).sort((a, b) => {
-      if (a.isCurrentUser) return -1;
-      if (b.isCurrentUser) return 1;
-      if (a.status !== b.status) return a.status === 'active' ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
-  }, [groceryLists, partnerEmail, user]);
-
-  const householdStats = useMemo(
-    () => ({
-      active: householdMembers.filter((member) => member.status === 'active').length,
-      pending: householdMembers.filter((member) => member.status === 'pending').length,
-    }),
-    [householdMembers]
+  const householdMembers = useMemo(
+    () =>
+      Object.values(household?.members || {}).sort((a, b) => {
+        if (a.id === user?.id) return -1;
+        if (b.id === user?.id) return 1;
+        return a.name.localeCompare(b.name);
+      }),
+    [household, user?.id]
   );
+  const inviteCode = household?.inviteCode ? formatInviteCode(household.inviteCode) : '';
 
   const toggleDiet = (item: string) => {
     setDietaryPreferences((prev) =>
@@ -186,14 +123,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     }
   };
 
-  const handleCopyInvite = async (list: GroceryList) => {
-    const inviteText = `Join my Heirloom Kitchen grocery list "${list.title}" with invite code ${list.inviteCode}.`;
+  const handleCopyInvite = async () => {
+    if (!inviteCode) return;
+    const inviteText = `Join my kitchen on Heirloom to share recipes and grocery lists.\nInvite code: ${inviteCode}\nOpen https://heirloom.tonykim.io, then Groceries > + > Join with code.`;
     try {
       await navigator.clipboard.writeText(inviteText);
-      setCopiedInviteCode(list.inviteCode);
-      setTimeout(() => setCopiedInviteCode(null), 1800);
+      setCopiedInvite(true);
+      setTimeout(() => setCopiedInvite(false), 1800);
     } catch {
-      setCopiedInviteCode(null);
+      setCopiedInvite(false);
     }
   };
 
@@ -234,7 +172,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     try {
       await updateProfile({
         preferredStore,
-        partnerEmail,
         dietaryPreferences,
       });
       setIsSaved(true);
@@ -322,8 +259,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
                     <ShieldCheck className={`w-4 h-4 ${isGoogleConnected ? 'text-emerald-600' : 'text-stone-400'}`} />
                     {isGoogleConnected
-                      ? 'Google Drive Manual Backups Active'
-                      : 'Google Drive Backups Need Authorization'}
+                      ? 'Google Drive copy is on'
+                      : isDriveCopyEnabled
+                      ? 'Google Drive copy is paused'
+                      : 'Synced across your devices'}
                   </span>
                   {onOpenDriveBackup && (
                     <button
@@ -334,7 +273,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       }}
                       className="text-amber-700 hover:text-amber-800 font-medium underline flex items-center gap-1"
                     >
-                      <span>{isGoogleConnected ? 'Manage Backups' : 'Authorize Drive Backups'}</span>
+                      <span>{isGoogleConnected ? 'Drive settings' : isDriveCopyEnabled ? 'Reconnect Drive' : 'Copy to Google Drive'}</span>
                       <ExternalLink className="w-3 h-3" />
                     </button>
                   )}
@@ -365,10 +304,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
                   <div>
                     <h3 className="font-semibold text-stone-900 text-sm sm:text-base">
-                      Sign in & Sync with Google Drive
+                      Sign in to sync your cookbook
                     </h3>
                     <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">
-                      Save your cookbook to your account and authorize Drive file access for recipe sync and backups.
+                      Your recipes and grocery lists follow you to every device you sign in on.
                     </p>
                   </div>
                 </div>
@@ -404,7 +343,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                           d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                         />
                       </svg>
-                      <span>Continue with Google Drive</span>
+                      <span>Continue with Google</span>
                     </>
                   )}
                 </button>
@@ -544,112 +483,64 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <div>
                   <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
                     <Users className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Household Members & Invites</span>
+                    <span>Household</span>
                   </label>
                   <p className="text-[11px] text-stone-500 mt-0.5">
-                    See who can shop shared lists and copy invite codes for new collaborators.
+                    Everyone here shares the cookbook and grocery lists.
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold">
-                  <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                    {householdStats.active} active
-                  </span>
-                  {householdStats.pending > 0 && (
-                    <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100">
-                      {householdStats.pending} pending
-                    </span>
-                  )}
-                </div>
+                <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-semibold">
+                  {householdMembers.length} {householdMembers.length === 1 ? 'member' : 'members'}
+                </span>
               </div>
 
               <div className="flex flex-col divide-y divide-stone-100 border border-stone-100 rounded-2xl overflow-hidden">
                 {householdMembers.length > 0 ? (
                   householdMembers.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between gap-3 p-3 bg-stone-50/60">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {member.avatarUrl ? (
-                          <img
-                            src={member.avatarUrl}
-                            alt={member.name}
-                            className="w-9 h-9 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                            style={{ backgroundColor: member.color || '#57534E' }}
-                          >
-                            {(member.name || member.email).charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-semibold text-stone-900 truncate">
-                              {member.isCurrentUser ? 'You' : member.name}
-                            </span>
-                            <span
-                              className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
-                                member.status === 'active'
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : 'bg-amber-100 text-amber-800'
-                              }`}
-                            >
-                              {member.status}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-stone-500 truncate">{member.email}</p>
-                          {member.lists.length > 0 && (
-                            <p className="text-[10px] text-stone-400 truncate">
-                              {member.lists.length === 1
-                                ? member.lists[0]
-                                : `${member.lists.length} shared lists`}
-                            </p>
-                          )}
+                    <div key={member.id} className="flex items-center gap-3 p-3 bg-stone-50/60">
+                      {member.avatarUrl ? (
+                        <img src={member.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-stone-700 flex items-center justify-center text-white text-sm font-bold">
+                          {(member.name || member.email).charAt(0).toUpperCase()}
                         </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-stone-900 truncate">
+                          {member.id === user?.id ? `${member.name} (you)` : member.name}
+                        </p>
+                        <p className="text-xs text-stone-500 truncate">{member.email}</p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="p-3 bg-stone-50/60 text-xs text-stone-500">
-                    Sign in or create a grocery list to start a household.
-                  </div>
+                  <div className="p-3 bg-stone-50/60 text-sm text-stone-500">Sign in to start your household.</div>
                 )}
               </div>
 
-              {groceryLists.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">
-                    Invite Codes
-                  </span>
-                  <div className="flex flex-col gap-2">
-                    {groceryLists.slice(0, 3).map((list) => (
-                      <div
-                        key={list.id}
-                        className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-stone-100/70 border border-stone-200/80"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-stone-800 truncate">{list.title}</p>
-                          <p className="text-[11px] text-stone-500 font-mono">{list.inviteCode}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyInvite(list)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-stone-200 text-xs font-semibold text-stone-700 hover:text-stone-950 hover:bg-stone-50 transition-colors shrink-0"
-                        >
-                          {copiedInviteCode === list.inviteCode ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5 text-stone-500" />
-                              <span>Copy</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    ))}
+              {inviteCode && (
+                <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-stone-100/70 border border-stone-200/80">
+                  <div className="min-w-0">
+                    <p className="text-xs text-stone-600">Invite code for your partner or family</p>
+                    <p className="text-sm text-stone-900 font-mono font-semibold tracking-wide">{inviteCode}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyInvite}
+                    className="inline-flex items-center gap-1.5 h-11 px-3 rounded-lg bg-white border border-stone-200 text-sm font-semibold text-stone-700 hover:text-stone-950 hover:bg-stone-50 shrink-0"
+                  >
+                    {copiedInvite ? (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-600" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-stone-500" />
+                        <span>Copy invite</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>
@@ -670,23 +561,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5 mb-1">
-                <Users className="w-3.5 h-3.5 text-stone-600" />
-                <span>Partner / Collaborator Email (Real-time Shopping)</span>
-              </label>
-              <input
-                type="email"
-                value={partnerEmail}
-                onChange={(e) => setPartnerEmail(e.target.value)}
-                placeholder="partner@example.com"
-                className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 text-stone-800"
-              />
-              <p className="text-[11px] text-stone-500 mt-1">
-                Use the grocery list invite code to add collaborators today. This email is saved with your kitchen profile for household setup.
-              </p>
             </div>
 
             {/* Save Button */}

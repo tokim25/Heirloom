@@ -4,14 +4,11 @@ This document tracks known issues, root causes, and available solutions or worka
 
 ---
 
-### 1. Google Drive Vault: "Request had insufficient authentication scopes"
+### 1. Google Drive copy pauses after about an hour
 
-- **Symptom:** When clicking "Google Drive Vault" or attempting to create a cloud snapshot, an error banner appears stating: `Request had insufficient authentication scopes.`
-- **Cause:** Standard Google Sign-In only issues basic identity scopes (`openid`, `email`, `profile`). Accessing Google Drive requires the incremental `https://www.googleapis.com/auth/drive.file` permission. If the user previously signed in without granting Google Drive access, the existing session token lacks the Drive permission.
-- **Resolution:**
-  1. Click the **Authorize Drive Scope** button directly in the error banner to launch the Google consent popup and approve Drive access.
-  2. Verify that the **Google Drive API** is enabled in your Google Cloud Console project.
-  3. Use **Local JSON Backup & Restore** in the vault dialog to export or restore recipes as a `.json` file without OAuth credentials.
+- **Symptom:** Profile or the Drive screen says the Drive copy is paused.
+- **Cause:** Google access tokens obtained in the browser expire after about an hour and cannot be refreshed client-side. Your cookbook itself is unaffected; it lives in Firestore and keeps syncing.
+- **Resolution:** Tap **Reconnect Google Drive**. A server-side refresh token flow (planned) will remove this step.
 
 ---
 
@@ -47,11 +44,8 @@ This document tracks known issues, root causes, and available solutions or worka
 
 ---
 
-### 5. Instacart Cart Checkout Flow
+### 5. Instacart
 
-- **Security note:** Heirloom never requests or stores payment information. Instacart actions generate direct links to Instacart's official domain so checkout and payment remain secure.
-- **Current behavior:** Heirloom creates store and item search handoff links. It does not create, manage, or verify a live Instacart cart.
-- **Resolution / workaround:**
-  1. Tap **Open Store** to launch the selected store on Instacart.
-  2. Tap **Find Item** beside individual ingredients to search directly on Instacart.
-  3. Use **Copy List** as a fallback checklist if Instacart search results vary by store, region, or session.
+- **Current behavior:** Heirloom opens Instacart store and item search links. It does not yet create an Instacart shopping list in one step.
+- **Planned:** Instacart Developer Platform integration (`POST /idp/v1/products/products_link`), which returns one Instacart page with every item ready to add to the cart at your preferred store.
+- **Security note:** Heirloom never requests or stores payment information; checkout always happens on Instacart.

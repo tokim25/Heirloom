@@ -114,6 +114,142 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     }
   }, [assigneeOptions, filterAssignee, newItemAssignee]);
 
+  // Rendered from both the empty state and the main view.
+  const newListModal = showNewListModal ? (
+        <div className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-stone-200">
+            {/* Tabs */}
+            <div className="flex rounded-xl bg-stone-100 p-1 mb-5">
+              <button
+                type="button"
+                onClick={() => setModalTab('create')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  modalTab === 'create'
+                    ? 'bg-white text-stone-900 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-900'
+                }`}
+              >
+                Create New List
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalTab('join')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  modalTab === 'join'
+                    ? 'bg-white text-stone-900 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-900'
+                }`}
+              >
+                Join with Code
+              </button>
+            </div>
+
+            {modalTab === 'create' ? (
+              <>
+                <h3 className="font-serif text-2xl text-stone-900 mb-1">Create Grocery List</h3>
+                <p className="text-xs text-stone-500 mb-4">
+                  Give your shopping list a title and choose your preferred supermarket.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-stone-700">List Title</label>
+                    <input
+                      type="text"
+                      value={newListTitle}
+                      onChange={(e) => setNewListTitle(e.target.value)}
+                      placeholder="e.g. Dinner Party, Weekend Farmers Market"
+                      className="w-full mt-1 px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-stone-700">Supermarket</label>
+                    <select
+                      value={newListStore}
+                      onChange={(e) => setNewListStore(e.target.value)}
+                      className="w-full mt-1 px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl"
+                    >
+                      {STORE_NAMES.map((store) => (
+                        <option key={store} value={store}>
+                          {store}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewListModal(false)}
+                    className="px-4 py-2 text-xs text-stone-600 hover:text-stone-900"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newListTitle.trim()) {
+                        onCreateList(newListTitle.trim(), newListStore);
+                        setShowNewListModal(false);
+                        setNewListTitle('');
+                      }
+                    }}
+                    className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl"
+                  >
+                    Create List
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-serif text-2xl text-stone-900 mb-1">Join a household</h3>
+                <p className="text-xs text-stone-500 mb-4">
+                  Enter the invite code from your partner or family. You'll share every recipe and grocery list, and your recipes come with you.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-stone-700">Invite code</label>
+                    <input
+                      type="text"
+                      value={joinCodeInput}
+                      onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+                      placeholder="HEIR-ABCD-EFGH"
+                      className="w-full mt-1 px-3.5 py-2 text-xs font-mono bg-stone-50 border border-stone-200 rounded-xl uppercase tracking-wider"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewListModal(false)}
+                    className="px-4 py-2 text-xs text-stone-600 hover:text-stone-900"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (joinCodeInput.trim()) {
+                        onJoinList(joinCodeInput.trim());
+                        setShowNewListModal(false);
+                        setJoinCodeInput('');
+                      }
+                    }}
+                    className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl"
+                  >
+                    Join household
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+  ) : null;
+
   if (!currentList) {
     return (
       <div className="max-w-4xl mx-auto py-16 px-4 text-center">
@@ -131,6 +267,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         >
           Create First Grocery List
         </button>
+        {newListModal}
       </div>
     );
   }
@@ -146,7 +283,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(
-      `Join my "${currentList.title}" grocery list on Heirloom!\nList Code: ${cleanInviteCode}\nOpen: https://heirloom.tonykim.io`
+      `Join my kitchen on Heirloom to share recipes and grocery lists.\nInvite code: ${cleanInviteCode}\nOpen https://heirloom.tonykim.io, then Groceries > + > Join with code.`
     );
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2500);
@@ -677,141 +814,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         )}
       </div>
 
-      {/* New / Join Grocery List Modal */}
-      {showNewListModal && (
-        <div className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-stone-200">
-            {/* Tabs */}
-            <div className="flex rounded-xl bg-stone-100 p-1 mb-5">
-              <button
-                type="button"
-                onClick={() => setModalTab('create')}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  modalTab === 'create'
-                    ? 'bg-white text-stone-900 shadow-xs'
-                    : 'text-stone-500 hover:text-stone-900'
-                }`}
-              >
-                Create New List
-              </button>
-              <button
-                type="button"
-                onClick={() => setModalTab('join')}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  modalTab === 'join'
-                    ? 'bg-white text-stone-900 shadow-xs'
-                    : 'text-stone-500 hover:text-stone-900'
-                }`}
-              >
-                Join with Code
-              </button>
-            </div>
-
-            {modalTab === 'create' ? (
-              <>
-                <h3 className="font-serif text-2xl text-stone-900 mb-1">Create Grocery List</h3>
-                <p className="text-xs text-stone-500 mb-4">
-                  Give your shopping list a title and choose your preferred supermarket.
-                </p>
-
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-stone-700">List Title</label>
-                    <input
-                      type="text"
-                      value={newListTitle}
-                      onChange={(e) => setNewListTitle(e.target.value)}
-                      placeholder="e.g. Dinner Party, Weekend Farmers Market"
-                      className="w-full mt-1 px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-stone-700">Supermarket</label>
-                    <select
-                      value={newListStore}
-                      onChange={(e) => setNewListStore(e.target.value)}
-                      className="w-full mt-1 px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl"
-                    >
-                      {STORE_NAMES.map((store) => (
-                        <option key={store} value={store}>
-                          {store}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowNewListModal(false)}
-                    className="px-4 py-2 text-xs text-stone-600 hover:text-stone-900"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (newListTitle.trim()) {
-                        onCreateList(newListTitle.trim(), newListStore);
-                        setShowNewListModal(false);
-                        setNewListTitle('');
-                      }
-                    }}
-                    className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl"
-                  >
-                    Create List
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 className="font-serif text-2xl text-stone-900 mb-1">Join Shared List</h3>
-                <p className="text-xs text-stone-500 mb-4">
-                  Enter the Heirloom invite code shared by your family or partner.
-                </p>
-
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-stone-700">Heirloom List Code</label>
-                    <input
-                      type="text"
-                      value={joinCodeInput}
-                      onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                      placeholder="e.g. HEIR-7482"
-                      className="w-full mt-1 px-3.5 py-2 text-xs font-mono bg-stone-50 border border-stone-200 rounded-xl uppercase tracking-wider"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowNewListModal(false)}
-                    className="px-4 py-2 text-xs text-stone-600 hover:text-stone-900"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (joinCodeInput.trim()) {
-                        onJoinList(joinCodeInput.trim());
-                        setShowNewListModal(false);
-                        setJoinCodeInput('');
-                      }
-                    }}
-                    className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl"
-                  >
-                    Join List
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {newListModal}
     </div>
   );
 };

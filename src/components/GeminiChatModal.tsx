@@ -16,6 +16,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { Recipe, GroceryItem } from '../types/recipe.ts';
+import { apiFetch } from '../utils/api.ts';
 
 interface Message {
   id: string;
@@ -163,9 +164,8 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await apiFetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
           context: activeRecipe

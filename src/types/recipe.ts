@@ -10,6 +10,25 @@ export interface User {
   createdAt: string;
 }
 
+export interface HouseholdMember {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  joinedAt: string;
+}
+
+// Everyone in a household shares its recipes and grocery lists.
+export interface Household {
+  id: string;
+  ownerId: string;
+  memberIds: string[];
+  members: Record<string, HouseholdMember>;
+  inviteCode: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Ingredient {
   id: string;
   name: string;

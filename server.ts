@@ -1,629 +1,113 @@
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import path from 'path';
-import fs from 'fs';
+import dns from 'dns/promises';
+import net from 'net';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
-import { Recipe, GroceryList, GroceryItem, User } from './src/types/recipe.ts';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { Recipe } from './src/types/recipe.ts';
+import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 
 dotenv.config();
 
+// This server is a stateless AI proxy. All recipes, grocery lists and profiles live in
+// Firestore; nothing is stored here (Vercel functions have no durable disk or shared memory).
 const app = express();
 const PORT = 3000;
 
-// Allow large payloads for high-res photo and PDF uploads
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Vercel caps request bodies at 4.5 MB; the client compresses images to stay under it.
+app.use(express.json({ limit: '4.5mb' }));
 
-// Initialize Google Gemini SDK
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Paths for persistence
-const DATA_DIR = path.resolve(process.env.DATA_DIR || (process.env.VERCEL ? '/tmp/data' : 'data'));
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// ==========================================
+// AUTH: verify Firebase ID tokens
+// ==========================================
+
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId;
+const firebaseJwks = createRemoteJWKSet(
+  new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com')
+);
+
+interface AuthedRequest extends Request {
+  uid?: string;
 }
-const RECIPES_FILE = path.join(DATA_DIR, 'recipes.json');
-const LISTS_FILE = path.join(DATA_DIR, 'grocery-lists.json');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
-// Real-time SSE active connections map: listId -> Set of Response objects
-const sseClients = new Map<string, Set<Response>>();
-const globalSseClients = new Map<Response, string | null>();
-
-// Default seed recipes with culinary photography
-const DEFAULT_RECIPES: Recipe[] = [
-  {
-    id: 'salmon-skillet-01',
-    title: 'Crispy Skillet Salmon with Meyer Lemon Herb Butter',
-    description: 'Crispy skin salmon fillets pan-seared to golden perfection, basted with frothy browned butter, garlic, capers, fresh dill, and Meyer lemon zest.',
-    source: {
-      type: 'curated',
-      sourceName: 'Artisan Kitchen Collection',
-    },
-    heroImage: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=1200&q=80',
-    prepTimeMinutes: 10,
-    cookTimeMinutes: 15,
-    totalTimeMinutes: 25,
-    defaultServings: 2,
-    cuisine: 'Coastal Mediterranean',
-    difficulty: 'Intermediate',
-    nutrition: {
-      calories: 490,
-      protein: '38g',
-      carbs: '2g',
-      fat: '34g',
-    },
-    ingredients: [
-      { id: 'ing-1', name: 'Fresh Salmon Fillets (skin-on)', amount: 2, unit: 'fillets (6 oz each)', notes: 'pat very dry with paper towels', category: 'Meat & Seafood', instacartQuery: 'Fresh Atlantic Salmon Fillet' },
-      { id: 'ing-2', name: 'Kosher Salt & Fresh Cracked Black Pepper', amount: 1, unit: 'tsp', notes: 'for seasoning generously', category: 'Pantry & Spices', instacartQuery: 'Diamond Crystal Kosher Salt' },
-      { id: 'ing-3', name: 'Extra Virgin Olive Oil', amount: 1.5, unit: 'tbsp', notes: 'high smoke point olive oil', category: 'Pantry & Spices', instacartQuery: 'Extra Virgin Olive Oil' },
-      { id: 'ing-4', name: 'Unsalted European Butter', amount: 3, unit: 'tbsp', notes: 'cubed, cold', category: 'Dairy & Refrigerated', instacartQuery: 'Kerrygold Unsalted Butter' },
-      { id: 'ing-5', name: 'Garlic Cloves', amount: 3, unit: 'cloves', notes: 'gently smashed', category: 'Produce', instacartQuery: 'Organic Garlic Bulbs' },
-      { id: 'ing-6', name: 'Fresh Dill & Flat-Leaf Parsley', amount: 2, unit: 'tbsp', notes: 'finely chopped', category: 'Produce', instacartQuery: 'Fresh Organic Dill' },
-      { id: 'ing-7', name: 'Meyer Lemon (or standard lemon)', amount: 1, unit: 'lemon', notes: 'zested and sliced into rounds', category: 'Produce', instacartQuery: 'Organic Meyer Lemons' },
-      { id: 'ing-8', name: 'Capers in Brine', amount: 1, unit: 'tbsp', notes: 'drained', category: 'Pantry & Spices', instacartQuery: 'Non-Pareil Capers' },
-    ],
-    steps: [
-      {
-        stepNumber: 1,
-        title: 'Prep & Dry Fillets',
-        instruction: 'Thoroughly pat the salmon skin and flesh dry with paper towels. Score skin lightly with 3 shallow slits. Season skin and flesh generously with kosher salt and black pepper.',
-        tips: 'Moisture is the enemy of crispy skin! Ensure the skin is completely dry.',
-        stepIngredients: ['Fresh Salmon Fillets (skin-on)', 'Kosher Salt & Fresh Cracked Black Pepper'],
-      },
-      {
-        stepNumber: 2,
-        title: 'Preheat Skillet',
-        instruction: 'Heat a heavy stainless steel or cast-iron skillet over medium-high heat for 2 minutes. Add olive oil and swirl to coat the surface until it shimmers.',
-        timerSeconds: 120,
-        temperature: 'Medium-High',
-        tips: 'Pan must be smoking hot before fish touches the oil to avoid sticking.',
-        stepIngredients: ['Extra Virgin Olive Oil'],
-      },
-      {
-        stepNumber: 3,
-        title: 'Crisp the Skin',
-        instruction: 'Carefully lay salmon skin-side down, away from you. Press each fillet gently with a spatula for 15 seconds to prevent curling. Lower heat to medium and sear without moving for 5 minutes until skin is golden and crispy.',
-        timerSeconds: 300,
-        temperature: 'Medium',
-        tips: 'Resist the urge to nudge or flip early. The fish will release naturally once crisp.',
-      },
-      {
-        stepNumber: 4,
-        title: 'Flip & Brown Butter Baste',
-        instruction: 'Flip salmon. Add cubed butter, smashed garlic, lemon slices, and drained capers into pan. Tilt pan slightly and spoon the foaming butter over the salmon repeatedly for 2-3 minutes until opaque and tender.',
-        timerSeconds: 180,
-        temperature: 'Medium-Low',
-        stepIngredients: ['Unsalted European Butter', 'Garlic Cloves', 'Meyer Lemon', 'Capers in Brine'],
-        tips: 'Basting cooks the fish through gently while infusing aromatic browned butter.',
-      },
-      {
-        stepNumber: 5,
-        title: 'Rest & Garnish',
-        instruction: 'Transfer salmon to warm plates, skin-side up. Spoon the lemon-caper butter pan sauce over top and finish with fresh chopped dill and fresh cracked pepper. Serve immediately.',
-        stepIngredients: ['Fresh Dill & Flat-Leaf Parsley'],
-        tips: 'Serve with steamed asparagus or warm crusty sourdough.',
-      },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'tuscan-kale-stew-02',
-    title: 'Tuscan White Bean & Lacinato Kale Stew with Parmesan Broth',
-    description: 'A comforting, rustic Italian soup simmering creamy cannellini beans, tender dinosaur kale, sweet Italian mirepoix, and a rich savory Parmesan rind.',
-    source: {
-      type: 'curated',
-      sourceName: 'Florentine Farmhouse Traditions',
-    },
-    heroImage: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80',
-    prepTimeMinutes: 15,
-    cookTimeMinutes: 30,
-    totalTimeMinutes: 45,
-    defaultServings: 4,
-    cuisine: 'Italian Rustic',
-    difficulty: 'Easy',
-    nutrition: {
-      calories: 320,
-      protein: '16g',
-      carbs: '44g',
-      fat: '9g',
-    },
-    ingredients: [
-      { id: 'ing-11', name: 'Cannellini Beans (canned or soaked)', amount: 2, unit: 'cans (15 oz)', notes: 'rinsed and drained, reserve half mashed', category: 'Pantry & Spices', instacartQuery: 'Organic Cannellini White Kidney Beans' },
-      { id: 'ing-12', name: 'Lacinato / Tuscan Kale', amount: 1, unit: 'bunch', notes: 'stems removed, chopped into bite-sized ribbons', category: 'Produce', instacartQuery: 'Organic Lacinato Tuscan Kale' },
-      { id: 'ing-13', name: 'Yellow Onion', amount: 1, unit: 'medium', notes: 'finely diced', category: 'Produce', instacartQuery: 'Yellow Onions' },
-      { id: 'ing-14', name: 'Carrots', amount: 2, unit: 'medium', notes: 'peeled and diced', category: 'Produce', instacartQuery: 'Organic Whole Carrots' },
-      { id: 'ing-15', name: 'Celery Ribs', amount: 2, unit: 'stalks', notes: 'diced', category: 'Produce', instacartQuery: 'Fresh Celery' },
-      { id: 'ing-16', name: 'Garlic Cloves', amount: 4, unit: 'cloves', notes: 'minced', category: 'Produce', instacartQuery: 'Garlic Bulbs' },
-      { id: 'ing-17', name: 'Vegetable or Chicken Broth', amount: 4, unit: 'cups', notes: 'low sodium', category: 'Pantry & Spices', instacartQuery: 'Low Sodium Vegetable Broth' },
-      { id: 'ing-18', name: 'Parmigiano-Reggiano Rind', amount: 1, unit: 'rind (2 inch)', notes: 'or 1/2 cup grated parmesan', category: 'Dairy & Refrigerated', instacartQuery: 'Parmigiano Reggiano Cheese Wedge' },
-      { id: 'ing-19', name: 'Extra Virgin Olive Oil', amount: 3, unit: 'tbsp', notes: 'plus extra for drizzling', category: 'Pantry & Spices', instacartQuery: 'Cold Pressed Extra Virgin Olive Oil' },
-      { id: 'ing-20', name: 'Crushed Red Pepper Flakes', amount: 0.5, unit: 'tsp', notes: 'to taste', category: 'Pantry & Spices', instacartQuery: 'Red Chili Flakes' },
-    ],
-    steps: [
-      {
-        stepNumber: 1,
-        title: 'Sauté Aromatics (Soffritto)',
-        instruction: 'In a large heavy-bottomed Dutch oven, heat olive oil over medium heat. Add diced onion, carrots, and celery with a pinch of salt. Cook gently until vegetables soften and onions are translucent, about 8 minutes. Stir in garlic and red pepper flakes for 1 minute.',
-        timerSeconds: 480,
-        temperature: 'Medium',
-        stepIngredients: ['Extra Virgin Olive Oil', 'Yellow Onion', 'Carrots', 'Celery Ribs', 'Garlic Cloves', 'Crushed Red Pepper Flakes'],
-      },
-      {
-        stepNumber: 2,
-        title: 'Simmer Broth & Beans',
-        instruction: 'Pour in broth. Add whole cannellini beans, the mashed beans (to naturally thicken), and the Parmesan rind. Bring to a lively boil, then reduce heat to gentle simmer for 15 minutes.',
-        timerSeconds: 900,
-        temperature: 'Medium-Low',
-        stepIngredients: ['Cannellini Beans', 'Vegetable or Chicken Broth', 'Parmigiano-Reggiano Rind'],
-        tips: 'Mashing 1 cup of beans with a fork creates an ultra-velvety broth without heavy cream.',
-      },
-      {
-        stepNumber: 3,
-        title: 'Wilt the Kale',
-        instruction: 'Add chopped Tuscan kale ribbons into the simmering broth. Stir well and cook until kale is tender and vibrant dark green, about 5 to 7 minutes.',
-        timerSeconds: 360,
-        temperature: 'Low',
-        stepIngredients: ['Lacinato / Tuscan Kale'],
-      },
-      {
-        stepNumber: 4,
-        title: 'Season & Serve',
-        instruction: 'Remove the Parmesan rind. Season to taste with fresh lemon juice, black pepper, and sea salt. Ladle into warm shallow bowls, finishing with generous drizzle of peppery olive oil and freshly grated parmesan.',
-        tips: 'Serve with grilled garlic-rubbed country bread.',
-      },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'biang-biang-noodles-03',
-    title: 'Hand-Pulled Garlic Chili Crisp Biang Biang Noodles',
-    description: 'Wide, chewy hand-stretched ribbon noodles tossed with sizzling aromatic scallion oil, toasted Sichuan peppercorn, black vinegar, and fiery chili flakes.',
-    source: {
-      type: 'curated',
-      sourceName: "Xi'an Night Market Special",
-    },
-    heroImage: 'https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=1200&q=80',
-    prepTimeMinutes: 30,
-    cookTimeMinutes: 10,
-    totalTimeMinutes: 40,
-    defaultServings: 2,
-    cuisine: 'Northern Chinese',
-    difficulty: 'Intermediate',
-    nutrition: {
-      calories: 520,
-      protein: '14g',
-      carbs: '82g',
-      fat: '16g',
-    },
-    ingredients: [
-      { id: 'ing-21', name: 'High-Gluten All-Purpose Flour', amount: 2, unit: 'cups (250g)', notes: 'or unbleached bread flour', category: 'Pantry & Spices', instacartQuery: 'King Arthur Unbleached Bread Flour' },
-      { id: 'ing-22', name: 'Lukewarm Water', amount: 0.6, unit: 'cup (140ml)', notes: 'with 1/2 tsp salt dissolved', category: 'Pantry & Spices', instacartQuery: 'Pure Bottled Water' },
-      { id: 'ing-23', name: 'Neutral Oil (Canola or Avocado)', amount: 3, unit: 'tbsp', notes: 'for coating dough & hot oil pour', category: 'Pantry & Spices', instacartQuery: 'Avocado Cooking Oil' },
-      { id: 'ing-24', name: 'Garlic', amount: 4, unit: 'cloves', notes: 'finely minced', category: 'Produce', instacartQuery: 'Garlic' },
-      { id: 'ing-25', name: 'Scallions / Green Onions', amount: 3, unit: 'stalks', notes: 'thinly sliced', category: 'Produce', instacartQuery: 'Organic Green Scallions' },
-      { id: 'ing-26', name: 'Chinese Chili Flakes / Gochugaru', amount: 1.5, unit: 'tbsp', notes: 'coarse ground, fragrant', category: 'Pantry & Spices', instacartQuery: 'Sichuan Chili Powder' },
-      { id: 'ing-27', name: 'Chinkiang Black Vinegar', amount: 2, unit: 'tbsp', notes: 'or dark rice vinegar', category: 'Pantry & Spices', instacartQuery: 'Chinkiang Black Vinegar' },
-      { id: 'ing-28', name: 'Light Soy Sauce', amount: 2, unit: 'tbsp', notes: 'aged soy sauce', category: 'Pantry & Spices', instacartQuery: 'Lee Kum Kee Premium Soy Sauce' },
-      { id: 'ing-29', name: 'Baby Bok Choy', amount: 4, unit: 'heads', notes: 'halved lengthwise', category: 'Produce', instacartQuery: 'Baby Bok Choy' },
-    ],
-    steps: [
-      {
-        stepNumber: 1,
-        title: 'Knead & Rest Dough',
-        instruction: 'Mix flour and salted water until a shaggy dough forms. Knead on counter for 8 minutes until smooth and elastic. Divide into 6 logs, brush lightly with oil, cover with plastic wrap, and rest for 30 minutes at room temperature.',
-        timerSeconds: 1800,
-        tips: 'Resting relaxes gluten so the noodles pull without snapping.',
-        stepIngredients: ['High-Gluten All-Purpose Flour', 'Lukewarm Water', 'Neutral Oil'],
-      },
-      {
-        stepNumber: 2,
-        title: 'Flatten & Pull Noodles',
-        instruction: 'Press a dough log flat with a rolling pin. Press a chopstick lengthwise along the center to form an indent guide. Hold both ends, slap rhythmically against the countertop ("biang biang!"), stretching to 3 feet long. Rip down the center crease to make two ribbons.',
-        tips: 'Pull gently and slap in a rhythmic swinging motion.',
-      },
-      {
-        stepNumber: 3,
-        title: 'Boil Noodles & Greens',
-        instruction: 'Bring a large pot of water to a rolling boil. Drop fresh noodles and halved bok choy in. Cook for 90 seconds until chewy and translucent (al dente). Drain immediately and transfer to wide serving bowls.',
-        timerSeconds: 90,
-        temperature: 'Boiling',
-        stepIngredients: ['Baby Bok Choy'],
-      },
-      {
-        stepNumber: 4,
-        title: 'Mound Aromatics',
-        instruction: 'Top hot noodles with minced garlic, sliced scallions, Chinese chili flakes, black vinegar, and soy sauce right in the center pile.',
-        stepIngredients: ['Garlic', 'Scallions / Green Onions', 'Chinese Chili Flakes', 'Chinkiang Black Vinegar', 'Light Soy Sauce'],
-      },
-      {
-        stepNumber: 5,
-        title: 'Sizzling Hot Oil Splash',
-        instruction: 'Heat neutral oil in a small pan until shimmering and lightly smoking. Carefully pour the scalding hot oil directly over the minced garlic and chili pile. It will sizzle dramatically, toasting the aromatics. Toss vigorously with chopsticks and enjoy!',
-        timerSeconds: 60,
-        temperature: 'Hot Oil (375°F / 190°C)',
-        tips: 'The sizzling oil blooms the raw garlic and chili instantly without burning them.',
-      },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const DEFAULT_RECIPE_IDS = new Set(DEFAULT_RECIPES.map((recipe) => recipe.id));
-
-// Helper functions for persistent files
-function loadData<T>(file: string, fallback: T): T {
+async function requireFirebaseUser(req: AuthedRequest, res: Response, next: NextFunction) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token) {
+    return res.status(401).json({ error: 'Sign in with Google to use this feature.' });
+  }
   try {
-    if (fs.existsSync(file)) {
-      const content = fs.readFileSync(file, 'utf-8');
-      return JSON.parse(content);
-    }
-  } catch (err) {
-    console.error(`Error loading data from ${file}:`, err);
+    const { payload } = await jwtVerify(token, firebaseJwks, {
+      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+      audience: FIREBASE_PROJECT_ID,
+    });
+    if (!payload.sub) throw new Error('Token has no subject');
+    req.uid = payload.sub;
+    return next();
+  } catch {
+    return res.status(401).json({ error: 'Your session expired. Sign in again and retry.' });
   }
-  return fallback;
 }
 
-function saveData<T>(file: string, data: T) {
+app.use('/api', requireFirebaseUser);
+
+// ==========================================
+// URL SAFETY: only fetch public http(s) pages
+// ==========================================
+
+class UserFacingError extends Error {}
+
+const isPrivateAddress = (address: string) => {
+  if (net.isIPv4(address)) {
+    const [a, b] = address.split('.').map(Number);
+    return (
+      a === 10 || a === 127 || a === 0 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127)
+    );
+  }
+  const lower = address.toLowerCase();
+  return lower === '::1' || lower === '::' || lower.startsWith('fc') || lower.startsWith('fd') ||
+    lower.startsWith('fe80') || lower.startsWith('::ffff:');
+};
+
+async function assertPublicUrl(rawUrl: string): Promise<URL> {
+  let parsed: URL;
   try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (err) {
-    console.error(`Error saving data to ${file}:`, err);
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new UserFacingError('That does not look like a valid link. Paste the full address starting with https://');
   }
-}
-
-// In-memory state with persistence
-let recipes: Recipe[] = loadData(RECIPES_FILE, DEFAULT_RECIPES);
-let groceryLists: GroceryList[] = loadData(LISTS_FILE, [
-  {
-    id: 'list-dinner-weekly',
-    householdId: 'household-tokim-kitchen',
-    title: 'Weekly Fresh & Produce',
-    store: 'Whole Foods Market',
-    inviteCode: 'HEIR-7482',
-    collaborators: [
-      { id: 'user-tokim', name: 'Tokim', email: 'Tokim25@gmail.com', avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80', color: '#1C1917' },
-      { id: 'user-alex', name: 'Alex (Partner)', email: 'alex@family.kitchen', avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80', color: '#0284C7' },
-    ],
-    items: [
-      {
-        id: 'item-101',
-        listId: 'list-dinner-weekly',
-        name: 'Fresh Atlantic Salmon Fillets',
-        amount: 2,
-        unit: 'fillets',
-        category: 'Meat & Seafood',
-        recipeTitle: 'Crispy Skillet Salmon',
-        assignedTo: 'Tokim',
-        checked: false,
-        addedBy: 'Tokim',
-        createdAt: new Date().toISOString(),
-        store: 'Whole Foods Market',
-        estimatedPrice: 14.99,
-        instacartQuery: 'Fresh Atlantic Salmon Fillet',
-      },
-      {
-        id: 'item-102',
-        listId: 'list-dinner-weekly',
-        name: 'Organic Meyer Lemons',
-        amount: 3,
-        unit: 'lemons',
-        category: 'Produce',
-        recipeTitle: 'Crispy Skillet Salmon',
-        assignedTo: 'Alex (Partner)',
-        checked: true,
-        checkedBy: 'Alex (Partner)',
-        checkedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-        addedBy: 'Tokim',
-        createdAt: new Date().toISOString(),
-        store: 'Whole Foods Market',
-        estimatedPrice: 3.49,
-        instacartQuery: 'Organic Meyer Lemons',
-      },
-      {
-        id: 'item-103',
-        listId: 'list-dinner-weekly',
-        name: 'Organic Lacinato Tuscan Kale',
-        amount: 1,
-        unit: 'bunch',
-        category: 'Produce',
-        recipeTitle: 'Tuscan White Bean Stew',
-        assignedTo: 'Anyone',
-        checked: false,
-        addedBy: 'Alex (Partner)',
-        createdAt: new Date().toISOString(),
-        store: 'Whole Foods Market',
-        estimatedPrice: 2.99,
-        instacartQuery: 'Organic Tuscan Kale',
-      },
-      {
-        id: 'item-104',
-        listId: 'list-dinner-weekly',
-        name: 'Fresh Organic Tarragon',
-        amount: 1,
-        unit: 'pack',
-        category: 'Produce',
-        recipeTitle: 'Crispy Skillet Salmon',
-        assignedTo: 'Tokim',
-        checked: false,
-        addedBy: 'Tokim',
-        createdAt: new Date().toISOString(),
-        store: 'Whole Foods Market',
-        estimatedPrice: 3.99,
-        isOutOfStock: true,
-        substitution: {
-          name: 'Fresh Chervil or Dried Tarragon',
-          ratio: '1/3 amount of dried or 1:1 fresh chervil',
-          reason: 'Provides matching anise-herbaceous aroma in buttery pan sauce',
-        },
-      },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-]);
-
-let users: User[] = loadData(USERS_FILE, [
-  {
-    id: 'user-tokim',
-    email: 'Tokim25@gmail.com',
-    name: 'Tokim',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-    preferredStore: 'Whole Foods Market',
-    dietaryPreferences: ['Dairy-Conscious', 'High-Protein'],
-    partnerEmail: 'alex@family.kitchen',
-    householdId: 'household-tokim-kitchen',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user-alex',
-    email: 'alex@family.kitchen',
-    name: 'Alex (Partner)',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-    preferredStore: 'Trader Joe\'s',
-    dietaryPreferences: ['Organic'],
-    partnerEmail: 'Tokim25@gmail.com',
-    householdId: 'household-tokim-kitchen',
-    createdAt: new Date().toISOString(),
-  },
-]);
-
-// Helper to broadcast SSE updates to all subscribers of a list and global subscribers
-function readString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
-}
-
-function householdIdFromRequest(req: Request): string | undefined {
-  return readString(req.query.householdId)
-    || readString(req.body?.householdId)
-    || readString(req.body?.user?.householdId);
-}
-
-function isRecipeVisibleToHousehold(recipe: Recipe, householdId?: string): boolean {
-  return !householdId || !recipe.householdId || recipe.householdId === householdId;
-}
-
-function isDefaultRecipe(recipe: Recipe): boolean {
-  return DEFAULT_RECIPE_IDS.has(recipe.id);
-}
-
-function isListVisibleToHousehold(list: GroceryList, householdId?: string | null): boolean {
-  return !householdId || list.householdId === householdId;
-}
-
-function broadcastListUpdate(listId: string, event: { type: string; payload: unknown; user?: string; userName?: string; message?: string; item?: unknown; listId?: string; itemId?: string }) {
-  const list = groceryLists.find((candidate) => candidate.id === listId);
-  const householdId = list?.householdId;
-  const dataString = `data: ${JSON.stringify({ ...event, listId, householdId, timestamp: new Date().toISOString() })}\n\n`;
-
-  // Broadcast to specific list clients
-  const clients = sseClients.get(listId);
-  if (clients && clients.size > 0) {
-    for (const res of clients) {
-      try {
-        res.write(dataString);
-      } catch {
-        clients.delete(res);
-      }
-    }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new UserFacingError('Only http and https links can be imported.');
   }
+  const { address } = await dns.lookup(parsed.hostname).catch(() => ({ address: '' }));
+  if (!address || isPrivateAddress(address)) {
+    throw new UserFacingError('That link could not be reached.');
+  }
+  return parsed;
+}
 
-  // Broadcast to global grocery stream clients
-  for (const [res, clientHouseholdId] of globalSseClients) {
-    if (clientHouseholdId && clientHouseholdId !== householdId) {
+// Follows redirects by hand so every hop is re-checked against private addresses.
+async function fetchPublicUrl(rawUrl: string, init: RequestInit): Promise<globalThis.Response> {
+  let current = rawUrl;
+  for (let hop = 0; hop < 5; hop += 1) {
+    const safeUrl = await assertPublicUrl(current);
+    const res = await fetch(safeUrl, { ...init, redirect: 'manual' });
+    const location = res.headers.get('location');
+    if (res.status >= 300 && res.status < 400 && location) {
+      current = new URL(location, safeUrl).toString();
       continue;
     }
-    try {
-      res.write(dataString);
-    } catch {
-      globalSseClients.delete(res);
-    }
+    return res;
   }
+  throw new UserFacingError('That link redirected too many times.');
 }
-
-// ==========================================
-// AUTH & PROFILE ENDPOINTS
-// ==========================================
-
-app.post('/api/auth/login', (req: Request, res: Response) => {
-  const { email } = req.body;
-  const user = users.find((u) => u.email.toLowerCase() === (email || '').toLowerCase().trim());
-  if (user) {
-    return res.json({ token: `token-${user.id}`, user });
-  }
-  return res.status(404).json({ error: 'No account found for that email.' });
-});
-
-app.post('/api/auth/signup', (req: Request, res: Response) => {
-  const { id, name, email, preferredStore, dietaryPreferences, partnerEmail, avatarUrl, householdId } = req.body;
-  if (!email || !name) {
-    return res.status(400).json({ error: 'Name and email are required.' });
-  }
-
-  const existing = users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim());
-  if (existing) {
-    const updatedUser = {
-      ...existing,
-      id: id || existing.id,
-      name: name ?? existing.name,
-      preferredStore: preferredStore ?? existing.preferredStore,
-      dietaryPreferences: dietaryPreferences ?? existing.dietaryPreferences,
-      partnerEmail: partnerEmail ?? existing.partnerEmail,
-      avatarUrl: avatarUrl ?? existing.avatarUrl,
-      householdId: householdId ?? existing.householdId,
-    };
-    const existingIndex = users.findIndex((u) => u.email.toLowerCase() === email.toLowerCase().trim());
-    users[existingIndex] = updatedUser;
-    saveData(USERS_FILE, users);
-    return res.json({ token: `token-${updatedUser.id}`, user: updatedUser });
-  }
-
-  const newUser: User = {
-    id: id || `user-${Date.now()}`,
-    name,
-    email: email.trim(),
-    preferredStore: preferredStore || 'Whole Foods Market',
-    dietaryPreferences: dietaryPreferences || [],
-    partnerEmail: partnerEmail || '',
-    avatarUrl,
-    householdId: householdId || `household-${id || Date.now()}`,
-    createdAt: new Date().toISOString(),
-  };
-
-  users.push(newUser);
-  saveData(USERS_FILE, users);
-
-  return res.status(201).json({ token: `token-${newUser.id}`, user: newUser });
-});
-
-app.get('/api/auth/me', (req: Request, res: Response) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer token-')) {
-    const userId = authHeader.replace('Bearer token-', '');
-    const user = users.find((u) => u.id === userId);
-    if (user) return res.json({ user });
-  }
-  return res.status(401).json({ error: 'Authentication required.' });
-});
-
-app.put('/api/auth/profile', (req: Request, res: Response) => {
-  const { id, email, name, preferredStore, dietaryPreferences, partnerEmail, avatarUrl, householdId } = req.body;
-  const index = users.findIndex((u) => u.id === id || (email && u.email.toLowerCase() === email.toLowerCase().trim()));
-  if (index !== -1) {
-    users[index] = {
-      ...users[index],
-      name: name ?? users[index].name,
-      email: email ?? users[index].email,
-      preferredStore: preferredStore ?? users[index].preferredStore,
-      dietaryPreferences: dietaryPreferences ?? users[index].dietaryPreferences,
-      partnerEmail: partnerEmail ?? users[index].partnerEmail,
-      avatarUrl: avatarUrl ?? users[index].avatarUrl,
-      householdId: householdId ?? users[index].householdId,
-    };
-    saveData(USERS_FILE, users);
-    return res.json({ user: users[index] });
-  }
-  if (!id || !email || !name) {
-    return res.status(400).json({ error: 'Profile requires id, email, and name to create an account record.' });
-  }
-  const newUser: User = {
-    id,
-    email: email.trim(),
-    name,
-    preferredStore: preferredStore || 'Whole Foods Market',
-    dietaryPreferences: dietaryPreferences || [],
-    partnerEmail: partnerEmail || '',
-    avatarUrl,
-    householdId: householdId || `household-${id}`,
-    createdAt: new Date().toISOString(),
-  };
-  users.push(newUser);
-  saveData(USERS_FILE, users);
-  return res.status(201).json({ user: newUser });
-});
-
-// ==========================================
-// RECIPES ENDPOINTS
-// ==========================================
-
-app.get('/api/recipes', (req: Request, res: Response) => {
-  const householdId = householdIdFromRequest(req);
-  if (!householdId) {
-    return res.json({ recipes: recipes.filter(isDefaultRecipe) });
-  }
-
-  const householdRecipes = recipes.filter((recipe) => recipe.householdId === householdId);
-  return res.json({
-    recipes: householdRecipes.length > 0 ? householdRecipes : recipes.filter(isDefaultRecipe),
-  });
-});
-
-app.post('/api/recipes', (req: Request, res: Response) => {
-  const recipeData = req.body;
-  const householdId = householdIdFromRequest(req);
-  if (!recipeData.title) {
-    return res.status(400).json({ error: 'Recipe title is required' });
-  }
-  const existingIndex = recipeData.id
-    ? recipes.findIndex((recipe) => recipe.id === recipeData.id && isRecipeVisibleToHousehold(recipe, householdId))
-    : -1;
-  if (existingIndex !== -1) {
-    recipes[existingIndex] = {
-      ...recipes[existingIndex],
-      ...recipeData,
-      householdId: recipeData.householdId || recipes[existingIndex].householdId || householdId,
-      updatedAt: new Date().toISOString(),
-    };
-    saveData(RECIPES_FILE, recipes);
-    return res.json({ recipe: recipes[existingIndex] });
-  }
-  const newRecipe: Recipe = {
-    ...recipeData,
-    id: recipeData.id || `recipe-${Date.now()}`,
-    userId: recipeData.userId || recipeData.user?.id,
-    householdId: recipeData.householdId || householdId,
-    createdAt: recipeData.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  recipes.unshift(newRecipe);
-  saveData(RECIPES_FILE, recipes);
-  return res.status(201).json({ recipe: newRecipe });
-});
-
-app.put('/api/recipes/:id', (req: Request, res: Response) => {
-  const { id } = req.params;
-  const householdId = householdIdFromRequest(req);
-  const idx = recipes.findIndex((r) => r.id === id && isRecipeVisibleToHousehold(r, householdId));
-  if (idx === -1) {
-    return res.status(404).json({ error: 'Recipe not found' });
-  }
-  recipes[idx] = {
-    ...recipes[idx],
-    ...req.body,
-    householdId: req.body.householdId || recipes[idx].householdId || householdId,
-    updatedAt: new Date().toISOString(),
-  };
-  saveData(RECIPES_FILE, recipes);
-  return res.json({ recipe: recipes[idx] });
-});
-
-app.delete('/api/recipes/:id', (req: Request, res: Response) => {
-  const { id } = req.params;
-  const householdId = householdIdFromRequest(req);
-  recipes = recipes.filter((r) => r.id !== id || !isRecipeVisibleToHousehold(r, householdId));
-  saveData(RECIPES_FILE, recipes);
-  return res.json({ success: true });
-});
 
 // ==========================================
 // GEMINI RECIPE PARSING (LINK, PDF, PHOTO, SCREENSHOT)
@@ -634,7 +118,7 @@ async function callGeminiWithFallback(params: {
   contents: any;
   config?: any;
 }) {
-  const models = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+  const models = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
   let lastError: any = null;
 
   for (const model of models) {
@@ -682,6 +166,7 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
       });
       promptContext = `Analyze this attached recipe document/photo/screenshot (${fileName || 'uploaded recipe'}). `;
     } else if (url) {
+      await assertPublicUrl(url);
       let webPageText = '';
       let isCloudflareBlocked = false;
       let ldJsonRecipe: any = null;
@@ -706,7 +191,7 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
       }
 
       try {
-        const fetchRes = await fetch(url, {
+        const fetchRes = await fetchPublicUrl(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -904,6 +389,9 @@ You MUST respond strictly with valid JSON conforming to this schema:
 
     return res.json({ recipe });
   } catch (error: unknown) {
+    if (error instanceof UserFacingError) {
+      return res.status(400).json({ error: error.message });
+    }
     console.error('Error parsing recipe with Gemini:', error);
     const rawMsg = error instanceof Error ? error.message : 'Unknown parsing error';
     const cleanMsg = rawMsg.includes('503') || rawMsg.includes('high demand') || rawMsg.includes('UNAVAILABLE')
@@ -968,366 +456,6 @@ Respond strictly in JSON array format:
       ],
     });
   }
-});
-
-// ==========================================
-// INSTACART INTEGRATION ENDPOINTS
-// ==========================================
-
-app.post('/api/instacart/cart', (req: Request, res: Response) => {
-  const { storeId, storeName, items } = req.body;
-
-  // Build Instacart handoff links without making live inventory claims.
-  const processedItems = (items || []).map((item: unknown) => {
-    const it = item as { name: string; amount?: number; unit?: string; instacartQuery?: string; estimatedPrice?: number; isOutOfStock?: boolean };
-    const query = it.instacartQuery || it.name;
-    const directUrl = `https://www.instacart.com/store/s?k=${encodeURIComponent(query)}`;
-
-    const outOfStock = it.isOutOfStock || false;
-
-    return {
-      ...it,
-      store: storeName || 'Whole Foods Market',
-      estimatedPrice: it.estimatedPrice || (Math.round((2.49 + Math.random() * 6) * 100) / 100),
-      isOutOfStock: outOfStock,
-      directUrl,
-    };
-  });
-
-  const totalPrice = processedItems.reduce((acc: number, item: { estimatedPrice: number }) => acc + (item.estimatedPrice || 0), 0);
-  const outOfStockCount = processedItems.filter((i: { isOutOfStock: boolean }) => i.isOutOfStock).length;
-
-  return res.json({
-    storeId: storeId || 'whole-foods',
-    storeName: storeName || 'Whole Foods Market',
-    cartUrl: 'https://www.instacart.com/store/partner_recipes',
-    items: processedItems,
-    totalPrice: Math.round(totalPrice * 100) / 100,
-    outOfStockCount,
-  });
-});
-
-// ==========================================
-// COLLABORATIVE GROCERY LISTS & REAL-TIME SSE
-// ==========================================
-
-// Handlers for both /api/groceries and /api/grocery-lists
-const handleGetGroceryLists = (req: Request, res: Response) => {
-  const householdId = householdIdFromRequest(req);
-  res.setHeader('Content-Type', 'application/json');
-  return res.json({ lists: groceryLists.filter((list) => isListVisibleToHousehold(list, householdId)) });
-};
-app.get('/api/groceries', handleGetGroceryLists);
-app.get('/api/grocery-lists', handleGetGroceryLists);
-
-// Global SSE events feed for all list updates
-app.get('/api/groceries/events', (req: Request, res: Response) => {
-  const householdId = householdIdFromRequest(req) || null;
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.flushHeaders();
-
-  globalSseClients.set(res, householdId);
-  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', householdId, timestamp: new Date().toISOString() })}\n\n`);
-
-  const heartbeat = setInterval(() => {
-    res.write(':heartbeat\n\n');
-  }, 20000);
-
-  req.on('close', () => {
-    clearInterval(heartbeat);
-    globalSseClients.delete(res);
-  });
-});
-
-// Create new list
-const handleCreateList = (req: Request, res: Response) => {
-  const { title, store, user } = req.body;
-  const householdId = householdIdFromRequest(req);
-  if (!householdId || !user?.id || !user?.email || !user?.name) {
-    return res.status(401).json({ error: 'Sign in before creating a grocery list.' });
-  }
-
-  const collaborators: GroceryList['collaborators'] = [
-    { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, color: '#1C1917', status: 'active' },
-  ];
-
-  if (user?.partnerEmail && user.partnerEmail.toLowerCase() !== user.email?.toLowerCase()) {
-    collaborators.push({
-      id: `pending-${Date.now()}`,
-      name: user.partnerEmail,
-      email: user.partnerEmail,
-      color: '#A16207',
-      status: 'pending' as const,
-    });
-  }
-
-  const newList: GroceryList = {
-    id: `list-${Date.now()}`,
-    householdId,
-    title: title || 'New Kitchen List',
-    store: store || 'Whole Foods Market',
-    inviteCode: `HEIR-${Math.floor(1000 + Math.random() * 9000)}`,
-    collaborators,
-    items: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  groceryLists.push(newList);
-  saveData(LISTS_FILE, groceryLists);
-  return res.status(201).json({ list: newList });
-};
-app.post('/api/groceries', handleCreateList);
-app.post('/api/grocery-lists', handleCreateList);
-
-// Join list via invite code
-const handleJoinList = (req: Request, res: Response) => {
-  const { inviteCode, user } = req.body;
-  if (!inviteCode) {
-    return res.status(400).json({ error: 'Invite code is required' });
-  }
-
-  const raw = inviteCode.trim().toUpperCase();
-  const list = groceryLists.find((l) => {
-    const existing = l.inviteCode.toUpperCase();
-    return (
-      existing === raw ||
-      existing.replace(/^(HEIR|HL|MISE)-/, '') === raw.replace(/^(HEIR|HL|MISE)-/, '')
-    );
-  });
-  if (!list) {
-    return res.status(404).json({ error: 'Invalid invite code or list not found.' });
-  }
-
-  if (user) {
-    const existingCollaborator = list.collaborators.find((c) => c.email.toLowerCase() === user.email.toLowerCase());
-    if (existingCollaborator) {
-      existingCollaborator.id = user.id;
-      existingCollaborator.name = user.name;
-      existingCollaborator.avatarUrl = user.avatarUrl;
-      existingCollaborator.status = 'active';
-    } else {
-      list.collaborators.push({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        avatarUrl: user.avatarUrl,
-        color: '#0284C7',
-        status: 'active',
-      });
-    }
-    list.updatedAt = new Date().toISOString();
-    saveData(LISTS_FILE, groceryLists);
-    broadcastListUpdate(list.id, {
-      type: 'COLLABORATOR_JOINED',
-      payload: list,
-      user: user.name,
-      message: `${user.name} joined the grocery list`,
-    });
-  }
-
-  return res.json({ list });
-};
-app.post('/api/groceries/join', handleJoinList);
-app.post('/api/grocery-lists/join', handleJoinList);
-
-// Add items to list (single or bulk from recipe)
-const handleAddItems = (req: Request, res: Response) => {
-  const { listId } = req.params;
-  const { items, addedBy, user } = req.body;
-  const householdId = householdIdFromRequest(req);
-  const actorName = addedBy || user?.name || 'Collaborator';
-
-  const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
-  if (!list) {
-    return res.status(404).json({ error: 'List not found' });
-  }
-
-  const newItems: GroceryItem[] = (Array.isArray(items) ? items : [items]).map((it, idx) => ({
-    id: it.id || `item-${Date.now()}-${idx}`,
-    listId,
-    name: it.name,
-    amount: it.amount ?? null,
-    unit: it.unit || '',
-    category: it.category || 'Produce',
-    recipeId: it.recipeId,
-    recipeTitle: it.recipeTitle,
-    assignedTo: it.assignedTo || 'Anyone',
-    checked: false,
-    addedBy: actorName,
-    createdAt: new Date().toISOString(),
-    store: list.store,
-    estimatedPrice: it.estimatedPrice || (Math.round((2.5 + Math.random() * 5) * 100) / 100),
-    instacartQuery: it.instacartQuery || it.name,
-  }));
-
-  list.items.push(...newItems);
-  list.updatedAt = new Date().toISOString();
-  saveData(LISTS_FILE, groceryLists);
-
-  // Real-time broadcast to all connected devices/partners
-  broadcastListUpdate(listId, {
-    type: 'ITEM_ADDED',
-    payload: newItems,
-    item: newItems[0],
-    user: actorName,
-    message: `${actorName} added ${newItems.length} item${newItems.length > 1 ? 's' : ''} to ${list.title}`,
-  });
-
-  return res.status(201).json({ items: newItems, item: newItems[0], list });
-};
-app.post('/api/groceries/:listId/items', handleAddItems);
-app.post('/api/grocery-lists/:listId/items', handleAddItems);
-app.post('/api/groceries/:listId/items/bulk', handleAddItems);
-app.post('/api/grocery-lists/:listId/items/bulk', handleAddItems);
-
-// Update grocery item (check/uncheck, assign, set substitution)
-const handlePatchItem = (req: Request, res: Response) => {
-  const { listId, itemId } = req.params;
-  const { checked, assignedTo, userName, substitution } = req.body;
-  const householdId = householdIdFromRequest(req);
-  const actorName = userName || 'Collaborator';
-
-  const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
-  if (!list) {
-    return res.status(404).json({ error: 'List not found' });
-  }
-
-  const item = list.items.find((i) => i.id === itemId);
-  if (!item) {
-    return res.status(404).json({ error: 'Item not found' });
-  }
-
-  if (typeof checked === 'boolean') {
-    item.checked = checked;
-    if (checked) {
-      item.checkedBy = actorName;
-      item.checkedAt = new Date().toISOString();
-    } else {
-      item.checkedBy = undefined;
-      item.checkedAt = undefined;
-    }
-  }
-
-  if (assignedTo !== undefined) {
-    item.assignedTo = assignedTo;
-  }
-
-  if (substitution !== undefined) {
-    item.substitution = substitution;
-  }
-
-  list.updatedAt = new Date().toISOString();
-  saveData(LISTS_FILE, groceryLists);
-
-  // Broadcast real-time update
-  const actionText = checked !== undefined
-    ? (checked ? `checked off "${item.name}"` : `unchecked "${item.name}"`)
-    : assignedTo !== undefined
-    ? `assigned "${item.name}" to ${assignedTo}`
-    : `updated "${item.name}"`;
-
-  broadcastListUpdate(listId, {
-    type: 'ITEM_UPDATED',
-    payload: { listId, item, userName: actorName },
-    item,
-    user: actorName,
-    userName: actorName,
-    message: `${actorName} ${actionText}`,
-  });
-
-  return res.json({ item, list });
-};
-app.patch('/api/groceries/:listId/items/:itemId', handlePatchItem);
-app.patch('/api/grocery-lists/:listId/items/:itemId', handlePatchItem);
-
-// Delete grocery item
-const handleDeleteItem = (req: Request, res: Response) => {
-  const { listId, itemId } = req.params;
-  const householdId = householdIdFromRequest(req);
-  const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
-  if (!list) {
-    return res.status(404).json({ error: 'List not found' });
-  }
-
-  const removedItem = list.items.find((i) => i.id === itemId);
-  list.items = list.items.filter((i) => i.id !== itemId);
-  list.updatedAt = new Date().toISOString();
-  saveData(LISTS_FILE, groceryLists);
-
-  broadcastListUpdate(listId, {
-    type: 'ITEM_DELETED',
-    payload: { listId, itemId },
-    itemId,
-    user: req.query.userName as string || 'Collaborator',
-    message: removedItem ? `Removed "${removedItem.name}"` : 'Item removed',
-  });
-
-  return res.json({ success: true, list });
-};
-app.delete('/api/groceries/:listId/items/:itemId', handleDeleteItem);
-app.delete('/api/grocery-lists/:listId/items/:itemId', handleDeleteItem);
-
-// Clear checked items
-const handleClearCompleted = (req: Request, res: Response) => {
-  const { listId } = req.params;
-  const householdId = householdIdFromRequest(req);
-  const list = groceryLists.find((l) => l.id === listId && isListVisibleToHousehold(l, householdId));
-  if (!list) {
-    return res.status(404).json({ error: 'List not found' });
-  }
-
-  const count = list.items.filter((i) => i.checked).length;
-  list.items = list.items.filter((i) => !i.checked);
-  list.updatedAt = new Date().toISOString();
-  saveData(LISTS_FILE, groceryLists);
-
-  broadcastListUpdate(listId, {
-    type: 'COMPLETED_CLEARED',
-    payload: { listId },
-    message: `Cleared ${count} completed items`,
-  });
-
-  return res.json({ success: true, list });
-};
-app.delete('/api/groceries/:listId/completed', handleClearCompleted);
-app.delete('/api/grocery-lists/:listId/clear-completed', handleClearCompleted);
-
-// Server-Sent Events (SSE) for Real-Time Multi-Device Collaboration on specific list
-app.get('/api/grocery-lists/:listId/events', (req: Request, res: Response) => {
-  const { listId } = req.params;
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.flushHeaders();
-
-  if (!sseClients.has(listId)) {
-    sseClients.set(listId, new Set());
-  }
-  const clientSet = sseClients.get(listId)!;
-  clientSet.add(res);
-
-  // Send initial connection handshake
-  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', listId, timestamp: new Date().toISOString() })}\n\n`);
-
-  // Periodic heartbeat every 20 seconds to prevent timeout
-  const heartbeat = setInterval(() => {
-    res.write(':heartbeat\n\n');
-  }, 20000);
-
-  req.on('close', () => {
-    clearInterval(heartbeat);
-    clientSet.delete(res);
-    if (clientSet.size === 0) {
-      sseClients.delete(listId);
-    }
-  });
 });
 
 // ==========================================

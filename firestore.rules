@@ -1,0 +1,64 @@
+rules_version = '2';
+
+// Heirloom access rules.
+// - A user can read/write only their own profile.
+// - Recipes and grocery lists belong to a household; only its members can touch them.
+// - Someone with a valid invite code can add themselves (and only themselves) to a household.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function householdDoc(hid) {
+      return get(/databases/$(database)/documents/households/$(hid));
+    }
+
+    function isMember(hid) {
+      return signedIn() && request.auth.uid in householdDoc(hid).data.memberIds;
+    }
+
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /invites/{code} {
+      // Lookup by exact code only; codes cannot be listed.
+      allow get: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && isMember(request.resource.data.householdId);
+    }
+
+    match /households/{hid} {
+      allow read: if isMember(hid);
+
+      // Each user may create exactly one household of their own.
+      allow create: if signedIn()
+        && hid == 'household-' + request.auth.uid
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid];
+
+      // Members can edit household details.
+      allow update: if isMember(hid)
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      // Joining: add only yourself, and only with this household's invite code.
+      allow update: if signedIn()
+        && !(request.auth.uid in resource.data.memberIds)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'members', 'joinCode', 'updatedAt'])
+        && request.resource.data.memberIds.hasAll(resource.data.memberIds)
+        && request.resource.data.memberIds.removeAll(resource.data.memberIds).hasOnly([request.auth.uid])
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.joinCode)).data.householdId == hid;
+
+      match /recipes/{recipeId} {
+        allow read, write: if isMember(hid);
+      }
+
+      match /lists/{listId} {
+        allow read, write: if isMember(hid);
+      }
+    }
+  }
+}

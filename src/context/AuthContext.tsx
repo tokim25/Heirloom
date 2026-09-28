@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types/recipe.ts';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { Household, User } from '../types/recipe.ts';
 import { auth, googleSignInProvider, googleDriveProvider } from '../utils/firebase.ts';
+import { firestoreService } from '../utils/firestoreService.ts';
 import {
   signInWithPopup,
   signInWithRedirect,
@@ -9,368 +10,251 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   reauthenticateWithPopup,
+  linkWithPopup,
 } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
-  googleAccessToken: string | null;
+  household: Household | null;
+  isAuthLoading: boolean;
   isGoogleSignedIn: boolean;
+  /** Valid (unexpired) Drive access token, if the user turned on the Drive copy. */
+  googleAccessToken: string | null;
   isGoogleConnected: boolean;
-  login: (email: string) => Promise<void>;
-  signup: (userData: Partial<User>) => Promise<void>;
-  updateProfile: (updates: Partial<User>) => Promise<void>;
-  logout: () => Promise<void>;
+  isDriveCopyEnabled: boolean;
+  signInWithGoogle: () => Promise<void>;
   connectGoogleDrive: () => Promise<string | null>;
-  signInWithGoogle: () => Promise<string | null>;
-  disconnectGoogleDrive: () => Promise<void>;
+  disconnectGoogleDrive: () => void;
+  markDriveTokenExpired: () => void;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
+  joinHousehold: (inviteCode: string) => Promise<void>;
+  logout: () => Promise<void>;
   authErrorMessage: string | null;
   clearAuthError: () => void;
   isProfileOpen: boolean;
   setIsProfileOpen: (open: boolean) => void;
-  isAuthModalOpen: boolean;
-  setIsAuthModalOpen: (open: boolean) => void;
   isDriveModalOpen: boolean;
   setIsDriveModalOpen: (open: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const readLocalPreferredStore = () => {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('heirloom_preferred_store');
-};
+// Google access tokens from Firebase last ~1 hour and cannot be refreshed client-side.
+// Store the expiry so we stop using a dead token and prompt a quick reconnect instead.
+const DRIVE_TOKEN_KEY = 'heirloom_drive_token';
+const DRIVE_ENABLED_KEY = 'heirloom_drive_copy_enabled';
+const TOKEN_LIFETIME_MS = 55 * 60 * 1000;
 
-const readSessionDriveToken = () => {
-  if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem('heirloom_google_drive_token');
-};
-
-const writeSessionDriveToken = (accessToken: string | null) => {
-  if (typeof window === 'undefined') return;
-  if (accessToken) {
-    sessionStorage.setItem('heirloom_google_drive_token', accessToken);
-  } else {
-    sessionStorage.removeItem('heirloom_google_drive_token');
+const readDriveToken = (): string | null => {
+  try {
+    const raw = localStorage.getItem(DRIVE_TOKEN_KEY);
+    if (!raw) return null;
+    const { token, expiresAt } = JSON.parse(raw);
+    return typeof token === 'string' && Date.now() < expiresAt ? token : null;
+  } catch {
+    return null;
   }
 };
 
-const markProfileReturn = () => {
-  if (typeof window === 'undefined') return;
-  sessionStorage.setItem('heirloom_return_to_profile', 'true');
+const writeDriveToken = (token: string | null) => {
+  if (token) {
+    localStorage.setItem(DRIVE_TOKEN_KEY, JSON.stringify({ token, expiresAt: Date.now() + TOKEN_LIFETIME_MS }));
+  } else {
+    localStorage.removeItem(DRIVE_TOKEN_KEY);
+  }
 };
 
-const consumeProfileReturn = () => {
-  if (typeof window === 'undefined') return false;
-  const shouldReturn = sessionStorage.getItem('heirloom_return_to_profile') === 'true';
-  sessionStorage.removeItem('heirloom_return_to_profile');
-  return shouldReturn;
+// Popups open outside an installed iOS/Android PWA and never return, so use redirect there.
+const isStandalonePwa = () =>
+  typeof window !== 'undefined' &&
+  (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true);
+
+const describeAuthError = (err: any): string => {
+  switch (err?.code) {
+    case 'auth/unauthorized-domain':
+      return 'This domain is not authorized for sign-in yet. Add it under Firebase Console > Authentication > Settings > Authorized domains.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Sign-in was cancelled.';
+    case 'auth/network-request-failed':
+      return 'No connection. Check your network and try again.';
+    default:
+      return err?.message || 'Google sign-in failed. Please try again.';
+  }
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('mise_auth_token'));
-  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(() => readSessionDriveToken());
-  const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(false);
+  const [household, setHousehold] = useState<Household | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(() => readDriveToken());
+  const [isDriveCopyEnabled, setIsDriveCopyEnabled] = useState(() => localStorage.getItem(DRIVE_ENABLED_KEY) === 'true');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
 
-  const profileFromFirebaseUser = (
-    fbUser: NonNullable<typeof auth.currentUser>,
-    previousUser: User | null
-  ): User => {
-    const email = fbUser.email || previousUser?.email || '';
-    const name = fbUser.displayName || previousUser?.name || email.split('@')[0] || 'Heirloom User';
-
-    return {
-      id: fbUser.uid,
-      email,
-      name,
-      avatarUrl: fbUser.photoURL || previousUser?.avatarUrl,
-      preferredStore: readLocalPreferredStore() || previousUser?.preferredStore || 'Whole Foods Market',
-      dietaryPreferences: previousUser?.dietaryPreferences || [],
-      partnerEmail: previousUser?.partnerEmail || '',
-      householdId: previousUser?.householdId || `household-${fbUser.uid}`,
-      createdAt: previousUser?.createdAt || new Date().toISOString(),
-    };
-  };
-
-  const syncFirebaseUserToAppProfile = async (
-    fbUser: NonNullable<typeof auth.currentUser>,
-    previousUser: User | null
-  ) => {
-    const provisionalUser = profileFromFirebaseUser(fbUser, previousUser);
-    const res = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(provisionalUser),
-    });
-    if (!res.ok) {
-      throw new Error('Failed to create your Heirloom profile. Please try signing in again.');
-    }
-    const data = await res.json();
-    setUser(data.user);
-    setToken(data.token);
-    localStorage.setItem('mise_auth_token', data.token);
-    return data.user as User;
-  };
-
+  // Finish a redirect sign-in (PWA / popup-blocked path). onAuthStateChanged does the rest.
   useEffect(() => {
-    async function finishRedirectSignIn() {
-      const shouldReturnToProfile = consumeProfileReturn();
+    getRedirectResult(auth)
+      .then((result) => {
+        const token = result ? GoogleAuthProvider.credentialFromResult(result)?.accessToken : null;
+        if (token && result?.providerId && sessionStorage.getItem('heirloom_drive_redirect')) {
+          writeDriveToken(token);
+          setGoogleAccessToken(token);
+        }
+      })
+      .catch((err) => setAuthErrorMessage(describeAuthError(err)))
+      .finally(() => sessionStorage.removeItem('heirloom_drive_redirect'));
+  }, []);
+
+  // Single place that turns a Firebase user into an app profile.
+  useEffect(() => {
+    let unsubscribeProfile: (() => void) | null = null;
+    const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+      unsubscribeProfile?.();
+      unsubscribeProfile = null;
+      if (!fbUser) {
+        setUser(null);
+        setHousehold(null);
+        setIsAuthLoading(false);
+        return;
+      }
       try {
-        const result = await getRedirectResult(auth);
-        const redirectUser = result?.user || auth.currentUser;
-        const credential = result ? GoogleAuthProvider.credentialFromResult(result) : null;
-        const driveAccessToken = credential?.accessToken || null;
-        if (!redirectUser) {
-          if (shouldReturnToProfile) {
-            setIsProfileOpen(true);
-            setAuthErrorMessage('Google sign-in did not finish. Please try again, and make sure popups and redirects are allowed for this site.');
-          }
-          return;
-        }
-        if (result && !driveAccessToken) {
-          setIsProfileOpen(true);
-          setAuthErrorMessage('Google sign-in worked, but Drive permission was not granted. Please continue with Google again and approve Drive file access.');
-          return;
-        }
-        if (driveAccessToken) {
-          setGoogleAccessToken(driveAccessToken);
-          writeSessionDriveToken(driveAccessToken);
-        }
-        setIsGoogleSignedIn(true);
-        setAuthErrorMessage(null);
-        const syncedUser = await syncFirebaseUserToAppProfile(redirectUser, user);
-        setUser(syncedUser);
-        if (shouldReturnToProfile) {
-          setIsProfileOpen(true);
-        }
+        const profile = await firestoreService.ensureProfile(fbUser);
+        setUser(profile);
+        unsubscribeProfile = firestoreService.subscribeProfile(fbUser.uid, (p) => setUser(p));
       } catch (err) {
-        console.error('Google redirect sign-in error:', err);
-        if (shouldReturnToProfile) {
-          setIsProfileOpen(true);
-          setAuthErrorMessage('Google sign-in could not be completed. Please try again, or confirm this domain is authorized in Firebase.');
-        }
-      }
-    }
-    finishRedirectSignIn();
-  }, []);
-
-  // Monitor Firebase Auth state
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        setIsGoogleSignedIn(true);
-        let previousUser: User | null = null;
-        setUser((prev) => {
-          previousUser = prev;
-          return profileFromFirebaseUser(fbUser, prev);
-        });
-        try {
-          await syncFirebaseUserToAppProfile(fbUser, previousUser);
-        } catch (err) {
-          console.error('Failed to sync Firebase user profile:', err);
-        }
-      } else {
-        setIsGoogleSignedIn(false);
-        setGoogleAccessToken(null);
+        console.error('Could not load your Heirloom profile:', err);
+        setAuthErrorMessage('Signed in, but your cookbook could not be loaded. Check your connection and reload.');
+      } finally {
+        setIsAuthLoading(false);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeProfile?.();
+    };
   }, []);
 
-  // Connect Google Drive using Popup flow & grab access token (incremental drive scope)
-  const connectGoogleDrive = async (): Promise<string | null> => {
+  // Keep the household (members + invite code) live.
+  useEffect(() => {
+    if (!user?.householdId) return;
+    return firestoreService.subscribeHousehold(user.householdId, setHousehold, (err) =>
+      console.warn('Household listener error:', err)
+    );
+  }, [user?.householdId]);
+
+  // Drop the Drive token as soon as it expires.
+  useEffect(() => {
+    if (!googleAccessToken) return;
+    const id = window.setInterval(() => {
+      if (!readDriveToken()) setGoogleAccessToken(null);
+    }, 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [googleAccessToken]);
+
+  const signInWithGoogle = async () => {
+    setAuthErrorMessage(null);
     try {
-      const result = auth.currentUser
-        ? await reauthenticateWithPopup(auth.currentUser, googleDriveProvider)
-        : await signInWithPopup(auth, googleDriveProvider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken || null;
-      if (accessToken) {
-        setGoogleAccessToken(accessToken);
-        writeSessionDriveToken(accessToken);
-      } else {
-        throw new Error('Google did not return Drive file access. Please approve Google Drive access and try again.');
+      if (isStandalonePwa()) {
+        await signInWithRedirect(auth, googleSignInProvider);
+        return;
       }
-      if (result.user) {
-        setIsGoogleSignedIn(true);
-        const syncedUser = await syncFirebaseUserToAppProfile(result.user, user);
-        setUser(syncedUser);
-      }
-      return accessToken;
+      await signInWithPopup(auth, googleSignInProvider);
     } catch (err: any) {
-      console.error('Google Drive connection error:', err);
-      throw err;
+      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/operation-not-supported-in-this-environment') {
+        await signInWithRedirect(auth, googleSignInProvider);
+        return;
+      }
+      const message = describeAuthError(err);
+      setAuthErrorMessage(message);
+      throw new Error(message);
     }
   };
 
-  // Core Google setup: identity plus Drive file access for cookbook sync/backups.
-  const signInWithGoogle = async (): Promise<string | null> => {
+  const connectGoogleDrive = async (): Promise<string | null> => {
+    const current = auth.currentUser;
+    if (!current) throw new Error('Sign in before turning on the Google Drive copy.');
     try {
-      setAuthErrorMessage(null);
-      const result = await signInWithPopup(auth, googleDriveProvider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken || null;
-      if (!accessToken) {
-        throw new Error('Google sign-in worked, but Drive permission was not granted. Please approve Drive file access to finish setup.');
-      }
-      setGoogleAccessToken(accessToken);
-      writeSessionDriveToken(accessToken);
-      if (result.user) {
-        setIsGoogleSignedIn(true);
-        setAuthErrorMessage(null);
-        const syncedUser = await syncFirebaseUserToAppProfile(result.user, user);
-        setUser(syncedUser);
-      }
-      return accessToken;
-    } catch (err: any) {
-      if (
-        err?.code === 'auth/popup-blocked' ||
-        err?.code === 'auth/operation-not-supported-in-this-environment'
-      ) {
-        markProfileReturn();
+      if (isStandalonePwa()) {
+        sessionStorage.setItem('heirloom_drive_redirect', 'true');
+        localStorage.setItem(DRIVE_ENABLED_KEY, 'true');
         await signInWithRedirect(auth, googleDriveProvider);
         return null;
       }
-      console.error('Google Sign-in error:', err);
-      setAuthErrorMessage(err?.message || 'Google sign-in failed. Please try again.');
-      throw err;
+      const hasGoogle = current.providerData.some((p) => p.providerId === 'google.com');
+      const result = hasGoogle
+        ? await reauthenticateWithPopup(current, googleDriveProvider)
+        : await linkWithPopup(current, googleDriveProvider);
+      const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken || null;
+      if (!token) throw new Error('Google did not grant Drive access. Approve "See and edit files created by Heirloom" and try again.');
+      writeDriveToken(token);
+      setGoogleAccessToken(token);
+      localStorage.setItem(DRIVE_ENABLED_KEY, 'true');
+      setIsDriveCopyEnabled(true);
+      return token;
+    } catch (err: any) {
+      throw new Error(describeAuthError(err));
     }
   };
 
-  const disconnectGoogleDrive = async () => {
+  const disconnectGoogleDrive = () => {
+    writeDriveToken(null);
     setGoogleAccessToken(null);
-    writeSessionDriveToken(null);
+    localStorage.removeItem(DRIVE_ENABLED_KEY);
+    setIsDriveCopyEnabled(false);
   };
 
-  // Fetch current token-backed user on mount
-  useEffect(() => {
-    async function loadUser() {
-      if (!token) return;
-      try {
-        const res = await fetch('/api/auth/me', {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        }
-      } catch (err) {
-        console.error('Failed to load user:', err);
-      }
-    }
-    loadUser();
-  }, [token]);
-
-  const login = async (email: string) => {
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        setToken(data.token);
-        localStorage.setItem('mise_auth_token', data.token);
-        setIsAuthModalOpen(false);
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-    }
-  };
-
-  const signup = async (userData: Partial<User>) => {
-    try {
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        setToken(data.token);
-        localStorage.setItem('mise_auth_token', data.token);
-        setIsAuthModalOpen(false);
-      }
-    } catch (err) {
-      console.error('Signup error:', err);
-    }
-  };
+  const markDriveTokenExpired = useCallback(() => {
+    writeDriveToken(null);
+    setGoogleAccessToken(null);
+  }, []);
 
   const updateProfile = async (updates: Partial<User>) => {
-    if (!user) return;
-    const previousUser = user;
-    const optimisticUser = { ...user, ...updates };
-    setUser(optimisticUser);
-    if (updates.preferredStore && typeof window !== 'undefined') {
-      localStorage.setItem('heirloom_preferred_store', updates.preferredStore);
-    }
+    if (!user) throw new Error('Sign in to save your preferences.');
+    if (updates.preferredStore) localStorage.setItem('heirloom_preferred_store', updates.preferredStore);
+    setUser({ ...user, ...updates });
     try {
-      const res = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ ...user, ...updates }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser({ ...data.user, ...updates });
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setUser(previousUser);
-        throw new Error(data.error || 'Failed to save profile changes.');
-      }
+      await firestoreService.updateProfile(user.id, updates);
     } catch (err) {
-      console.error('Update profile error:', err);
-      setUser(previousUser);
-      throw err;
+      setUser(user);
+      throw new Error('Could not save your preferences. Check your connection and try again.');
     }
+  };
+
+  const joinHousehold = async (inviteCode: string) => {
+    if (!user) throw new Error('Sign in before joining a household.');
+    await firestoreService.joinHousehold(user, inviteCode);
   };
 
   const logout = async () => {
-    try {
-      await firebaseSignOut(auth);
-    } catch (err) {
-      console.error('Sign out error:', err);
-    }
+    await firebaseSignOut(auth).catch((err) => console.error('Sign out error:', err));
+    disconnectGoogleDrive();
     setUser(null);
-    setToken(null);
-    setGoogleAccessToken(null);
-    writeSessionDriveToken(null);
-    setIsGoogleSignedIn(false);
-    localStorage.removeItem('mise_auth_token');
+    setHousehold(null);
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        token,
+        household,
+        isAuthLoading,
+        isGoogleSignedIn: !!user,
         googleAccessToken,
-        isGoogleSignedIn,
         isGoogleConnected: !!googleAccessToken,
-        login,
-        signup,
-        updateProfile,
-        logout,
-        connectGoogleDrive,
+        isDriveCopyEnabled,
         signInWithGoogle,
+        connectGoogleDrive,
         disconnectGoogleDrive,
+        markDriveTokenExpired,
+        updateProfile,
+        joinHousehold,
+        logout,
         authErrorMessage,
         clearAuthError: () => setAuthErrorMessage(null),
         isProfileOpen,
         setIsProfileOpen,
-        isAuthModalOpen,
-        setIsAuthModalOpen,
         isDriveModalOpen,
         setIsDriveModalOpen,
       }}
