@@ -13,6 +13,7 @@ import {
   extractPageData,
   extractYouTubeDescription,
   isPrivateAddress,
+  urlRetrievedSuccessfully,
 } from './src/utils/pageExtract.ts';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 
@@ -167,6 +168,21 @@ async function fetchPage(url: string): Promise<{ html: string } | { blocked: tru
   }
 }
 
+/**
+ * Some sites (for example Cloudflare-protected ones) refuse Heirloom's server. Google's own
+ * fetcher is often let through, so ask Gemini to open the page and copy the recipe text out.
+ * The result is only used when Google reports a successful retrieval, so nothing is guessed.
+ */
+async function readPageViaGemini(pageUrl: string): Promise<string | null> {
+  const response = await callGeminiWithFallback({
+    contents: `Open this page: ${pageUrl}\n\nCopy the recipe on it word for word: the title, servings, times, every ingredient with its quantity, and every step. Do not summarize, add, or change anything. If you cannot open the page or it has no recipe, reply with exactly CANNOT_READ.`,
+    config: { tools: [{ urlContext: {} }], temperature: 0 },
+  });
+  const text = (response.text || '').trim();
+  if (!urlRetrievedSuccessfully(response) || text.includes('CANNOT_READ') || text.length < 150) return null;
+  return text.slice(0, 15000);
+}
+
 const SYSTEM_INSTRUCTION = `You are a careful recipe transcriber. Convert the provided source into structured recipe data.
 
 Hard rules:
@@ -242,16 +258,27 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
       } else {
         const page = await fetchPage(pageUrl);
         if ('blocked' in page) {
-          throw new ImportError(
-            `${host} would not let Heirloom read that page. Open it, copy the recipe, and paste it on the Notes / Text tab.`,
-            'blocked'
-          );
+          let copied: string | null = null;
+          try {
+            copied = await readPageViaGemini(pageUrl);
+          } catch (err) {
+            // A busy AI is not the site's fault; anything else just means we could not read it.
+            if (isTransientGeminiError(err)) throw err;
+          }
+          if (!copied) {
+            throw new ImportError(
+              `${host} would not let Heirloom read that page. Open it, copy the recipe, and paste it on the Text tab.`,
+              'blocked'
+            );
+          }
+          sourceContext = `Recipe text copied from the page ${pageUrl}:\n${copied}`;
+        } else {
+          const data = extractPageData(page.html, pageUrl);
+          heroImage = data.image;
+          sourceContext = data.ldRecipe
+            ? `Structured recipe data from the page (Schema.org):\n${JSON.stringify(data.ldRecipe, null, 2).slice(0, 8000)}`
+            : `Text extracted from the page ${pageUrl}:\n${data.text}`;
         }
-        const data = extractPageData(page.html, pageUrl);
-        heroImage = data.image;
-        sourceContext = data.ldRecipe
-          ? `Structured recipe data from the page (Schema.org):\n${JSON.stringify(data.ldRecipe, null, 2).slice(0, 8000)}`
-          : `Text extracted from the page ${pageUrl}:\n${data.text}`;
         source = { type: 'link', url: pageUrl, sourceName: host };
       }
     } else {
@@ -277,7 +304,7 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
       if (source.type !== 'youtube' || isTransientGeminiError(err)) throw err;
       if (!youtubeFallbackText) {
         throw new ImportError(
-          'Heirloom could not watch that video (it may be private, age-restricted or very long). Paste the recipe from the description on the Notes / Text tab.',
+          'Heirloom could not watch that video (it may be private, age-restricted or very long). Paste the recipe from the description on the Text tab.',
           'video_unreadable'
         );
       }
@@ -299,7 +326,7 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
       if (err instanceof RecipeParseError) {
         throw new ImportError(
           source.type === 'youtube'
-            ? 'No recipe was found in that video. If the creator lists it in the description, paste it on the Notes / Text tab.'
+            ? 'No recipe was found in that video. If the creator lists it in the description, paste it on the Text tab.'
             : err.message,
           'no_recipe'
         );
