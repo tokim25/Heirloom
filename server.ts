@@ -6,6 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Recipe } from './src/types/recipe.ts';
 import { RECIPE_JSON_SCHEMA, RecipeParseError, normalizeParsedRecipe } from './src/utils/recipeSchema.ts';
+import { generateWithFallback, isTransientGeminiError } from './src/utils/geminiRetry.ts';
 import {
   BLOCK_PAGE_MARKERS,
   YOUTUBE_ID,
@@ -104,32 +105,38 @@ async function fetchPublicUrl(rawUrl: string, init: RequestInit): Promise<global
 // GEMINI RECIPE PARSING (LINK, YOUTUBE, PDF, PHOTO, TEXT)
 // ==========================================
 
-// Verified model aliases. Each attempt has its own timeout so the whole request stays inside
-// the function's maxDuration (60s in vercel.json).
-const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
-const GEMINI_ATTEMPT_TIMEOUT_MS = 24000;
+// Models in priority order. The first two are the ones this app originally shipped with and
+// that were known to work; the aliases are last-resort fallbacks. A model that does not exist
+// returns 404 and is skipped immediately. The whole chain stays inside the function's 60s limit.
+const GEMINI_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
+const GEMINI_ATTEMPT_TIMEOUT_MS = 26000;
+const GEMINI_TOTAL_BUDGET_MS = 50000;
+const GEMINI_RETRY_PAUSE_MS = 1200;
 
 async function callGeminiWithFallback(params: { contents: any; config?: any }) {
-  let lastError: any = null;
-
-  for (const model of GEMINI_MODELS) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), GEMINI_ATTEMPT_TIMEOUT_MS);
-    try {
-      const response = await ai.models.generateContent({
-        model,
-        contents: params.contents,
-        config: { ...params.config, abortSignal: controller.signal },
-      });
-      if (response?.text) return response;
-    } catch (err: any) {
-      console.warn(`[Gemini] ${model} failed:`, err?.status || err?.name || err?.message);
-      lastError = err;
-    } finally {
-      clearTimeout(timer);
+  return generateWithFallback(
+    async (model, timeoutMs) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: params.contents,
+          config: { ...params.config, abortSignal: controller.signal },
+        });
+        return response?.text ? response : null;
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    {
+      models: GEMINI_MODELS,
+      attemptTimeoutMs: GEMINI_ATTEMPT_TIMEOUT_MS,
+      totalBudgetMs: GEMINI_TOTAL_BUDGET_MS,
+      retryPauseMs: GEMINI_RETRY_PAUSE_MS,
+      onFailure: (model, err) => console.warn(`[Gemini] ${model} failed:`, err?.status || err?.name || err?.message),
     }
-  }
-  throw lastError || new Error('The AI service is unavailable right now.');
+  );
 }
 
 type ImportFailureCode = 'blocked' | 'video_unreadable' | 'no_recipe';
@@ -265,7 +272,9 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
     try {
       response = await generate(parts);
     } catch (err) {
-      if (source.type !== 'youtube') throw err;
+      // Only blame the video when the AI actually rejected it. A busy or slow AI is not the
+      // video's fault, so let the generic "try again" message handle that.
+      if (source.type !== 'youtube' || isTransientGeminiError(err)) throw err;
       if (!youtubeFallbackText) {
         throw new ImportError(
           'Heirloom could not watch that video (it may be private, age-restricted or very long). Paste the recipe from the description on the Notes / Text tab.',
@@ -317,10 +326,10 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
     }
     console.error('Error parsing recipe with Gemini:', error);
     const message = error instanceof Error ? error.message : '';
-    const busy = /503|429|high demand|UNAVAILABLE|abort/i.test(message);
+    const busy = isTransientGeminiError(error) || /503|429|high demand|UNAVAILABLE|abort/i.test(message);
     return res.status(busy ? 503 : 500).json({
       error: busy
-        ? 'The AI is busy or took too long. Try again in a moment.'
+        ? 'Google\'s AI is busy right now. Wait a few seconds and try again; your link is still filled in.'
         : 'Something went wrong reading that recipe. Try again, or paste the recipe text instead.',
     });
   }
