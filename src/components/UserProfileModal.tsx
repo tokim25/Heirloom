@@ -50,6 +50,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     isGoogleSignedIn,
     isGoogleConnected,
     signInWithGoogle,
+    authErrorMessage,
+    clearAuthError,
     logout,
   } = useAuth();
 
@@ -198,6 +200,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
     setAuthError(null);
+    clearAuthError();
     try {
       await signInWithGoogle();
     } catch (err: any) {
@@ -407,13 +410,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </button>
 
                 {/* Error Banner with 1-Click Domain Authorization Link */}
-                {authError && (
+                {(authError || authErrorMessage) && (
                   <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex flex-col gap-2">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="font-semibold">{authError.message}</p>
-                        {authError.isDomainError && (
+                        <p className="font-semibold">{authError?.message || authErrorMessage}</p>
+                        {authError?.isDomainError && (
                           <p className="text-rose-700 text-[11px] mt-1">
                             Firebase requires listing custom domains under Authorized Domains to prevent unauthorized OAuth redirects.
                           </p>
@@ -421,7 +424,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       </div>
                     </div>
 
-                    {authError.isDomainError && (
+                    {authError?.isDomainError && (
                       <a
                         href="https://console.firebase.google.com/project/nth-imagery-298121/authentication/settings"
                         target="_blank"

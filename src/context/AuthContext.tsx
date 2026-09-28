@@ -24,6 +24,8 @@ interface AuthContextType {
   connectGoogleDrive: () => Promise<string | null>;
   signInWithGoogle: () => Promise<string | null>;
   disconnectGoogleDrive: () => Promise<void>;
+  authErrorMessage: string | null;
+  clearAuthError: () => void;
   isProfileOpen: boolean;
   setIsProfileOpen: (open: boolean) => void;
   isAuthModalOpen: boolean;
@@ -82,6 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
 
   const profileFromFirebaseUser = (
     fbUser: NonNullable<typeof auth.currentUser>,
@@ -125,18 +128,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     async function finishRedirectSignIn() {
+      const shouldReturnToProfile = consumeProfileReturn();
       try {
         const result = await getRedirectResult(auth);
-        if (!result?.user) return;
+        const redirectUser = result?.user || auth.currentUser;
+        if (!redirectUser) {
+          if (shouldReturnToProfile) {
+            setIsProfileOpen(true);
+            setAuthErrorMessage('Google sign-in did not finish. Please try again, and make sure popups and redirects are allowed for this site.');
+          }
+          return;
+        }
         setIsGoogleSignedIn(true);
-        const syncedUser = await syncFirebaseUserToAppProfile(result.user, user);
+        setAuthErrorMessage(null);
+        const syncedUser = await syncFirebaseUserToAppProfile(redirectUser, user);
         setUser(syncedUser);
-        if (consumeProfileReturn()) {
+        if (shouldReturnToProfile) {
           setIsProfileOpen(true);
         }
       } catch (err) {
         console.error('Google redirect sign-in error:', err);
-        consumeProfileReturn();
+        if (shouldReturnToProfile) {
+          setIsProfileOpen(true);
+          setAuthErrorMessage('Google sign-in could not be completed. Please try again, or confirm this domain is authorized in Firebase.');
+        }
       }
     }
     finishRedirectSignIn();
@@ -194,6 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Standard Google Sign-In (profile & email ONLY, no scary unverified app warnings)
   const signInWithGoogle = async (): Promise<string | null> => {
     try {
+      setAuthErrorMessage(null);
       if (shouldUseRedirectSignIn()) {
         markProfileReturn();
         await signInWithRedirect(auth, googleSignInProvider);
@@ -206,6 +222,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // token as Drive authorization; Drive requires the incremental provider.
       if (result.user) {
         setIsGoogleSignedIn(true);
+        setAuthErrorMessage(null);
         const syncedUser = await syncFirebaseUserToAppProfile(result.user, user);
         setUser(syncedUser);
       }
@@ -220,6 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
       console.error('Google Sign-in error:', err);
+      setAuthErrorMessage(err?.message || 'Google sign-in failed. Please try again.');
       throw err;
     }
   };
@@ -347,6 +365,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         connectGoogleDrive,
         signInWithGoogle,
         disconnectGoogleDrive,
+        authErrorMessage,
+        clearAuthError: () => setAuthErrorMessage(null),
         isProfileOpen,
         setIsProfileOpen,
         isAuthModalOpen,
