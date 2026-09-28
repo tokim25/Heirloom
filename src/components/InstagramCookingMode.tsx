@@ -269,6 +269,46 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     }
   };
 
+  // Story navigation: tap the left third to go back, anywhere else to go forward, or swipe.
+  // Buttons, links and form fields inside the card keep their own behavior.
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const ignoreTapUntilRef = useRef(0);
+
+  const handleStoryTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (Date.now() < ignoreTapUntilRef.current) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, a, input, select, textarea, label, summary, [data-no-tap]')) return;
+    if (window.getSelection()?.toString()) return; // the reader is selecting text, not navigating
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (e.clientX - rect.left < rect.width * 0.3) {
+      handlePrevStep();
+    } else if (!isLastStep) {
+      // On the last step, only the Finish button finishes, so a stray tap cannot fire the confetti.
+      handleNextStep();
+    }
+  };
+
+  const handleStoryTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    swipeStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+
+  const handleStoryTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    const touch = e.changedTouches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    ignoreTapUntilRef.current = Date.now() + 400; // a swipe must not also count as a tap
+    if (dx < 0) {
+      if (!isLastStep) handleNextStep();
+    } else {
+      handlePrevStep();
+    }
+  };
+
   // Web Speech API: Speech Recognition for Hands-Free "Dirty Hands" Cooking
   useEffect(() => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -439,28 +479,33 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       />
 
       {/* Top Header & Instagram Story Progress Bars */}
-      <div className="w-full max-w-2xl px-4 pt-3 pb-2 z-20 flex flex-col gap-3">
+      <div className="w-full max-w-2xl px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-2 z-20 flex flex-col gap-5">
         {/* Progress Segments */}
         <div className="flex items-center gap-1.5 w-full">
           {recipe.steps.map((_, idx) => {
             const isCompleted = idx < currentStepIndex;
             const isCurrent = idx === currentStepIndex;
             return (
-              <div
+              <button
                 key={idx}
+                type="button"
                 onClick={() => setCurrentStepIndex(idx)}
-                className="h-1 flex-1 rounded-full bg-white/20 cursor-pointer overflow-hidden transition-all hover:h-1.5"
+                aria-label={`Go to step ${idx + 1} of ${totalSteps}`}
+                aria-current={isCurrent ? 'step' : undefined}
+                className="group flex-1 py-5 -my-5 cursor-pointer"
               >
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    isCompleted
-                      ? 'bg-amber-400 w-full'
-                      : isCurrent
-                      ? 'bg-white w-full shadow-[0_0_8px_rgba(255,255,255,0.8)]'
-                      : 'w-0'
-                  }`}
-                />
-              </div>
+                <span className="block h-1 rounded-full bg-white/20 overflow-hidden transition-all group-hover:h-1.5">
+                  <span
+                    className={`block h-full transition-all duration-300 ${
+                      isCompleted
+                        ? 'bg-amber-400 w-full'
+                        : isCurrent
+                        ? 'bg-white w-full shadow-[0_0_8px_rgba(255,255,255,0.8)]'
+                        : 'w-0'
+                    }`}
+                  />
+                </span>
+              </button>
             );
           })}
         </div>
@@ -470,8 +515,9 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-md"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-md"
               title="Close Cooking Mode"
+              aria-label="Close cooking mode"
             >
               <X className="w-5 h-5" />
             </button>
@@ -553,24 +599,15 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         )}
       </div>
 
-      {/* Main Story Content Card */}
-      <div className="relative flex-1 w-full max-w-2xl px-4 py-2 flex flex-col justify-center z-10">
-        {/* Invisible Tap Zones for Story Navigation (Left = Back, Right = Next) */}
-        <div
-          onClick={handlePrevStep}
-          role="button"
-          aria-label="Go to previous cooking step"
-          className="absolute left-0 top-0 bottom-0 w-1/4 z-10 cursor-w-resize"
-          title="Tap left to go back"
-        />
-        <div
-          onClick={handleNextStep}
-          role="button"
-          aria-label="Go to next cooking step"
-          className="absolute right-0 top-0 bottom-0 w-1/4 z-10 cursor-e-resize"
-          title="Tap right to advance"
-        />
-
+      {/* Main Story Content Card. The whole area is the tap surface: left third = back, rest = next. */}
+      <div
+        onClick={handleStoryTap}
+        onTouchStart={handleStoryTouchStart}
+        onTouchEnd={handleStoryTouchEnd}
+        data-story-surface
+        className="flex-1 w-full flex justify-center z-10 cursor-pointer"
+      >
+      <div className="relative flex-1 w-full max-w-2xl px-4 py-2 flex flex-col justify-center">
         {/* The Card */}
         <div className="w-full bg-stone-900/80 border border-white/15 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6 relative z-20">
           {/* Step Header */}
@@ -594,7 +631,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-white/70">
             <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
               <span className="block text-white font-semibold">Move</span>
-              Buttons, progress dots, or arrow keys
+              Tap left or right, swipe, or arrow keys
             </div>
             <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
               <span className="block text-white font-semibold">Timer</span>
@@ -752,6 +789,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
           )}
         </div>
       </div>
+      </div>
 
       {/* Hands-Free Dirty-Hands Voice Assistant Floating HUD */}
       {isVoiceActive && (
@@ -785,11 +823,12 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       )}
 
       {/* Bottom Floating Navigation Controls */}
-      <div className="w-full max-w-2xl px-4 py-4 z-20 flex items-center justify-between gap-4">
+      <div className="w-full max-w-2xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] z-20 flex items-center justify-between gap-4">
         <button
           onClick={handlePrevStep}
           disabled={currentStepIndex === 0}
-          className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-medium backdrop-blur-md transition-all ${
+          aria-label="Previous step"
+          className={`flex items-center gap-1.5 min-h-12 px-5 rounded-xl text-sm font-medium backdrop-blur-md transition-all ${
             currentStepIndex === 0
               ? 'opacity-30 cursor-not-allowed text-white/40'
               : 'bg-white/10 hover:bg-white/20 text-white'
@@ -800,12 +839,12 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         </button>
 
         <span className="text-xs text-white/60 font-medium hidden sm:inline">
-          Use Previous/Next, progress dots, or arrow keys
+          Tap the left or right of the card, swipe, or use arrow keys
         </span>
 
         <button
           onClick={handleNextStep}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-semibold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+          className="flex items-center gap-2 min-h-12 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-sm font-semibold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
         >
           {isLastStep ? (
             <>
