@@ -254,6 +254,12 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         </Sheet>
   ) : null;
 
+  // Hooks must all run on every render, so this sits above the empty-state early return below.
+  // Predictive item auto-completion based on recipes & common kitchen staples
+  const predictiveItems = React.useMemo(() => {
+    return predictGroceryItem(newItemName, recipes);
+  }, [newItemName, recipes]);
+
   if (!currentList) {
     return (
       <div className="max-w-4xl mx-auto py-16 px-4 text-center">
@@ -312,11 +318,6 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     setShowPredictions(false);
     setShowQuickAddDetails(false);
   };
-
-  // Predictive item auto-completion based on recipes & common kitchen staples
-  const predictiveItems = React.useMemo(() => {
-    return predictGroceryItem(newItemName, recipes);
-  }, [newItemName, recipes]);
 
   const handleSelectPrediction = (pred: PredictiveGroceryItem) => {
     setNewItemName(pred.name);
