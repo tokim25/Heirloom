@@ -31,10 +31,24 @@ const readLocalPreferredStore = () => {
   return localStorage.getItem('heirloom_preferred_store');
 };
 
+const readSessionDriveToken = () => {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem('heirloom_google_drive_token');
+};
+
+const writeSessionDriveToken = (accessToken: string | null) => {
+  if (typeof window === 'undefined') return;
+  if (accessToken) {
+    sessionStorage.setItem('heirloom_google_drive_token', accessToken);
+  } else {
+    sessionStorage.removeItem('heirloom_google_drive_token');
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('mise_auth_token'));
-  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(() => readSessionDriveToken());
   const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -82,6 +96,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const accessToken = credential?.accessToken || null;
       if (accessToken) {
         setGoogleAccessToken(accessToken);
+        writeSessionDriveToken(accessToken);
+      } else {
+        throw new Error('Google did not return Drive file access. Please approve Google Drive access and try again.');
       }
       if (result.user) {
         setIsGoogleSignedIn(true);
@@ -115,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const disconnectGoogleDrive = async () => {
     setGoogleAccessToken(null);
+    writeSessionDriveToken(null);
   };
 
   // Fetch current token-backed user on mount
@@ -212,6 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setToken(null);
     setGoogleAccessToken(null);
+    writeSessionDriveToken(null);
     setIsGoogleSignedIn(false);
     localStorage.removeItem('mise_auth_token');
   };

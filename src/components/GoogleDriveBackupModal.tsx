@@ -40,6 +40,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
   
   const [backups, setBackups] = useState<DriveBackupFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [restoringFileId, setRestoringFileId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -77,23 +78,44 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
   };
 
   const handleConnect = async () => {
+    setIsConnecting(true);
     try {
       setStatusMessage(null);
       setIsDomainError(false);
-      await connectGoogleDrive();
+      const accessToken = await connectGoogleDrive();
+      if (!accessToken) {
+        throw new Error('Google Drive did not return file access. Please approve Drive access in the Google popup and try again.');
+      }
+      const list = await googleDriveService.listBackups(accessToken);
+      setBackups(list);
+      setStatusMessage({
+        type: 'success',
+        text: 'Google Drive connected. You can now create and restore cookbook backups.',
+      });
     } catch (err: any) {
       const unauthorized =
         err?.code === 'auth/unauthorized-domain' ||
         err?.message?.includes('auth/unauthorized-domain');
+      const popupBlocked =
+        err?.code === 'auth/popup-blocked' ||
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.message?.toLowerCase?.().includes('popup');
       if (unauthorized) {
         setIsDomainError(true);
         setStatusMessage({
           type: 'error',
           text: 'Firebase requires your custom domain (heirloom.tonykim.io) to be added to Authorized Domains in your Firebase Console.',
         });
+      } else if (popupBlocked) {
+        setStatusMessage({
+          type: 'error',
+          text: 'Google Drive connection was blocked or closed. Please allow popups for this site, then tap Connect Google Drive again.',
+        });
       } else {
         setStatusMessage({ type: 'error', text: err.message || 'Failed to connect Google Drive' });
       }
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -287,10 +309,15 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
             ) : (
               <button
                 onClick={handleConnect}
-                className="flex items-center gap-2 px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
+                disabled={isConnecting}
+                className="flex items-center gap-2 px-4 py-2 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
               >
-                <Cloud className="w-4 h-4 text-amber-400" />
-                <span>Connect Google Drive</span>
+                {isConnecting ? (
+                  <RefreshCw className="w-4 h-4 text-stone-200 animate-spin" />
+                ) : (
+                  <Cloud className="w-4 h-4 text-amber-400" />
+                )}
+                <span>{isConnecting ? 'Connecting...' : 'Connect Google Drive'}</span>
               </button>
             )}
           </div>
