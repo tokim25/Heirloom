@@ -21,7 +21,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F5]/95 backdrop-blur-2xl border-t border-stone-200/90 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] pb-safe transition-all"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F5]/95 backdrop-blur-2xl border-t border-stone-200/90 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] pb-safe transition-all"
     >
       <div className="max-w-md mx-auto px-3 py-2 flex items-center justify-between gap-1">
         {/* Cookbook Tab */}

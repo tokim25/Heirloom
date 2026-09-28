@@ -891,7 +891,7 @@ export default function App() {
       </main>
 
       {/* Ambient Quick Action: Ask Chef AI (Desktop only, mobile accesses via bottom nav) */}
-      <div className="hidden md:block fixed bottom-6 right-6 z-40">
+      <div className="hidden lg:block fixed bottom-6 right-6 z-40">
         <button
           onClick={() => setIsChatOpen(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-stone-900/90 hover:bg-stone-900 text-white text-xs font-medium shadow-xl hover:shadow-2xl backdrop-blur-md transition-all active:scale-95 border border-white/10 group"

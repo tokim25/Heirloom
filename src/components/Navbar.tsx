@@ -93,7 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Desktop Navigation Segments */}
-          <nav className="hidden md:flex items-center gap-1 bg-stone-200/60 p-1 rounded-2xl border border-stone-200/70 shadow-inner">
+          <nav className="hidden lg:flex items-center gap-1 bg-stone-200/60 p-1 rounded-2xl border border-stone-200/70 shadow-inner">
             <button
               onClick={() => setActiveTab('cookbook')}
               className={`group flex items-center gap-2 px-3.5 py-1.5 text-xs rounded-xl transition-all ${
@@ -157,7 +157,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Ask Chef AI (Desktop - on mobile it lives in the thumb-accessible bottom bar) */}
           <button
             onClick={onOpenChat}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-950 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] shadow-xs"
+            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-950 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] shadow-xs"
             title="Chat with Chef AI (Find recipes, fix formatting, grocery help)"
           >
             <Sparkles className="w-4 h-4 text-amber-600 fill-amber-500/30 shrink-0" />
@@ -167,7 +167,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Import Recipe (Desktop - on mobile it is the prominent center action in bottom bar) */}
           <button
             onClick={onOpenImport}
-            className="hidden md:flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-stone-900 hover:bg-stone-800 rounded-xl shadow-xs transition-all active:scale-[0.98]"
+            className="hidden lg:flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-stone-900 hover:bg-stone-800 rounded-xl shadow-xs transition-all active:scale-[0.98]"
           >
             <Plus className="w-4 h-4 stroke-[2.5] shrink-0 text-white" />
             <span>Import Recipe</span>
@@ -308,7 +308,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {!isGoogleSignedIn && (
             <button
               onClick={() => setIsProfileOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-stone-900 hover:bg-stone-800 text-white shadow-xs transition-all active:scale-[0.98]"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-stone-900 hover:bg-stone-800 text-white shadow-xs transition-all active:scale-[0.98]"
             >
               <UserIcon className="w-3.5 h-3.5" />
               <span>Sign In</span>
