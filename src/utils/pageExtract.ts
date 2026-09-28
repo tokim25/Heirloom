@@ -113,3 +113,34 @@ export const urlRetrievedSuccessfully = (response: any): boolean => {
     metadata.some((entry: any) => entry?.urlRetrievalStatus === 'URL_RETRIEVAL_STATUS_SUCCESS')
   );
 };
+
+export interface SourceFromUrl {
+  source: { type: 'link' | 'youtube'; url: string; sourceName: string; youtubeId?: string };
+  heroImage: string;
+}
+
+/**
+ * Builds the recipe source for text the user pasted from a page Heirloom could not read,
+ * so the saved recipe still links back to the original. The URL is never fetched.
+ */
+export function sourceFromPastedUrl(raw: unknown): SourceFromUrl | null {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  const youtubeId = url.toString().match(YOUTUBE_ID)?.[1];
+  if (youtubeId) {
+    return {
+      source: { type: 'youtube', url: url.toString(), youtubeId, sourceName: 'YouTube' },
+      heroImage: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
+    };
+  }
+  return {
+    source: { type: 'link', url: url.toString(), sourceName: url.hostname.replace(/^www\./, '') },
+    heroImage: '',
+  };
+}

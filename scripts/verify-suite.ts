@@ -2,7 +2,7 @@ import { scaleQuantity, formatFraction, convertUnit, fahrenheitToCelsius, celsiu
 import { getIngredientFacets, normalizeIngredientName, matchRecipeFilters, INITIAL_ORGANIZATION_FILTER, deriveProteinCategory } from '../src/utils/recipeTaxonomy.ts';
 import { Recipe } from '../src/types/recipe.ts';
 import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, RecipeParseError } from '../src/utils/recipeSchema.ts';
-import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully } from '../src/utils/pageExtract.ts';
+import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully, sourceFromPastedUrl } from '../src/utils/pageExtract.ts';
 import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode } from '../src/utils/invite.ts';
 
@@ -241,6 +241,10 @@ try {
   const fetched = (status: string) => ({ candidates: [{ urlContextMetadata: { urlMetadata: [{ urlRetrievalStatus: status }] } }] });
   assert(urlRetrievedSuccessfully(fetched('URL_RETRIEVAL_STATUS_SUCCESS')), 'Pages', 'Accepts a confirmed page retrieval');
   assert(!urlRetrievedSuccessfully(fetched('URL_RETRIEVAL_STATUS_ERROR')), 'Pages', 'Rejects a failed retrieval');
+  const pastedLink = sourceFromPastedUrl(' https://www.maangchi.com/recipe/miyeokguk ');
+  assert(pastedLink?.source.type === 'link' && pastedLink.source.sourceName === 'maangchi.com', 'Pages', 'Pasted text keeps its original page as the source');
+  assert(sourceFromPastedUrl('https://youtu.be/dQw4w9WgXcQ')?.source.type === 'youtube', 'Pages', 'Pasted text from YouTube keeps the video source and thumbnail');
+  assert(sourceFromPastedUrl('javascript:alert(1)') === null && sourceFromPastedUrl('') === null && sourceFromPastedUrl(42) === null, 'Pages', 'Ignores non-http source links');
   assert(!urlRetrievedSuccessfully({ candidates: [{}] }) && !urlRetrievedSuccessfully(null), 'Pages', 'Rejects answers with no retrieval proof (model memory)');
 } catch (e: any) {
   results.push({ suite: 'Pages', name: 'Exception in suite', passed: false, error: e.message });
