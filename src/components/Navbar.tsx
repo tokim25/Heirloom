@@ -60,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#FAF9F5]/95 backdrop-blur-xl border-b border-stone-200/70 transition-all">
+    <header className="sticky top-0 z-40 w-full bg-canvas/95 backdrop-blur-xl border-b border-stone-200/70 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-3">
         {/* Brand & Section Switcher (Desktop) */}
         <div className="flex items-center gap-4 md:gap-8 min-w-0">
@@ -70,7 +70,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             aria-label="Heirloom, go to recipes"
             className="cursor-pointer flex items-center gap-2.5 group select-none shrink-0 text-left"
           >
-            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs border border-stone-200/80 bg-stone-950 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs border border-stone-200/80 bg-ink-deep flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <img src="/icons/icon.svg" alt="Heirloom" className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col">
@@ -88,14 +88,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => setActiveTab('cookbook')}
               className={`group flex items-center gap-2 px-3.5 py-1.5 text-xs rounded-xl transition-all ${
                 activeTab === 'cookbook'
-                  ? 'bg-white text-stone-950 font-semibold shadow-xs border border-stone-200/80'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-white/50 font-medium'
+                  ? 'bg-surface text-stone-950 font-semibold shadow-xs border border-stone-200/80'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-surface/50 font-medium'
               }`}
             >
               <BookOpen
                 className={`w-4 h-4 shrink-0 transition-colors ${
                   activeTab === 'cookbook'
-                    ? 'text-amber-600 stroke-[2.2]'
+                    ? 'text-amber-600 stroke-[2.2] dark:text-amber-400'
                     : 'text-stone-400 group-hover:text-stone-600 stroke-[1.8]'
                 }`}
               />
@@ -103,7 +103,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span
                 className={`text-xs font-mono transition-colors ${
                   activeTab === 'cookbook'
-                    ? 'text-amber-900 font-bold'
+                    ? 'text-amber-900 font-bold dark:text-amber-100'
                     : 'text-stone-400'
                 }`}
               >
@@ -115,14 +115,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => setActiveTab('groceries')}
               className={`group flex items-center gap-2 px-3.5 py-1.5 text-xs rounded-xl transition-all ${
                 activeTab === 'groceries'
-                  ? 'bg-white text-stone-950 font-semibold shadow-xs border border-stone-200/80'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-white/50 font-medium'
+                  ? 'bg-surface text-stone-950 font-semibold shadow-xs border border-stone-200/80'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-surface/50 font-medium'
               }`}
             >
               <ShoppingBag
                 className={`w-4 h-4 shrink-0 transition-colors ${
                   activeTab === 'groceries'
-                    ? 'text-amber-600 stroke-[2.2]'
+                    ? 'text-amber-600 stroke-[2.2] dark:text-amber-400'
                     : 'text-stone-400 group-hover:text-stone-600 stroke-[1.8]'
                 }`}
               />
@@ -147,17 +147,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Ask Chef AI (Desktop - on mobile it lives in the thumb-accessible bottom bar) */}
           <button
             onClick={onOpenChat}
-            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-950 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] shadow-xs"
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-950 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] shadow-xs dark:text-amber-100"
             title="Chat with Chef AI (Find recipes, fix formatting, grocery help)"
           >
-            <Sparkles className="w-4 h-4 text-amber-600 fill-amber-500/30 shrink-0" />
+            <Sparkles className="w-4 h-4 text-amber-600 fill-amber-500/30 shrink-0 dark:text-amber-400" />
             <span>Ask Chef AI</span>
           </button>
 
           {/* Import Recipe (Desktop - on mobile it is the prominent center action in bottom bar) */}
           <button
             onClick={onOpenImport}
-            className="hidden xl:flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-stone-900 hover:bg-stone-800 rounded-xl shadow-xs transition-all active:scale-[0.98]"
+            className="hidden xl:flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-ink hover:bg-ink-hover rounded-xl shadow-xs transition-all active:scale-[0.98]"
           >
             <Plus className="w-4 h-4 stroke-[2.5] shrink-0 text-white" />
             <span>Import Recipe</span>
@@ -169,8 +169,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => setIsToolsMenuOpen(!isToolsMenuOpen)}
               className={`p-2 rounded-xl border shadow-xs transition-all active:scale-[0.97] ${
                 isToolsMenuOpen
-                  ? 'bg-stone-900 text-white border-stone-900'
-                  : 'bg-white text-stone-700 border-stone-200/80 hover:bg-stone-50'
+                  ? 'bg-ink text-white border-stone-900'
+                  : 'bg-surface text-stone-700 border-stone-200/80 hover:bg-stone-50'
               }`}
               title="More" aria-label="More options" aria-haspopup="menu" aria-expanded={isToolsMenuOpen}
             >
@@ -182,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {isToolsMenuOpen && (
-              <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-2xl rounded-2xl shadow-xl border border-stone-200/80 py-2 z-50 animate-in fade-in duration-100">
+              <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-surface/95 backdrop-blur-2xl rounded-2xl shadow-xl border border-stone-200/80 py-2 z-50 animate-in fade-in duration-100">
                 <div className="px-3.5 py-2 border-b border-stone-100 text-xs font-semibold tracking-wider uppercase text-stone-600">
                   Tools & Settings
                 </div>
@@ -196,7 +196,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       }}
                       className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                     >
-                      <Cloud className="w-4 h-4 text-amber-600 shrink-0" />
+                      <Cloud className="w-4 h-4 text-amber-600 shrink-0 dark:text-amber-400" />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium">Google Drive Copy</span>
                         <span className="text-xs text-stone-600 truncate">Automatic copy of your cookbook</span>
@@ -212,7 +212,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       }}
                       className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                     >
-                      <Layers className="w-4 h-4 text-amber-600 shrink-0" />
+                      <Layers className="w-4 h-4 text-amber-600 shrink-0 dark:text-amber-400" />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium">Organize by Ingredient</span>
                         <span className="text-xs text-stone-600 truncate">Find recipes by what you have</span>
@@ -227,7 +227,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                   >
-                    <UtensilsCrossed className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <UtensilsCrossed className="w-4 h-4 text-emerald-600 shrink-0 dark:text-emerald-400" />
                     <div className="flex flex-col min-w-0">
                       <span className="font-medium">Pantry Checklist</span>
                       <span className="text-xs text-stone-600 truncate">Track staples you already have</span>
@@ -241,7 +241,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                   >
-                    <Calculator className="w-4 h-4 text-amber-600 shrink-0" />
+                    <Calculator className="w-4 h-4 text-amber-600 shrink-0 dark:text-amber-400" />
                     <div className="flex flex-col min-w-0">
                       <span className="font-medium">Culinary Converter</span>
                       <span className="text-xs text-stone-600 truncate">Cups to Grams, °F to °C</span>
@@ -256,7 +256,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       }}
                       className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                     >
-                      <Download className="w-4 h-4 text-blue-600 shrink-0" />
+                      <Download className="w-4 h-4 text-blue-600 shrink-0 dark:text-blue-400" />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium">Install Offline App</span>
                         <span className="text-xs text-stone-600 truncate">Add to Home Screen / Desktop</span>
@@ -272,7 +272,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {!isGoogleSignedIn && (
             <button
               onClick={() => setIsProfileOpen(true)}
-              className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-stone-900 hover:bg-stone-800 text-white shadow-xs transition-all active:scale-[0.98]"
+              className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-ink hover:bg-ink-hover text-white shadow-xs transition-all active:scale-[0.98]"
             >
               <UserIcon className="w-3.5 h-3.5" />
               <span>Sign In</span>

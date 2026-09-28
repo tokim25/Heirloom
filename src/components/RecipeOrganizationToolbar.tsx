@@ -104,15 +104,15 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
               onClick={onOpenIngredientOrganizer}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                 selectedIngredientsCount > 0
-                  ? 'bg-amber-500 text-stone-950 font-bold border-amber-600 shadow-xs'
-                  : 'bg-white border-stone-200/80 text-stone-700 hover:bg-stone-50'
+                  ? 'bg-amber-500 text-on-accent font-bold border-amber-600 shadow-xs'
+                  : 'bg-surface border-stone-200/80 text-stone-700 hover:bg-stone-50'
               }`}
               title="Filter recipes by ingredients in your pantry"
             >
-              <Layers className="w-3.5 h-3.5 text-amber-600" />
+              <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span>Ingredients</span>
               {selectedIngredientsCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-stone-900 text-white text-xs font-mono">
+                <span className="px-1.5 py-0.2 rounded-full bg-ink text-white text-xs font-mono">
                   {selectedIngredientsCount}
                 </span>
               )}
@@ -123,12 +123,12 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
             onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
               isAdvancedOpen || hasActiveFilters
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-950 font-semibold'
-                : 'bg-white border-stone-200/80 text-stone-700 hover:bg-stone-50'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-950 font-semibold dark:text-amber-100'
+                : 'bg-surface border-stone-200/80 text-stone-700 hover:bg-stone-50'
             }`}
             title="Filter by prep time or cooking duration"
           >
-            <Filter className="w-3.5 h-3.5 text-amber-600" />
+            <Filter className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             <span>Filters</span>
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isAdvancedOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -138,14 +138,14 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
       {/* Active Filter Badges */}
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-          <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
-            <Layers className="w-3.5 h-3.5 text-amber-600" />
+          <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1 dark:text-amber-100">
+            <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             Active Filters:
           </span>
           {activeFilterBadges.map((badge) => (
             <span
               key={badge}
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-amber-300/80 rounded-xl text-xs font-semibold text-stone-900 shadow-2xs"
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface border border-amber-300/80 rounded-xl text-xs font-semibold text-stone-900 shadow-2xs dark:border-amber-700/60"
             >
               {badge}
             </span>
@@ -153,12 +153,12 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
           {filter.selectedIngredients.map((ing) => (
             <span
               key={ing}
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-amber-300/80 rounded-xl text-xs font-semibold text-stone-900 shadow-2xs"
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface border border-amber-300/80 rounded-xl text-xs font-semibold text-stone-900 shadow-2xs dark:border-amber-700/60"
             >
               <span>{ing}</span>
               <button
                 onClick={() => handleRemoveIngredient(ing)}
-                className="hover:text-rose-600 transition-colors"
+                className="hover:text-rose-600 transition-colors dark:hover:text-rose-400"
                 title="Remove ingredient filter"
               >
                 <X className="w-3 h-3" />
@@ -167,7 +167,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
           ))}
           <button
             onClick={handleResetFilters}
-            className="text-xs font-medium text-amber-800 hover:text-amber-950 underline underline-offset-2 ml-1"
+            className="text-xs font-medium text-amber-800 hover:text-amber-950 underline underline-offset-2 ml-1 dark:text-amber-200 dark:hover:text-amber-100"
           >
             Clear filters
           </button>
@@ -185,7 +185,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
               <select
                 value={filter.cuisine}
                 onChange={(e) => setFilter((prev) => ({ ...prev, cuisine: e.target.value }))}
-                className="px-3 py-2 bg-white border border-stone-200 text-stone-800 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                className="px-3 py-2 bg-surface border border-stone-200 text-stone-800 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-xs"
               >
                 {cuisinesList.map((c) => (
                   <option key={c} value={c}>
@@ -204,7 +204,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
                 onChange={(e) =>
                   setFilter((prev) => ({ ...prev, sortBy: e.target.value as typeof prev.sortBy }))
                 }
-                className="px-3 py-2 bg-white border border-stone-200 text-stone-800 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                className="px-3 py-2 bg-surface border border-stone-200 text-stone-800 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-xs"
               >
                 <option value="newest">Recently Added</option>
                 <option value="quickest">Shortest Cook Time</option>
@@ -242,8 +242,8 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
                     }
                     className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
                       filter.proteinCategory === opt.id
-                        ? 'bg-stone-900 text-white font-medium shadow-xs'
-                        : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-200/60'
+                        ? 'bg-ink text-white font-medium shadow-xs'
+                        : 'bg-surface text-stone-700 hover:bg-stone-100 border border-stone-200/60'
                     }`}
                   >
                     <span>{opt.label}</span>
@@ -278,8 +278,8 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
                     }
                     className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
                       filter.timeBracket === opt.id
-                        ? 'bg-stone-900 text-white font-medium shadow-xs'
-                        : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-200/60'
+                        ? 'bg-ink text-white font-medium shadow-xs'
+                        : 'bg-surface text-stone-700 hover:bg-stone-100 border border-stone-200/60'
                     }`}
                   >
                     <span>{opt.label}</span>
@@ -313,8 +313,8 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
                     }
                     className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
                       filter.prepBracket === opt.id
-                        ? 'bg-stone-900 text-white font-medium shadow-xs'
-                        : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-200/60'
+                        ? 'bg-ink text-white font-medium shadow-xs'
+                        : 'bg-surface text-stone-700 hover:bg-stone-100 border border-stone-200/60'
                     }`}
                   >
                     <span>{opt.label}</span>
@@ -335,7 +335,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
             {hasActiveFilters && (
               <button
                 onClick={handleResetFilters}
-                className="flex items-center gap-1 text-xs text-amber-800 hover:text-amber-950 font-medium transition-colors"
+                className="flex items-center gap-1 text-xs text-amber-800 hover:text-amber-950 font-medium transition-colors dark:text-amber-200 dark:hover:text-amber-100"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset all filters</span>

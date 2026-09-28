@@ -190,13 +190,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   return (
     <Sheet open onClose={onClose} title="Account and kitchen profile" variant="bare" size="lg">
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between bg-white/50">
+        <div className="p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between bg-surface/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-700">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-700 dark:text-amber-300">
               <UserIcon className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
                 Profile
               </span>
               <h2 className="font-serif text-2xl text-stone-900 leading-tight">
@@ -216,7 +216,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* Scrollable Content */}
         <div className="overflow-y-auto p-6 flex flex-col gap-6">
           {/* SECTION 1: Standard Google Sign-In / Account Surface */}
-          <div className="bg-white rounded-2xl border border-stone-200/90 p-4 sm:p-5 shadow-xs">
+          <div className="bg-surface rounded-2xl border border-stone-200/90 p-4 sm:p-5 shadow-xs">
             {isGoogleSignedIn && user ? (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -228,15 +228,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         className="w-12 h-12 rounded-full object-cover ring-2 ring-emerald-500/30"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 font-serif text-lg font-bold">
+                      <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 font-serif text-lg font-bold dark:bg-amber-900/40 dark:text-amber-200">
                         {user.name.charAt(0)}
                       </div>
                     )}
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-medium text-stone-900 text-base">{user.name}</h3>
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
-                          <Check className="w-3 h-3 text-emerald-600" />
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50">
+                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                           Google Verified
                         </span>
                       </div>
@@ -256,8 +256,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </div>
 
                 <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-600">
-                  <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
-                    <ShieldCheck className={`w-4 h-4 ${isGoogleConnected ? 'text-emerald-600' : 'text-stone-400'}`} />
+                  <span className="flex items-center gap-1.5 text-emerald-700 font-medium dark:text-emerald-300">
+                    <ShieldCheck className={`w-4 h-4 ${isGoogleConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}`} />
                     {isGoogleConnected
                       ? 'Google Drive copy is on'
                       : isDriveCopyEnabled
@@ -271,7 +271,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         onClose();
                         onOpenDriveBackup();
                       }}
-                      className="text-amber-700 hover:text-amber-800 font-medium underline flex items-center gap-1"
+                      className="text-amber-700 hover:text-amber-800 font-medium underline flex items-center gap-1 dark:text-amber-300 dark:hover:text-amber-200"
                     >
                       <span>{isGoogleConnected ? 'Drive settings' : isDriveCopyEnabled ? 'Reconnect Drive' : 'Copy to Google Drive'}</span>
                       <ExternalLink className="w-3 h-3" />
@@ -282,7 +282,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             ) : (
               <div className="flex flex-col gap-3.5">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 dark:bg-blue-950/40 dark:border-blue-900/40">
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
@@ -316,7 +316,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={isSigningIn}
-                  className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all"
+                  className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-ink hover:bg-ink-hover disabled:bg-stone-400 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all"
                 >
                   {isSigningIn ? (
                     <>
@@ -325,7 +325,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 bg-surface rounded-full p-0.5" viewBox="0 0 24 24">
                         <path
                           fill="#4285F4"
                           d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -350,13 +350,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
                 {/* Error Banner with 1-Click Domain Authorization Link */}
                 {(authError || authErrorMessage) && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex flex-col gap-2">
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex flex-col gap-2 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800/50">
                     <div className="flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
                       <div className="flex-1">
                         <p className="font-semibold">{authError?.message || authErrorMessage}</p>
                         {authError?.isDomainError && (
-                          <p className="text-rose-700 text-xs mt-1">
+                          <p className="text-rose-700 text-xs mt-1 dark:text-rose-300">
                             Firebase requires listing custom domains under Authorized Domains to prevent unauthorized OAuth redirects.
                           </p>
                         )}
@@ -385,7 +385,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <div className="flex items-center justify-between mb-2">
               <div>
                 <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-amber-600" />
+                  <Tag className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>Dietary Preferences & Culinary Tags</span>
                 </label>
                 <p className="text-xs text-stone-500 mt-0.5">
@@ -397,7 +397,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddingTag(true)}
-                  className="text-xs font-medium text-amber-700 hover:text-amber-800 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-amber-50 transition-colors"
+                  className="text-xs font-medium text-amber-700 hover:text-amber-800 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-amber-50 transition-colors dark:hover:bg-amber-950/40 dark:text-amber-300 dark:hover:text-amber-200"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Custom Tag</span>
@@ -419,7 +419,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     }
                   }}
                   placeholder="e.g. Pescatarian, Low-Sodium, Sous-Vide..."
-                  className="flex-1 px-3 py-2 text-base sm:text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  className="flex-1 px-3 py-2 text-base sm:text-xs bg-surface border border-stone-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
                   autoFocus
                 />
                 <button
@@ -455,8 +455,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     onClick={() => toggleDiet(item)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
                       active
-                        ? 'bg-amber-500 text-stone-950 font-semibold shadow-xs'
-                        : 'bg-white text-stone-700 hover:bg-stone-200/70 border border-stone-200/70'
+                        ? 'bg-amber-500 text-on-accent font-semibold shadow-xs'
+                        : 'bg-surface text-stone-700 hover:bg-stone-200/70 border border-stone-200/70'
                     }`}
                   >
                     <span>{item}</span>
@@ -478,18 +478,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           {/* SECTION 3: Household & Supermarket Preferences */}
           <form onSubmit={handleSave} className="flex flex-col gap-4">
-            <div className="bg-white rounded-2xl border border-stone-200/90 p-4 flex flex-col gap-3 shadow-xs">
+            <div className="bg-surface rounded-2xl border border-stone-200/90 p-4 flex flex-col gap-3 shadow-xs">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-amber-600" />
+                    <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     <span>Household</span>
                   </label>
                   <p className="text-xs text-stone-500 mt-0.5">
                     Everyone here shares the cookbook and grocery lists.
                   </p>
                 </div>
-                <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-semibold">
+                <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-semibold dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/40">
                   {householdMembers.length} {householdMembers.length === 1 ? 'member' : 'members'}
                 </span>
               </div>
@@ -527,11 +527,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <button
                     type="button"
                     onClick={handleCopyInvite}
-                    className="inline-flex items-center gap-1.5 h-11 px-3 rounded-lg bg-white border border-stone-200 text-sm font-semibold text-stone-700 hover:text-stone-950 hover:bg-stone-50 shrink-0"
+                    className="inline-flex items-center gap-1.5 h-11 px-3 rounded-lg bg-surface border border-stone-200 text-sm font-semibold text-stone-700 hover:text-stone-950 hover:bg-stone-50 shrink-0"
                   >
                     {copiedInvite ? (
                       <>
-                        <Check className="w-4 h-4 text-emerald-600" />
+                        <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Copied</span>
                       </>
                     ) : (
@@ -553,7 +553,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <select
                 value={preferredStore}
                 onChange={(e) => setPreferredStore(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 font-medium text-stone-800"
+                className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-surface border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 font-medium text-stone-800"
               >
                 {STORE_NAMES.map((s) => (
                   <option key={s} value={s}>
@@ -575,7 +575,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
               <button
                 type="submit"
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold shadow-sm transition-all"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-ink hover:bg-ink-hover text-white text-xs font-semibold shadow-sm transition-all"
               >
                 {isSaved ? (
                   <>

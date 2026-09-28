@@ -44,7 +44,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ recipeCount, g
   return (
     <nav
       aria-label="Main"
-      className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F5]/95 backdrop-blur-2xl border-t border-stone-200/90 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
+      className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas/95 backdrop-blur-2xl border-t border-stone-200/90 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
     >
       <ul className="max-w-lg mx-auto px-2 pt-1 flex items-stretch justify-between">
         {tabs.map((tab) => {
@@ -59,7 +59,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ recipeCount, g
                   isActive ? 'text-stone-950' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                <span className={`relative flex items-center justify-center ${isActive ? 'text-amber-700' : ''}`}>
+                <span className={`relative flex items-center justify-center ${isActive ? 'text-amber-700 dark:text-amber-300' : ''}`}>
                   {tab.icon}
                   {tab.badge ? (
                     <span

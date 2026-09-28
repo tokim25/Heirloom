@@ -101,7 +101,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
           <button
             type="button"
             onClick={() => onEditRecipe(recipe)}
-            className="min-h-11 px-4 inline-flex items-center gap-1.5 rounded-full bg-stone-900/70 hover:bg-stone-900 text-white text-sm font-semibold backdrop-blur-md transition-all shadow-md"
+            className="min-h-11 px-4 inline-flex items-center gap-1.5 rounded-full bg-ink/70 hover:bg-ink text-white text-sm font-semibold backdrop-blur-md transition-all shadow-md"
           >
             <Pencil className="w-4 h-4" aria-hidden="true" />
             Edit
@@ -111,7 +111,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-stone-900/70 hover:bg-stone-900 text-white backdrop-blur-md transition-all shadow-md"
+          className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-ink/70 hover:bg-ink text-white backdrop-blur-md transition-all shadow-md"
         >
           <X className="w-5 h-5" aria-hidden="true" />
         </button>
@@ -188,7 +188,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setServings((prev) => Math.max(1, prev - 1))}
-                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-stone-700 hover:bg-white active:bg-white"
+                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-stone-700 hover:bg-surface active:bg-surface"
                     aria-label="Fewer servings"
                   >
                     <Minus className="w-4 h-4" aria-hidden="true" />
@@ -199,7 +199,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setServings((prev) => prev + 1)}
-                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-stone-700 hover:bg-white active:bg-white"
+                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-stone-700 hover:bg-surface active:bg-surface"
                     aria-label="More servings"
                   >
                     <Plus className="w-4 h-4" aria-hidden="true" />
@@ -214,7 +214,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                       onClick={() => setUnitSystem(system)}
                       aria-pressed={unitSystem === system}
                       className={`min-h-9 px-3 text-sm font-medium rounded-lg transition-all ${
-                        unitSystem === system ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600 hover:text-stone-900'
+                        unitSystem === system ? 'bg-surface text-stone-900 shadow-sm' : 'text-stone-600 hover:text-stone-900'
                       }`}
                     >
                       {system === 'imperial' ? 'US' : 'Metric'}
@@ -229,7 +229,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                   <select
                     value={selectedListId}
                     onChange={(e) => setSelectedListId(e.target.value)}
-                    className="flex-1 min-w-0 min-h-11 px-3 rounded-xl bg-white border border-stone-300 text-sm font-medium text-stone-800"
+                    className="flex-1 min-w-0 min-h-11 px-3 rounded-xl bg-surface border border-stone-300 text-sm font-medium text-stone-800"
                   >
                     {groceryLists.map((list) => (
                       <option key={list.id} value={list.id}>
@@ -244,7 +244,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                 {Object.entries(categorizedIngredients).map(([category, items]) => (
                   <div key={category} className="flex flex-col gap-2">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-600">{category}</h3>
-                    <ul className="divide-y divide-stone-100 bg-white rounded-2xl border border-stone-200/80 px-2 shadow-xs">
+                    <ul className="divide-y divide-stone-100 bg-surface rounded-2xl border border-stone-200/80 px-2 shadow-xs">
                       {items.map((ing) => {
                         const scaled = scaleQuantity(ing.amount, recipe.defaultServings, servings);
                         const converted = convertUnit(scaled, ing.unit, ing.name, unitSystem);
@@ -279,10 +279,10 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
 
               <ol className="flex flex-col gap-3">
                 {recipe.steps.map((step, idx) => (
-                  <li key={step.stepNumber} className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex flex-col gap-2">
+                  <li key={step.stepNumber} className="p-4 rounded-2xl bg-surface border border-stone-200/80 shadow-xs flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-7 h-7 shrink-0 rounded-full bg-stone-900 text-white text-sm font-medium flex items-center justify-center">
+                        <span className="w-7 h-7 shrink-0 rounded-full bg-ink text-white text-sm font-medium flex items-center justify-center">
                           {idx + 1}
                         </span>
                         <h3 className="font-serif text-lg font-medium text-stone-900">{step.title || `Step ${idx + 1}`}</h3>
@@ -290,8 +290,8 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
 
                       <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
                         {step.timerSeconds ? (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
-                            <Clock className="w-3 h-3 text-amber-600" aria-hidden="true" />
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800/50">
+                            <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                             {Math.round(step.timerSeconds / 60)} min
                           </span>
                         ) : null}
@@ -309,7 +309,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                     </p>
 
                     {step.tips && (
-                      <div className="text-sm text-amber-900 bg-amber-50/70 p-3 rounded-xl border border-amber-100">
+                      <div className="text-sm text-amber-900 bg-amber-50/70 p-3 rounded-xl border border-amber-100 dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-900/40">
                         <span className="font-semibold">Tip: </span>
                         {step.tips}
                       </div>
@@ -325,7 +325,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(true)}
-                className="inline-flex items-center gap-1.5 min-h-11 px-2 text-sm text-rose-700 hover:text-rose-800 hover:underline"
+                className="inline-flex items-center gap-1.5 min-h-11 px-2 text-sm text-rose-700 hover:text-rose-800 hover:underline dark:text-rose-300 dark:hover:text-rose-200"
               >
                 <Trash2 className="w-4 h-4" aria-hidden="true" />
                 <span>Delete recipe</span>
@@ -336,14 +336,14 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
       </div>
 
       {/* Sticky actions: the one thing you came to do, always in reach */}
-      <div className="shrink-0 bg-white/95 backdrop-blur border-t border-stone-200">
+      <div className="shrink-0 bg-surface/95 backdrop-blur border-t border-stone-200">
         {addListStatus && (
           <div
             role="status"
             className={`mx-4 mt-3 text-sm rounded-xl px-3 py-2 flex items-center justify-between gap-3 ${
               addListStatus.success
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-rose-50 text-rose-800 border border-rose-200'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800/50'
+                : 'bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800/50'
             }`}
           >
             <span>{addListStatus.message}</span>
@@ -362,7 +362,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
           <button
             type="button"
             onClick={() => onStartCooking(recipe, servings, unitSystem)}
-            className="flex-1 min-h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-base font-semibold shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all"
+            className="flex-1 min-h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-on-accent text-base font-semibold shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all"
           >
             <Play className="w-4 h-4 fill-current" aria-hidden="true" />
             Start cooking
@@ -376,10 +376,10 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             title="Add ingredients to grocery list"
             className={`min-h-12 min-w-12 sm:px-4 inline-flex items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-60 ${
               addListStatus?.success
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700/60'
                 : addListStatus
-                ? 'bg-rose-50 text-rose-700 border-rose-300'
-                : 'bg-white hover:bg-stone-50 text-stone-800 border-stone-300'
+                ? 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-700/60'
+                : 'bg-surface hover:bg-stone-50 text-stone-800 border-stone-300'
             }`}
           >
             {addListStatus?.success ? (

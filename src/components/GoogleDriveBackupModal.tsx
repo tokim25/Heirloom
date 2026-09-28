@@ -87,10 +87,10 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
           <span className="font-semibold"> {DRIVE_LIBRARY_FILE_NAME}</span>, updated in your Google Drive while you use the app.
         </p>
 
-        <div className="rounded-2xl bg-white border border-stone-200 p-4 text-sm flex items-start gap-3">
+        <div className="rounded-2xl bg-surface border border-stone-200 p-4 text-sm flex items-start gap-3">
           {isDriveCopyEnabled && googleAccessToken ? (
             <>
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 dark:text-emerald-400" />
               <div>
                 <p className="font-semibold text-stone-900">On</p>
                 <p className="text-stone-600">
@@ -100,7 +100,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
             </>
           ) : needsReconnect ? (
             <>
-              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 dark:text-amber-400" />
               <div>
                 <p className="font-semibold text-stone-900">Paused</p>
                 <p className="text-stone-600">Google limits Drive access to about an hour. Reconnect to resume copying.</p>
@@ -118,10 +118,10 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
         </div>
 
         {copyStatus.error && isDriveCopyEnabled && (
-          <p className="text-sm text-rose-700">{copyStatus.error}</p>
+          <p className="text-sm text-rose-700 dark:text-rose-300">{copyStatus.error}</p>
         )}
         {message && (
-          <p role="status" className={`text-sm ${message.type === 'error' ? 'text-rose-700' : 'text-emerald-700'}`}>
+          <p role="status" className={`text-sm ${message.type === 'error' ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
             {message.text}
           </p>
         )}
@@ -132,7 +132,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
               type="button"
               onClick={handleConnect}
               disabled={busy !== null || !user}
-              className="h-12 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white text-base font-semibold flex items-center justify-center gap-2"
+              className="h-12 rounded-xl bg-ink hover:bg-ink-hover disabled:bg-stone-400 text-white text-base font-semibold flex items-center justify-center gap-2"
             >
               {busy === 'connect' && <RefreshCw className="w-4 h-4 animate-spin" />}
               {needsReconnect ? 'Reconnect Google Drive' : 'Turn on Drive copy'}
@@ -143,7 +143,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
               type="button"
               onClick={handleRestore}
               disabled={busy !== null}
-              className="h-12 rounded-xl bg-white border border-stone-300 text-stone-900 text-base font-semibold flex items-center justify-center gap-2 hover:bg-stone-50"
+              className="h-12 rounded-xl bg-surface border border-stone-300 text-stone-900 text-base font-semibold flex items-center justify-center gap-2 hover:bg-stone-50"
             >
               {busy === 'restore' ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
               Restore missing recipes from Drive

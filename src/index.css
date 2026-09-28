@@ -1,8 +1,59 @@
 @import "tailwindcss";
 
 @theme {
+  /* Roles that need the same meaning in light and dark, so they get names instead of a stone shade */
+  --color-canvas: #faf9f5;      /* page background */
+  --color-surface: #ffffff;     /* cards, sheets, inputs */
+  --color-ink: #1c1917;         /* dark buttons and pills that carry white text */
+  --color-ink-hover: #292524;
+  --color-ink-deep: #0c0a09;    /* backdrops and always-dark tiles */
+  --color-on-accent: #0c0a09;   /* text on amber buttons: dark in both modes */
   --font-serif: 'Fraunces', 'Instrument Serif', Georgia, serif;
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Dark mode follows the system setting. The neutral scale is flipped, so text-stone-900 is light and
+   border-stone-200 is subtle on a dark page; the named roles above are set explicitly. */
+:root { color-scheme: light dark; }
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #1a1816;
+    --color-surface: #24211e;
+    --color-ink: #57504a;
+    --color-ink-hover: #675f57;
+    --color-ink-deep: #050403;
+    --color-stone-50: #262320;
+    --color-stone-100: #2d2926;
+    --color-stone-200: #3a3531;
+    --color-stone-300: #4d4741;
+    --color-stone-400: #857e77;
+    --color-stone-500: #a29b93;
+    --color-stone-600: #b8b1a9;
+    --color-stone-700: #d1ccc5;
+    --color-stone-800: #e5e1db;
+    --color-stone-900: #f3f0ea;
+    --color-stone-950: #faf8f4;
+  }
+}
+
+/* Keeps a subtree in the light palette in both modes (the cooking screen is always dark-on-light-text) */
+.stone-original {
+  --color-canvas: #faf9f5;
+  --color-surface: #ffffff;
+  --color-ink: #1c1917;
+  --color-ink-hover: #292524;
+  --color-ink-deep: #0c0a09;
+  --color-stone-50: oklch(98.5% 0.001 106.423);
+  --color-stone-100: oklch(97% 0.001 106.424);
+  --color-stone-200: oklch(92.3% 0.003 48.717);
+  --color-stone-300: oklch(86.9% 0.005 56.366);
+  --color-stone-400: oklch(70.9% 0.01 56.259);
+  --color-stone-500: oklch(55.3% 0.013 58.071);
+  --color-stone-600: oklch(44.4% 0.011 73.639);
+  --color-stone-700: oklch(37.4% 0.01 67.558);
+  --color-stone-800: oklch(26.8% 0.007 34.298);
+  --color-stone-900: oklch(21.6% 0.006 56.043);
+  --color-stone-950: oklch(14.7% 0.004 49.25);
 }
 
 @layer base {
@@ -18,8 +69,8 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: #FAF9F5;
-    color: #1C1917;
+    background-color: var(--color-canvas);
+    color: var(--color-stone-900);
     min-height: 100vh;
   }
 
@@ -53,7 +104,7 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(120, 113, 108, 0.2);
+  background: rgba(120, 113, 108, 0.35);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
