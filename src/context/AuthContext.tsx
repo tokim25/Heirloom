@@ -3,6 +3,8 @@ import { User } from '../types/recipe.ts';
 import { auth, googleSignInProvider, googleDriveProvider } from '../utils/firebase.ts';
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
@@ -49,6 +51,27 @@ const writeSessionDriveToken = (accessToken: string | null) => {
   } else {
     sessionStorage.removeItem('heirloom_google_drive_token');
   }
+};
+
+const shouldUseRedirectSignIn = () => {
+  if (typeof window === 'undefined') return false;
+  const userAgent = window.navigator.userAgent;
+  return (
+    window.navigator.maxTouchPoints > 1 ||
+    /Android|iPhone|iPad|iPod|CriOS|FxiOS|EdgiOS/i.test(userAgent)
+  );
+};
+
+const markProfileReturn = () => {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem('heirloom_return_to_profile', 'true');
+};
+
+const consumeProfileReturn = () => {
+  if (typeof window === 'undefined') return false;
+  const shouldReturn = sessionStorage.getItem('heirloom_return_to_profile') === 'true';
+  sessionStorage.removeItem('heirloom_return_to_profile');
+  return shouldReturn;
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -99,6 +122,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('mise_auth_token', data.token);
     return data.user as User;
   };
+
+  useEffect(() => {
+    async function finishRedirectSignIn() {
+      try {
+        const result = await getRedirectResult(auth);
+        if (!result?.user) return;
+        setIsGoogleSignedIn(true);
+        const syncedUser = await syncFirebaseUserToAppProfile(result.user, user);
+        setUser(syncedUser);
+        if (consumeProfileReturn()) {
+          setIsProfileOpen(true);
+        }
+      } catch (err) {
+        console.error('Google redirect sign-in error:', err);
+        consumeProfileReturn();
+      }
+    }
+    finishRedirectSignIn();
+  }, []);
 
   // Monitor Firebase Auth state
   useEffect(() => {
@@ -152,6 +194,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Standard Google Sign-In (profile & email ONLY, no scary unverified app warnings)
   const signInWithGoogle = async (): Promise<string | null> => {
     try {
+      if (shouldUseRedirectSignIn()) {
+        markProfileReturn();
+        await signInWithRedirect(auth, googleSignInProvider);
+        return null;
+      }
       const result = await signInWithPopup(auth, googleSignInProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const accessToken = credential?.accessToken || null;
@@ -164,6 +211,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return accessToken;
     } catch (err: any) {
+      if (
+        err?.code === 'auth/popup-blocked' ||
+        err?.code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        markProfileReturn();
+        await signInWithRedirect(auth, googleSignInProvider);
+        return null;
+      }
       console.error('Google Sign-in error:', err);
       throw err;
     }
