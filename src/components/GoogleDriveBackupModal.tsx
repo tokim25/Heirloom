@@ -71,7 +71,17 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
       const list = await googleDriveService.listBackups(googleAccessToken);
       setBackups(list);
     } catch (err: any) {
-      setStatusMessage({ type: 'error', text: err.message || 'Failed to list backups from Google Drive' });
+      const message = err.message || 'Failed to list backups from Google Drive';
+      const needsReconnect =
+        message.toLowerCase().includes('authorization expired') ||
+        message.toLowerCase().includes('insufficient authentication scopes') ||
+        message.includes('401') ||
+        message.includes('403');
+      if (needsReconnect) {
+        await disconnectGoogleDrive();
+        setBackups([]);
+      }
+      setStatusMessage({ type: 'error', text: message });
     } finally {
       setIsLoading(false);
     }
@@ -93,6 +103,8 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
         text: 'Google Drive connected for manual backups. Tap Back Up Now whenever you want to snapshot your cookbook.',
       });
     } catch (err: any) {
+      await disconnectGoogleDrive();
+      setBackups([]);
       const unauthorized =
         err?.code === 'auth/unauthorized-domain' ||
         err?.message?.includes('auth/unauthorized-domain');

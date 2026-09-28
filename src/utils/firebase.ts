@@ -36,6 +36,7 @@ export const googleDriveProvider = new GoogleAuthProvider();
 googleDriveProvider.addScope('https://www.googleapis.com/auth/drive.file');
 googleDriveProvider.setCustomParameters({
   prompt: 'consent',
+  include_granted_scopes: 'true',
 });
 
 // Backward compatibility alias

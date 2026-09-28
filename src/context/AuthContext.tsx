@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types/recipe.ts';
 import { auth, googleSignInProvider, googleDriveProvider } from '../utils/firebase.ts';
-import { signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
+import {
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  reauthenticateWithPopup,
+} from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -120,7 +126,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Connect Google Drive using Popup flow & grab access token (incremental drive scope)
   const connectGoogleDrive = async (): Promise<string | null> => {
     try {
-      const result = await signInWithPopup(auth, googleDriveProvider);
+      const result = auth.currentUser
+        ? await reauthenticateWithPopup(auth.currentUser, googleDriveProvider)
+        : await signInWithPopup(auth, googleDriveProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const accessToken = credential?.accessToken || null;
       if (accessToken) {

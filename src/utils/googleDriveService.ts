@@ -35,6 +35,18 @@ export type HeirloomBackupPayload = MiseBackupPayload;
 const DRIVE_FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_UPLOAD_ENDPOINT = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
 
+const parseDriveError = async (response: Response, fallback: string) => {
+  const errData = await response.json().catch(() => ({}));
+  const message = errData?.error?.message || fallback;
+  if (response.status === 401) {
+    return 'Google Drive authorization expired. Please connect Google Drive again.';
+  }
+  if (response.status === 403 && message.toLowerCase().includes('insufficient')) {
+    return 'Google Drive needs permission again. Please reconnect and approve Drive file access.';
+  }
+  return message;
+};
+
 export const googleDriveService = {
   /**
    * Search for existing Heirloom & legacy Mise backups on the user's Google Drive
@@ -51,11 +63,7 @@ export const googleDriveService = {
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Google Drive authorization expired. Please sign in again.');
-        }
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData?.error?.message || `Failed to fetch backups (${response.status})`);
+        throw new Error(await parseDriveError(response, `Failed to fetch backups (${response.status})`));
       }
 
       const data = await response.json();
@@ -121,8 +129,7 @@ export const googleDriveService = {
     });
 
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData?.error?.message || `Failed to create Drive backup (${response.status})`);
+      throw new Error(await parseDriveError(response, `Failed to create Drive backup (${response.status})`));
     }
 
     const createdFile = await response.json();
@@ -142,7 +149,7 @@ export const googleDriveService = {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to download backup file (${response.status})`);
+      throw new Error(await parseDriveError(response, `Failed to download backup file (${response.status})`));
     }
 
     const json = await response.json();
@@ -163,7 +170,7 @@ export const googleDriveService = {
     });
 
     if (!response.ok && response.status !== 204) {
-      throw new Error(`Failed to delete backup file (${response.status})`);
+      throw new Error(await parseDriveError(response, `Failed to delete backup file (${response.status})`));
     }
   },
 };
