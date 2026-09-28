@@ -233,6 +233,10 @@ export const firestoreService = {
     return id;
   },
 
+  async deleteGroceryList(hid: string, listId: string) {
+    await deleteDoc(doc(listsCol(hid), listId));
+  },
+
   async addGroceryItems(hid: string, listId: string, items: Omit<GroceryItem, 'id' | 'listId' | 'createdAt' | 'checked'>[]) {
     if (items.length === 0) return;
     const args: unknown[] = [];
