@@ -294,6 +294,47 @@ export default function App() {
     }
   };
 
+  const saveRecipeEverywhere = async (recipe: Recipe) => {
+    const householdId = recipe.householdId || user?.householdId;
+    const scopedRecipe = {
+      ...recipe,
+      userId: recipe.userId || user?.id,
+      householdId,
+    };
+
+    writeLocalRecipes(householdId, mergeRecipesById([scopedRecipe], readLocalRecipes(householdId)));
+    setRecipes((prev) => mergeRecipesById([scopedRecipe], prev));
+
+    let durableRecipe = scopedRecipe;
+    try {
+      const query = householdId ? `?householdId=${encodeURIComponent(householdId)}` : '';
+      const res = await fetch(`/api/recipes${query}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scopedRecipe),
+      });
+      if (!res.ok) {
+        throw new Error(await readActionError(res, 'Recipe saved locally, but could not sync to the cookbook server.'));
+      }
+      const data = await res.json();
+      durableRecipe = data.recipe || scopedRecipe;
+      writeLocalRecipes(householdId, mergeRecipesById([durableRecipe], readLocalRecipes(householdId)));
+      setRecipes((prev) => mergeRecipesById([durableRecipe], prev));
+    } catch (err) {
+      console.warn('Recipe server sync unavailable; local copy retained:', err);
+    }
+
+    const savedToFirestore = await firestoreService.saveRecipe(durableRecipe, {
+      userId: user?.id,
+      householdId,
+    });
+    if (!savedToFirestore) {
+      console.warn('Recipe saved locally/server-side; realtime cloud sync is unavailable.');
+    }
+
+    return durableRecipe;
+  };
+
   // Index recipes for typo-tolerant fuzzy searching
   const fuseIndex = useMemo(() => createRecipeSearchIndex(recipes), [recipes]);
 
@@ -322,28 +363,18 @@ export default function App() {
 
   // Recipe actions
   const handleRecipeImported = async (newRecipe: Recipe) => {
-    const scopedRecipe = {
-      ...newRecipe,
-      userId: newRecipe.userId || user?.id,
-      householdId: newRecipe.householdId || user?.householdId,
-    };
-    const householdId = scopedRecipe.householdId || user?.householdId;
-    const nextLocalRecipes = mergeRecipesById([scopedRecipe], readLocalRecipes(householdId));
-    writeLocalRecipes(householdId, nextLocalRecipes);
-    setRecipes((prev) => mergeRecipesById([scopedRecipe], prev));
-    const saved = await firestoreService.saveRecipe(scopedRecipe, {
-      userId: user?.id,
-      householdId: user?.householdId,
-    });
-    if (!saved) {
-      console.warn('Recipe saved locally; cloud recipe sync is unavailable.');
-    }
-    setSelectedRecipeDetail(scopedRecipe);
+    const savedRecipe = await saveRecipeEverywhere(newRecipe);
+    setSelectedRecipeDetail(savedRecipe);
   };
 
   const handleDeleteRecipe = async (id: string) => {
     setRecipes((prev) => prev.filter((r) => r.id !== id));
     writeLocalRecipes(user?.householdId, readLocalRecipes(user?.householdId).filter((r) => r.id !== id));
+    const householdId = user?.householdId;
+    const query = householdId ? `?householdId=${encodeURIComponent(householdId)}` : '';
+    fetch(`/api/recipes/${encodeURIComponent(id)}${query}`, { method: 'DELETE' }).catch((err) => {
+      console.warn('Recipe server delete failed:', err);
+    });
     await firestoreService.deleteRecipe(id);
   };
 
@@ -354,20 +385,8 @@ export default function App() {
         userId: recipe.userId || user?.id,
         householdId: recipe.householdId || user?.householdId,
       }));
-      // Merge restored recipes with existing ones
-      const existingIds = new Set(recipes.map((r) => r.id));
-      const merged = [...recipes];
       for (const r of restoredRecipes) {
-        if (!existingIds.has(r.id)) {
-          merged.push(r);
-        }
-      }
-      setRecipes(merged);
-      for (const r of restoredRecipes) {
-        await firestoreService.saveRecipe(r, {
-          userId: user?.id,
-          householdId: user?.householdId,
-        });
+        await saveRecipeEverywhere(r);
       }
     }
     if (payload.groceryLists && payload.groceryLists.length > 0) {

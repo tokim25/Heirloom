@@ -74,12 +74,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
+  const syncFirebaseUserToAppProfile = async (
+    fbUser: NonNullable<typeof auth.currentUser>,
+    previousUser: User | null
+  ) => {
+    const provisionalUser = profileFromFirebaseUser(fbUser, previousUser);
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(provisionalUser),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to create your Heirloom profile. Please try signing in again.');
+    }
+    const data = await res.json();
+    setUser(data.user);
+    setToken(data.token);
+    localStorage.setItem('mise_auth_token', data.token);
+    return data.user as User;
+  };
+
   // Monitor Firebase Auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setIsGoogleSignedIn(true);
-        setUser((prev) => profileFromFirebaseUser(fbUser, prev));
+        let previousUser: User | null = null;
+        setUser((prev) => {
+          previousUser = prev;
+          return profileFromFirebaseUser(fbUser, prev);
+        });
+        try {
+          await syncFirebaseUserToAppProfile(fbUser, previousUser);
+        } catch (err) {
+          console.error('Failed to sync Firebase user profile:', err);
+        }
       } else {
         setIsGoogleSignedIn(false);
         setGoogleAccessToken(null);
@@ -102,7 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       if (result.user) {
         setIsGoogleSignedIn(true);
-        setUser((prev) => profileFromFirebaseUser(result.user, prev));
+        const syncedUser = await syncFirebaseUserToAppProfile(result.user, user);
+        setUser(syncedUser);
       }
       return accessToken;
     } catch (err: any) {
@@ -121,7 +151,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // token as Drive authorization; Drive requires the incremental provider.
       if (result.user) {
         setIsGoogleSignedIn(true);
-        setUser((prev) => profileFromFirebaseUser(result.user, prev));
+        const syncedUser = await syncFirebaseUserToAppProfile(result.user, user);
+        setUser(syncedUser);
       }
       return accessToken;
     } catch (err: any) {
@@ -194,6 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (updates: Partial<User>) => {
     if (!user) return;
+    const previousUser = user;
     const optimisticUser = { ...user, ...updates };
     setUser(optimisticUser);
     if (updates.preferredStore && typeof window !== 'undefined') {
@@ -206,18 +238,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ id: user.id, ...updates }),
+        body: JSON.stringify({ ...user, ...updates }),
       });
       if (res.ok) {
         const data = await res.json();
         setUser({ ...data.user, ...updates });
-        setIsProfileOpen(false);
       } else {
-        setIsProfileOpen(false);
+        const data = await res.json().catch(() => ({}));
+        setUser(previousUser);
+        throw new Error(data.error || 'Failed to save profile changes.');
       }
     } catch (err) {
       console.error('Update profile error:', err);
-      setIsProfileOpen(false);
+      setUser(previousUser);
+      throw err;
     }
   };
 

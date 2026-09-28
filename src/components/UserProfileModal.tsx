@@ -227,16 +227,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     if (typeof window !== 'undefined') {
       localStorage.setItem('heirloom_preferred_store', preferredStore);
     }
-    await updateProfile({
-      preferredStore,
-      partnerEmail,
-      dietaryPreferences,
-    });
-    setIsSaved(true);
-    setTimeout(() => {
-      setIsSaved(false);
-      onClose();
-    }, 1000);
+    setAuthError(null);
+    try {
+      await updateProfile({
+        preferredStore,
+        partnerEmail,
+        dietaryPreferences,
+      });
+      setIsSaved(true);
+      setTimeout(() => {
+        setIsSaved(false);
+        onClose();
+      }, 1000);
+    } catch (err: any) {
+      setAuthError({
+        message: err?.message || 'Could not save your kitchen preferences. Please try again.',
+      });
+    }
   };
 
   return (

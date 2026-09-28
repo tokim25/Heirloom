@@ -459,24 +459,38 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
 });
 
 app.post('/api/auth/signup', (req: Request, res: Response) => {
-  const { name, email, preferredStore, dietaryPreferences, partnerEmail } = req.body;
+  const { id, name, email, preferredStore, dietaryPreferences, partnerEmail, avatarUrl, householdId } = req.body;
   if (!email || !name) {
     return res.status(400).json({ error: 'Name and email are required.' });
   }
 
   const existing = users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim());
   if (existing) {
-    return res.json({ token: `token-${existing.id}`, user: existing });
+    const updatedUser = {
+      ...existing,
+      id: id || existing.id,
+      name: name ?? existing.name,
+      preferredStore: preferredStore ?? existing.preferredStore,
+      dietaryPreferences: dietaryPreferences ?? existing.dietaryPreferences,
+      partnerEmail: partnerEmail ?? existing.partnerEmail,
+      avatarUrl: avatarUrl ?? existing.avatarUrl,
+      householdId: householdId ?? existing.householdId,
+    };
+    const existingIndex = users.findIndex((u) => u.email.toLowerCase() === email.toLowerCase().trim());
+    users[existingIndex] = updatedUser;
+    saveData(USERS_FILE, users);
+    return res.json({ token: `token-${updatedUser.id}`, user: updatedUser });
   }
 
   const newUser: User = {
-    id: `user-${Date.now()}`,
+    id: id || `user-${Date.now()}`,
     name,
     email: email.trim(),
     preferredStore: preferredStore || 'Whole Foods Market',
     dietaryPreferences: dietaryPreferences || [],
     partnerEmail: partnerEmail || '',
-    householdId: `household-${Date.now()}`,
+    avatarUrl,
+    householdId: householdId || `household-${id || Date.now()}`,
     createdAt: new Date().toISOString(),
   };
 
@@ -497,21 +511,39 @@ app.get('/api/auth/me', (req: Request, res: Response) => {
 });
 
 app.put('/api/auth/profile', (req: Request, res: Response) => {
-  const { id, name, preferredStore, dietaryPreferences, partnerEmail, avatarUrl } = req.body;
-  const index = users.findIndex((u) => u.id === id);
+  const { id, email, name, preferredStore, dietaryPreferences, partnerEmail, avatarUrl, householdId } = req.body;
+  const index = users.findIndex((u) => u.id === id || (email && u.email.toLowerCase() === email.toLowerCase().trim()));
   if (index !== -1) {
     users[index] = {
       ...users[index],
       name: name ?? users[index].name,
+      email: email ?? users[index].email,
       preferredStore: preferredStore ?? users[index].preferredStore,
       dietaryPreferences: dietaryPreferences ?? users[index].dietaryPreferences,
       partnerEmail: partnerEmail ?? users[index].partnerEmail,
       avatarUrl: avatarUrl ?? users[index].avatarUrl,
+      householdId: householdId ?? users[index].householdId,
     };
     saveData(USERS_FILE, users);
     return res.json({ user: users[index] });
   }
-  return res.status(404).json({ error: 'User not found' });
+  if (!id || !email || !name) {
+    return res.status(400).json({ error: 'Profile requires id, email, and name to create an account record.' });
+  }
+  const newUser: User = {
+    id,
+    email: email.trim(),
+    name,
+    preferredStore: preferredStore || 'Whole Foods Market',
+    dietaryPreferences: dietaryPreferences || [],
+    partnerEmail: partnerEmail || '',
+    avatarUrl,
+    householdId: householdId || `household-${id}`,
+    createdAt: new Date().toISOString(),
+  };
+  users.push(newUser);
+  saveData(USERS_FILE, users);
+  return res.status(201).json({ user: newUser });
 });
 
 // ==========================================
@@ -528,6 +560,19 @@ app.post('/api/recipes', (req: Request, res: Response) => {
   const householdId = householdIdFromRequest(req);
   if (!recipeData.title) {
     return res.status(400).json({ error: 'Recipe title is required' });
+  }
+  const existingIndex = recipeData.id
+    ? recipes.findIndex((recipe) => recipe.id === recipeData.id && isRecipeVisibleToHousehold(recipe, householdId))
+    : -1;
+  if (existingIndex !== -1) {
+    recipes[existingIndex] = {
+      ...recipes[existingIndex],
+      ...recipeData,
+      householdId: recipeData.householdId || recipes[existingIndex].householdId || householdId,
+      updatedAt: new Date().toISOString(),
+    };
+    saveData(RECIPES_FILE, recipes);
+    return res.json({ recipe: recipes[existingIndex] });
   }
   const newRecipe: Recipe = {
     ...recipeData,
