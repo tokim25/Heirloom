@@ -179,7 +179,19 @@ async function readPageViaGemini(pageUrl: string): Promise<string | null> {
     config: { tools: [{ urlContext: {} }], temperature: 0 },
   });
   const text = (response.text || '').trim();
-  if (!urlRetrievedSuccessfully(response) || text.includes('CANNOT_READ') || text.length < 150) return null;
+  const retrieved = urlRetrievedSuccessfully(response);
+  if (!retrieved || text.includes('CANNOT_READ') || text.length < 150) {
+    // Diagnostics only: which check rejected the page, without logging page content.
+    const statuses = (response as any)?.candidates?.[0]?.urlContextMetadata?.urlMetadata?.map((m: any) => m?.urlRetrievalStatus);
+    console.warn('[URL context] page not usable', {
+      host: new URL(pageUrl).hostname,
+      retrieved,
+      statuses: statuses ?? 'none',
+      replyLength: text.length,
+      cannotRead: text.includes('CANNOT_READ'),
+    });
+    return null;
+  }
   return text.slice(0, 15000);
 }
 
