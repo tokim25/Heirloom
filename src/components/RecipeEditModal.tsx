@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Check, Loader2, AlertCircle } from 'lucide-react';
 import { Recipe } from '../types/recipe.ts';
 import { cleanRecipeForSave, validateRecipeForSave } from '../utils/recipeSchema.ts';
 import { RecipeEditor } from './RecipeEditor.tsx';
+import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
 
 interface RecipeEditModalProps {
   recipe: Recipe;
@@ -15,6 +16,7 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({ recipe, onSave
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const errorRef = useRef<HTMLDivElement>(null);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -23,17 +25,9 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({ recipe, onSave
   const isDirty = JSON.stringify(draft) !== JSON.stringify(recipe);
 
   const requestClose = () => {
-    if (isDirty && !window.confirm('Discard your changes?')) return;
-    onClose();
+    if (isDirty) setConfirmingDiscard(true);
+    else onClose();
   };
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  });
 
   const handleSave = async () => {
     const invalid = validateRecipeForSave(draft);
@@ -51,38 +45,13 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({ recipe, onSave
   };
 
   return (
-    <div className="fixed inset-0 z-[55] bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-6">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-recipe-title"
-        className="w-full sm:max-w-xl bg-[#FAF9F5] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[94vh] sm:max-h-[90vh]"
-      >
-        <div className="px-6 pt-5 pb-4 border-b border-stone-200/80 flex items-center justify-between gap-3">
-          <h2 id="edit-recipe-title" className="font-serif text-2xl text-stone-900">
-            Edit recipe
-          </h2>
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Close"
-            className="min-h-11 min-w-11 -mr-2 inline-flex items-center justify-center rounded-full text-stone-500 hover:bg-stone-200 hover:text-stone-900"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-6 flex flex-col gap-4 overflow-y-auto">
-          {error && (
-            <div ref={errorRef} role="alert" className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-          <RecipeEditor recipe={draft} onChange={setDraft} />
-        </div>
-
-        <div className="p-4 sm:px-6 border-t border-stone-200/80 flex items-center justify-end gap-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <Sheet
+      open
+      onClose={requestClose}
+      title="Edit recipe"
+      dismissible={!isSaving}
+      footer={
+        <>
           <button
             type="button"
             onClick={requestClose}
@@ -100,8 +69,25 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({ recipe, onSave
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             Save changes
           </button>
+        </>
+      }
+    >
+      {error && (
+        <div ref={errorRef} role="alert" className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
         </div>
-      </div>
-    </div>
+      )}
+      <RecipeEditor recipe={draft} onChange={setDraft} />
+      <ConfirmSheet
+        open={confirmingDiscard}
+        title="Discard your changes?"
+        message="Your edits to this recipe haven't been saved."
+        confirmLabel="Discard"
+        destructive
+        onConfirm={onClose}
+        onCancel={() => setConfirmingDiscard(false)}
+      />
+    </Sheet>
   );
 };

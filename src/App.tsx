@@ -392,6 +392,13 @@ export default function App() {
     runWrite(firestoreService.deleteGroceryItems(householdId, listId, checkedIds), 'Could not clear completed items. Try again.');
   };
 
+  const handleDeleteGroceryList = async (listId: string) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    if (currentListId === listId) setCurrentListId('');
+    runWrite(firestoreService.deleteGroceryList(householdId, listId), 'Could not delete that list. Try again.');
+  };
+
   const handleCreateNewList = async (title: string, store: string) => {
     const householdId = requireHousehold();
     if (!householdId) return;
@@ -534,6 +541,7 @@ export default function App() {
             onAddItem={handleAddGroceryItem}
             onClearCompleted={handleClearCompletedGroceries}
             onCreateList={handleCreateNewList}
+            onDeleteList={handleDeleteGroceryList}
             onJoinList={handleJoinHousehold}
             onOpenInstacartForList={(list) => {
               // Convert grocery list items into a temporary recipe format for Instacart shopping links

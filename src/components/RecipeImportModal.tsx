@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Link2, FileText, Image as ImageIcon, UploadCloud, Loader2, AlertCircle, Check, ArrowLeft, ClipboardPaste } from 'lucide-react';
+import { Link2, FileText, Image as ImageIcon, UploadCloud, Loader2, AlertCircle, Check, ArrowLeft, ClipboardPaste } from 'lucide-react';
 import { Recipe } from '../types/recipe.ts';
 import { apiFetch } from '../utils/api.ts';
 import { prepareUpload, PreparedUpload } from '../utils/imageUpload.ts';
 import { cleanRecipeForSave, validateRecipeForSave } from '../utils/recipeSchema.ts';
 import { RecipeEditor, getRecipeReviewWarnings } from './RecipeEditor.tsx';
+import { Sheet } from './ui/Sheet.tsx';
 
 interface RecipeImportModalProps {
   onClose: () => void;
@@ -49,14 +50,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
   }, [problem]);
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      importAbortRef.current?.abort();
-    };
+    return () => importAbortRef.current?.abort();
   }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,35 +176,63 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
   const warnings = parsedRecipe ? getRecipeReviewWarnings(parsedRecipe) : [];
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-6"
-      onMouseDown={(e) => e.target === e.currentTarget && handleClose()}
+    <Sheet
+      open
+      onClose={handleClose}
+      title={parsedRecipe ? 'Check your recipe' : 'Add a recipe'}
+      description={parsedRecipe ? 'Fix anything that looks off, then save.' : undefined}
+      size="lg"
+      footer={
+        <>
+          {parsedRecipe ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setParsedRecipe(null);
+                  setProblem(null);
+                }}
+                disabled={isProcessing}
+                className="inline-flex items-center gap-1.5 min-h-11 px-4 text-sm font-semibold text-stone-700 hover:text-stone-950 rounded-xl"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Start over
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isProcessing}
+                className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white text-base font-semibold"
+              >
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Save recipe
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={isProcessing ? () => importAbortRef.current?.abort() : handleClose}
+                className="min-h-11 px-4 text-sm font-semibold text-stone-700 hover:text-stone-950 rounded-xl"
+              >
+                {isProcessing ? 'Stop' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={isProcessing || isPreparingFile}
+                className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white text-base font-semibold"
+              >
+                {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isProcessing ? 'Reading recipe…' : 'Read recipe'}
+              </button>
+            </>
+          )}
+        </>
+      }
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="import-title"
-        className="relative w-full sm:max-w-xl bg-[#FAF9F5] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[94vh] sm:max-h-[90vh]"
-      >
-        <div className="px-6 pt-5 pb-4 border-b border-stone-200/80 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h2 id="import-title" className="font-serif text-2xl text-stone-900">
-              {parsedRecipe ? 'Check your recipe' : 'Add a recipe'}
-            </h2>
-            {parsedRecipe && <p className="text-sm text-stone-600 mt-0.5">Fix anything that looks off, then save.</p>}
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            aria-label="Close"
-            className="min-h-11 min-w-11 -mr-2 inline-flex items-center justify-center rounded-full text-stone-500 hover:bg-stone-200 hover:text-stone-900"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
         {!parsedRecipe && (
-          <div role="tablist" className="flex border-b border-stone-200 bg-stone-100/70 p-1.5 gap-1">
+          <div role="tablist" className="flex bg-stone-100 p-1 gap-1 rounded-2xl">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -233,7 +255,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
           </div>
         )}
 
-        <div className="p-6 flex flex-col gap-4 overflow-y-auto">
+
           {problem && (
             <div ref={problemRef} role="alert" className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex flex-col gap-2.5">
               <div className="flex items-start gap-2">
@@ -365,55 +387,6 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
               )}
             </>
           )}
-        </div>
-
-        <div className="p-4 sm:px-6 border-t border-stone-200/80 flex items-center justify-end gap-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {parsedRecipe ? (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setParsedRecipe(null);
-                  setProblem(null);
-                }}
-                disabled={isProcessing}
-                className="inline-flex items-center gap-1.5 min-h-11 px-4 text-sm font-semibold text-stone-700 hover:text-stone-950 rounded-xl"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Start over
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isProcessing}
-                className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white text-base font-semibold"
-              >
-                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Save recipe
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={isProcessing ? () => importAbortRef.current?.abort() : handleClose}
-                className="min-h-11 px-4 text-sm font-semibold text-stone-700 hover:text-stone-950 rounded-xl"
-              >
-                {isProcessing ? 'Stop' : 'Cancel'}
-              </button>
-              <button
-                type="button"
-                onClick={handleImport}
-                disabled={isProcessing || isPreparingFile}
-                className="inline-flex items-center gap-2 min-h-12 px-6 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white text-base font-semibold"
-              >
-                {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
-                {isProcessing ? 'Reading recipe…' : 'Read recipe'}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };

@@ -22,6 +22,7 @@ import { formatFraction } from '../utils/units.ts';
 import { sounds } from '../utils/sound.ts';
 import { predictGroceryItem, PredictiveGroceryItem } from '../utils/searchEngine.ts';
 import { STORE_NAMES } from '../utils/storeOptions.ts';
+import { ConfirmSheet } from './ui/Sheet.tsx';
 
 interface GroceryListViewProps {
   groceryLists: GroceryList[];
@@ -34,6 +35,7 @@ interface GroceryListViewProps {
   onCreateList: (title: string, store: string) => void;
   onJoinList: (inviteCode: string) => void;
   onOpenInstacartForList: (list: GroceryList) => void;
+  onDeleteList: (listId: string) => void;
   partnerNotification: string | null;
   actionMessage?: { type: 'error' | 'success'; text: string } | null;
   onDismissActionMessage?: () => void;
@@ -61,6 +63,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   onCreateList,
   onJoinList,
   onOpenInstacartForList,
+  onDeleteList,
   partnerNotification,
   actionMessage,
   onDismissActionMessage,
@@ -80,6 +83,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
+  const [confirmingDeleteList, setConfirmingDeleteList] = useState(false);
   const [modalTab, setModalTab] = useState<'create' | 'join'>('create');
   const [newListTitle, setNewListTitle] = useState('');
   const [newListStore, setNewListStore] = useState(() => {
@@ -462,6 +466,17 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             <Plus className="w-4 h-4" />
           </button>
 
+          {/* Delete this list */}
+          <button
+            type="button"
+            onClick={() => setConfirmingDeleteList(true)}
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl bg-white hover:bg-rose-50 border border-stone-200 text-stone-500 hover:text-rose-700 shadow-xs"
+            aria-label={`Delete list ${currentList.title}`}
+            title="Delete this list"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+
           {/* Share / Invite Code */}
           <button
             type="button"
@@ -815,6 +830,18 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       </div>
 
       {newListModal}
+      <ConfirmSheet
+        open={confirmingDeleteList}
+        title={`Delete "${currentList.title}"?`}
+        message={`This removes the list and its ${currentList.items.length} ${currentList.items.length === 1 ? 'item' : 'items'} for everyone in your household. This can't be undone.`}
+        confirmLabel="Delete list"
+        destructive
+        onCancel={() => setConfirmingDeleteList(false)}
+        onConfirm={() => {
+          setConfirmingDeleteList(false);
+          onDeleteList(currentList.id);
+        }}
+      />
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Cloud, CloudDownload, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Cloud, CloudDownload, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Sheet } from './ui/Sheet.tsx';
 import { useAuth } from '../context/AuthContext.tsx';
 import {
   googleDriveService,
@@ -34,8 +35,6 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
   } = useAuth();
   const [busy, setBusy] = useState<'connect' | 'restore' | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  if (!isOpen) return null;
 
   const needsReconnect = isDriveCopyEnabled && !googleAccessToken;
 
@@ -76,40 +75,13 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6"
-      onClick={onClose}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+    <Sheet
+      open={isOpen}
+      onClose={onClose}
+      title="Google Drive copy"
+      description="Your recipes, saved to your own Drive."
+      size="md"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="drive-copy-title"
-        className="w-full sm:max-w-md bg-[#FAF9F5] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 p-6 flex flex-col gap-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
-              <Cloud className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 id="drive-copy-title" className="font-serif text-2xl text-stone-900 leading-tight">
-                Google Drive copy
-              </h2>
-              <p className="text-sm text-stone-600">Your recipes, saved to your own Drive.</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="p-2.5 -m-1 rounded-full text-stone-500 hover:bg-stone-200 hover:text-stone-900"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
         <p className="text-sm text-stone-700 leading-relaxed">
           Your cookbook syncs across your devices automatically. When the Drive copy is on, Heirloom also keeps one file,
           <span className="font-semibold"> {DRIVE_LIBRARY_FILE_NAME}</span>, updated in your Google Drive while you use the app.
@@ -187,7 +159,6 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };
