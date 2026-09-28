@@ -67,21 +67,29 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
     return () => importAbortRef.current?.abort();
   }, []);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    e.target.value = '';
-    if (!selected) return;
+  // Prepares a photo or PDF (shrinks big photos) and, when it arrived by drop or paste, starts reading it.
+  const acceptFile = async (file: File, autoStart: boolean) => {
     setProblem(null);
+    setActiveTab('media');
     setIsPreparingFile(true);
     try {
-      const prepared = await prepareUpload(selected);
+      const prepared = await prepareUpload(file);
       setUpload({ ...prepared, previewUrl: prepared.mimeType === 'application/pdf' ? null : prepared.dataUrl });
+      if (autoStart) {
+        await runImport({ fileData: prepared.dataUrl, mimeType: prepared.mimeType, fileName: prepared.fileName }, 'media');
+      }
     } catch (err) {
       setUpload(null);
       setProblem({ message: err instanceof Error ? err.message : 'That file could not be prepared.', offerPasteText: false });
     } finally {
       setIsPreparingFile(false);
     }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    e.target.value = '';
+    if (selected) await acceptFile(selected, false);
   };
 
   const handleImport = async () => {
@@ -99,6 +107,10 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
       payload = { rawText: rawTextInput.trim(), ...(pastedFromUrl ? { sourceUrl: pastedFromUrl } : {}) };
     }
 
+    await runImport(payload, activeTab);
+  };
+
+  const runImport = async (payload: Record<string, unknown>, tab: TabType) => {
     setIsProcessing(true);
     importAbortRef.current?.abort();
     const controller = new AbortController();
@@ -122,7 +134,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
             : body.error || 'Could not read that recipe. Try again, or paste the recipe text instead.';
         setProblem({
           message,
-          offerPasteText: activeTab !== 'text' && ['blocked', 'video_unreadable', 'no_recipe'].includes(body.code),
+          offerPasteText: tab !== 'text' && ['blocked', 'video_unreadable', 'no_recipe'].includes(body.code),
         });
         return;
       }
@@ -138,7 +150,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
           : err instanceof Error
           ? err.message
           : 'Could not import that recipe.',
-        offerPasteText: aborted && activeTab !== 'text',
+        offerPasteText: aborted && tab !== 'text',
       });
     } finally {
       window.clearTimeout(timeoutId);
@@ -146,6 +158,80 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
       setIsProcessing(false);
     }
   };
+
+  // Drop a photo, PDF or link anywhere on screen (or paste a screenshot) to import it. The listeners are on
+  // the window because otherwise a drop that misses the target makes the browser open the file instead.
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragDepth = useRef(0);
+  const dropHandlers = useRef({ onDropFile: (_f: File) => {}, onDropText: (_t: string) => {} });
+  dropHandlers.current = {
+    onDropFile: (file) => {
+      if (isProcessing || parsedRecipe) return;
+      if (!/^(image\/|application\/pdf$)/.test(file.type)) {
+        setProblem({ message: 'Drop a photo, screenshot, or PDF.', offerPasteText: false });
+        return;
+      }
+      void acceptFile(file, true);
+    },
+    onDropText: (text) => {
+      if (isProcessing || parsedRecipe) return;
+      const link = text.trim().split(/\s+/)[0];
+      if (/^https?:\/\/\S+$/i.test(link)) {
+        setActiveTab('link');
+        setUrlInput(link);
+        setProblem(null);
+        void runImport({ url: link }, 'link');
+      } else if (text.trim().length > 40) {
+        setActiveTab('text');
+        setRawTextInput(text.trim());
+        setProblem(null);
+      }
+    },
+  };
+
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+    const onDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      dragDepth.current += 1;
+      if (hasFiles(e)) setIsDraggingFile(true);
+    };
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    };
+    const onDragLeave = () => {
+      dragDepth.current = Math.max(0, dragDepth.current - 1);
+      if (dragDepth.current === 0) setIsDraggingFile(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      dragDepth.current = 0;
+      setIsDraggingFile(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (file) return dropHandlers.current.onDropFile(file);
+      const text = e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain') || '';
+      if (text) dropHandlers.current.onDropText(text);
+    };
+    const onPaste = (e: ClipboardEvent) => {
+      const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
+      if (!file) return;
+      e.preventDefault();
+      dropHandlers.current.onDropFile(file);
+    };
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    window.addEventListener('paste', onPaste);
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+      window.removeEventListener('paste', onPaste);
+    };
+  }, []);
 
   const handlePasteFromClipboard = async () => {
     setProblem(null);
@@ -270,7 +356,20 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
         )}
 
 
-          {problem && (
+          {isDraggingFile && !parsedRecipe && (
+        <div
+          role="presentation"
+          className="fixed inset-0 z-[70] pointer-events-none flex items-center justify-center bg-ink-deep/60 backdrop-blur-[2px]"
+        >
+          <div className="rounded-3xl border-2 border-dashed border-amber-400 bg-surface px-10 py-8 text-center shadow-2xl">
+            <UploadCloud className="w-10 h-10 mx-auto text-amber-600" aria-hidden="true" />
+            <p className="mt-2 font-serif text-2xl text-stone-900">Drop to add this recipe</p>
+            <p className="text-sm text-stone-600">Photos, screenshots and PDFs</p>
+          </div>
+        </div>
+      )}
+
+      {problem && (
             <div ref={problemRef} role="alert" className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex flex-col gap-2.5 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800/50">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -369,8 +468,8 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                     ) : (
                       <span className="flex flex-col items-center gap-2 text-stone-600">
                         <UploadCloud className="w-7 h-7" />
-                        <span className="text-sm font-semibold text-stone-800">Choose a photo, screenshot, or PDF</span>
-                        <span className="text-sm">Recipe cards, cookbook pages, and clippings all work</span>
+                        <span className="text-sm font-semibold text-stone-800">Drop a photo, screenshot, or PDF here</span>
+                        <span className="text-sm">or click to choose one. You can also paste a screenshot.</span>
                       </span>
                     )}
                   </button>
