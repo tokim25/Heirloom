@@ -6,11 +6,7 @@ import firebaseConfig from '../../firebase-applet-config.json';
 const customAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
 const resolvedFirebaseConfig = {
   ...firebaseConfig,
-  authDomain:
-    customAuthDomain ||
-    (typeof window !== 'undefined' && window.location.hostname === 'heirloom.tonykim.io'
-      ? 'heirloom.tonykim.io'
-      : firebaseConfig.authDomain),
+  authDomain: customAuthDomain || firebaseConfig.authDomain,
 };
 
 // Initialize Firebase SDK
