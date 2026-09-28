@@ -131,3 +131,13 @@ const NOT_ON_INSTACART: { pattern: RegExp; note: string }[] = [
 export function storeNotice(storeName: string): string | null {
   return NOT_ON_INSTACART.find((entry) => entry.pattern.test(storeName))?.note ?? null;
 }
+
+/**
+ * The stores to offer in a picker: the built-in chains plus the person's own, minus the ones they hid.
+ * The store currently selected is always kept so a saved choice never disappears from its own picker.
+ */
+export function visibleStoreNames(customStores: string[] = [], hiddenStores: string[] = [], current?: string): string[] {
+  const all = [...STORE_NAMES, ...customStores.filter((name) => !STORE_NAMES.includes(name))];
+  const shown = all.filter((name) => !hiddenStores.includes(name) || name === current);
+  return current && !shown.includes(current) ? [current, ...shown] : shown;
+}

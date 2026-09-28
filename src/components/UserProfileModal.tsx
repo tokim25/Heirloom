@@ -18,7 +18,7 @@ import {
 import { useAuth } from '../context/AuthContext.tsx';
 import { GroceryList, Recipe } from '../types/recipe.ts';
 import { formatInviteCode } from '../utils/firestoreService.ts';
-import { STORE_NAMES, storeNotice } from '../utils/storeOptions.ts';
+import { storeNotice, visibleStoreNames } from '../utils/storeOptions.ts';
 import { Sheet } from './ui/Sheet.tsx';
 
 interface UserProfileModalProps {
@@ -555,7 +555,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 onChange={(e) => setPreferredStore(e.target.value)}
                 className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-surface border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 font-medium text-stone-800"
               >
-                {[...STORE_NAMES, ...(user?.customStores ?? []).filter((n) => !STORE_NAMES.includes(n)), ...(STORE_NAMES.includes(preferredStore) || (user?.customStores ?? []).includes(preferredStore) ? [] : [preferredStore])].map((s) => (
+                {visibleStoreNames(user?.customStores, user?.hiddenStores, preferredStore).map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>

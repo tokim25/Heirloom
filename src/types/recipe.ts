@@ -8,6 +8,8 @@ export interface User {
   partnerEmail?: string;
   /** Stores the person added themselves because Instacart shows them locally (not in the built-in list). */
   customStores?: string[];
+  /** Built-in stores the person does not have on Instacart and wants hidden from the pickers. */
+  hiddenStores?: string[];
   householdId: string;
   createdAt: string;
 }

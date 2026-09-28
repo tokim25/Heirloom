@@ -7,7 +7,7 @@ import { generateWithFallback, isTransientGeminiError } from '../src/utils/gemin
 import { recipeIdFromPath, recipePath } from '../src/utils/router.ts';
 import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils/groceryMerge.ts';
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
-import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl } from '../src/utils/storeOptions.ts';
+import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl, visibleStoreNames } from '../src/utils/storeOptions.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode } from '../src/utils/invite.ts';
 
 interface TestResult {
@@ -355,6 +355,11 @@ try {
   assert(instacartSearchUrl(resolveStore('Sprouts Farmers Market'), 'ground beef') === 'https://www.instacart.com/store/sprouts/s?k=ground%20beef', 'Stores', 'Item search links are store-specific');
   assert(instacartSearchUrl(resolveStore('Aldi'), 'ground beef') === 'https://www.instacart.com/store/s?k=ground%20beef', 'Stores', 'An added store falls back to a general Instacart search');
   assert(STORES.every((s) => s.slug), 'Stores', 'Every built-in store has a link slug');
+  assert(visibleStoreNames().length === STORE_NAMES.length, 'Stores', 'With no preferences every built-in store is offered');
+  assert(!visibleStoreNames([], ['Costco', 'H Mart']).includes('Costco'), 'Stores', 'Hidden stores leave the picker');
+  assert(visibleStoreNames([], ['Costco'], 'Costco').includes('Costco'), 'Stores', 'The currently selected store is never hidden from its own picker');
+  assert(visibleStoreNames(['Aldi'], []).includes('Aldi') && !visibleStoreNames(['Aldi'], ['Aldi']).includes('Aldi'), 'Stores', 'Added stores can be hidden too');
+  assert(visibleStoreNames([], [], 'Publix')[0] === 'Publix', 'Stores', 'A saved store outside the list still shows'); 
 } catch (e: any) {
   results.push({ suite: 'Stores', name: 'Exception in suite', passed: false, error: e.message });
 }
