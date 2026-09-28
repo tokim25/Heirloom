@@ -20,15 +20,6 @@ export const STORES: StoreOption[] = [
     color: '#006241',
   },
   {
-    id: 'trader-joes',
-    name: "Trader Joe's",
-    slug: 'trader-joes',
-    tagline: 'Neighborhood Favorites & Value',
-    delivery: '2 hrs',
-    minOrder: '$35',
-    color: '#BA1B1D',
-  },
-  {
     id: 'safeway',
     name: 'Safeway',
     slug: 'safeway',
@@ -124,4 +115,19 @@ export function instacartStoreUrl(store: StoreOption): string {
   return store.slug
     ? `https://www.instacart.com/store/${store.slug}/storefront`
     : `https://www.instacart.com/store/s?k=${encodeURIComponent(store.name)}`;
+}
+
+/** Where Instacart itself shows which stores deliver to the signed-in person's address. */
+export const INSTACART_STORES_NEAR_YOU_URL = 'https://www.instacart.com/store/hub/grocery';
+
+const NOT_ON_INSTACART: { pattern: RegExp; note: string }[] = [
+  {
+    pattern: /trader\s*joe/i,
+    note: "Trader Joe's doesn't sell through Instacart. Pick a store that does, or add one below.",
+  },
+];
+
+/** A plain-language warning when a saved store is known not to be on Instacart, otherwise null. */
+export function storeNotice(storeName: string): string | null {
+  return NOT_ON_INSTACART.find((entry) => entry.pattern.test(storeName))?.note ?? null;
 }

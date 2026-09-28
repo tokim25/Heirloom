@@ -1,16 +1,26 @@
 import React, { useMemo, useState } from 'react';
-import { Check, ClipboardCopy, ExternalLink, Loader2, RefreshCw, Share2 } from 'lucide-react';
+import { Check, ClipboardCopy, ExternalLink, Loader2, Plus, RefreshCw, Share2 } from 'lucide-react';
 import { GroceryItem, GroceryList, PantryItem } from '../types/recipe.ts';
 import { Sheet } from './ui/Sheet.tsx';
 import { apiFetch } from '../utils/api.ts';
 import { describeQuantity, formatGroceryList, groupByAisle } from '../utils/groceryText.ts';
 import { isIngredientInPantry } from '../utils/pantryDefaults.ts';
-import { STORE_NAMES, instacartSearchUrl, instacartStoreUrl, resolveStore } from '../utils/storeOptions.ts';
+import {
+  INSTACART_STORES_NEAR_YOU_URL,
+  STORE_NAMES,
+  instacartSearchUrl,
+  instacartStoreUrl,
+  resolveStore,
+  storeNotice,
+} from '../utils/storeOptions.ts';
 
 interface ShoppingModeProps {
   list: GroceryList;
   defaultStore?: string;
   pantryItems?: PantryItem[];
+  /** Stores the person added because Instacart shows them in their area. */
+  customStores?: string[];
+  onAddCustomStore: (name: string) => void;
   onToggleItem: (item: GroceryItem) => void;
   onRenameItem: (item: GroceryItem, name: string) => void;
   onStoreChange: (storeName: string) => void;
@@ -32,6 +42,8 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
   list,
   defaultStore,
   pantryItems = [],
+  customStores = [],
+  onAddCustomStore,
   onToggleItem,
   onRenameItem,
   onStoreChange,
@@ -41,6 +53,8 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
   const store = useMemo(() => resolveStore(storeName), [storeName]);
   const [copied, setCopied] = useState(false);
   const [showPantry, setShowPantry] = useState(false);
+  const [addingStore, setAddingStore] = useState(false);
+  const [newStoreName, setNewStoreName] = useState('');
   const [suggestions, setSuggestions] = useState<Record<string, Suggestion | 'loading' | 'none'>>({});
 
   const total = list.items.length;
@@ -50,7 +64,20 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
   const toBuy = remaining.filter((item) => !inPantry.includes(item));
   const doneItems = list.items.filter((item) => item.checked);
 
-  const storeOptions = STORE_NAMES.includes(storeName) ? STORE_NAMES : [storeName, ...STORE_NAMES];
+  const storeOptions = useMemo(() => {
+    const all = [...STORE_NAMES, ...customStores.filter((name) => !STORE_NAMES.includes(name))];
+    return all.includes(storeName) ? all : [storeName, ...all];
+  }, [customStores, storeName]);
+  const notice = storeNotice(storeName);
+
+  const submitNewStore = () => {
+    const name = newStoreName.trim();
+    if (!name) return;
+    onAddCustomStore(name);
+    setStoreName(name);
+    setNewStoreName('');
+    setAddingStore(false);
+  };
 
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
   const listText = () => formatGroceryList(list.title, store.name, list.items);
@@ -243,6 +270,64 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
           Open {store.name}
           <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
         </a>
+      </div>
+
+      {notice && (
+        <p role="alert" className="rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-950/40 dark:border-rose-800/50 p-3 text-sm text-rose-800 dark:text-rose-200">
+          {notice}
+        </p>
+      )}
+
+      <div className="text-sm text-stone-600 flex flex-col gap-1">
+        <p>Which stores deliver to you depends on your address. Instacart shows yours when you are signed in.</p>
+        <div className="flex flex-wrap items-center gap-x-4">
+          <a
+            href={INSTACART_STORES_NEAR_YOU_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-h-11 inline-flex items-center gap-1.5 font-semibold text-stone-800 underline underline-offset-2"
+          >
+            See stores near you on Instacart
+            <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+          </a>
+          {!addingStore && (
+            <button
+              type="button"
+              onClick={() => setAddingStore(true)}
+              className="min-h-11 inline-flex items-center gap-1.5 font-semibold text-stone-800 underline underline-offset-2"
+            >
+              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+              Add a store
+            </button>
+          )}
+        </div>
+        {addingStore && (
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitNewStore();
+            }}
+          >
+            <label className="sr-only" htmlFor="new-store">
+              Store name
+            </label>
+            <input
+              id="new-store"
+              autoFocus
+              value={newStoreName}
+              onChange={(e) => setNewStoreName(e.target.value)}
+              placeholder="Store name, for example Aldi"
+              className="flex-1 min-w-0 min-h-11 px-3 rounded-xl bg-surface border border-stone-300 text-base text-stone-900"
+            />
+            <button type="submit" className="min-h-11 px-4 rounded-xl bg-ink hover:bg-ink-hover text-white text-sm font-semibold">
+              Add
+            </button>
+            <button type="button" onClick={() => setAddingStore(false)} className="min-h-11 px-3 text-sm font-semibold text-stone-700">
+              Cancel
+            </button>
+          </form>
+        )}
       </div>
 
       <div>

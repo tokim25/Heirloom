@@ -677,6 +677,12 @@ export default function App() {
           list={shoppingList}
           defaultStore={user?.preferredStore}
           pantryItems={pantryItems}
+          customStores={user?.customStores}
+          onAddCustomStore={(name) => {
+            const stores = Array.from(new Set([...(user?.customStores ?? []), name]));
+            localStorage.setItem('heirloom_preferred_store', name);
+            updateProfile({ customStores: stores, preferredStore: name }).catch(() => showNotice('error', 'Could not save that store. Try again.'));
+          }}
           onToggleItem={(item) => handleUpdateGroceryItem(shoppingList.id, item.id, { checked: !item.checked })}
           onRenameItem={(item, name) => handleUpdateGroceryItem(shoppingList.id, item.id, { name })}
           onStoreChange={(storeName) => {

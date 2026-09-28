@@ -49,3 +49,8 @@ This document tracks known issues, root causes, and available solutions or worka
 - **Why:** Adding a whole list to an Instacart cart needs a partner API key from the Instacart Developer Platform. Instacart has closed that program to new applicants with no waitlist, so this is not possible right now.
 - **What Heirloom does instead:** the shopping screen gives you a one-tap Instacart search for each item at your store, and ticking an item off there checks it off the shared list. Repeats are combined when you add recipes, and the list can be copied or shared grouped by aisle.
 - **If the program reopens:** the plan is `POST /idp/v1/products/products_link` from the server, which returns one Instacart page with every item ready to add. Heirloom never requests or stores payment information; checkout always happens on Instacart.
+
+### 6. Heirloom cannot tell which stores deliver to your address
+
+- **Why:** Which stores are available depends on your address, and Instacart only offers a lookup by ZIP code through its partner API (the same program that is closed). Heirloom does not scrape Instacart's site.
+- **What Heirloom does instead:** the shopping screen links to Instacart's own "stores near you" page, lets you add any store you see there (remembered on your profile), and warns about stores known not to be on Instacart (Trader Joe's).
