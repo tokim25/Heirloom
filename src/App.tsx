@@ -39,6 +39,7 @@ import { promptPwaInstall } from './utils/pwa.ts';
 import { useAuth } from './context/AuthContext.tsx';
 import { UnitSystem, scaleQuantity } from './utils/units.ts';
 import { firestoreService, formatInviteCode } from './utils/firestoreService.ts';
+import { closeOverlay, getPath, navigate, recipeIdFromPath, recipePath, usePath } from './utils/router.ts';
 import { sounds } from './utils/sound.ts';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { PredictiveSearchBar } from './components/PredictiveSearchBar.tsx';
@@ -68,7 +69,17 @@ export default function App() {
     signInWithGoogle,
     authErrorMessage,
   } = useAuth();
-  const [activeTab, setActiveTab] = useState<'cookbook' | 'groceries'>('cookbook');
+  // Screens follow the address bar: / (recipes), /groceries, /add, /profile, /r/:id
+  const path = usePath();
+  const [activeTab, setActiveTabState] = useState<'cookbook' | 'groceries'>(path === '/groceries' ? 'groceries' : 'cookbook');
+  useEffect(() => {
+    if (path === '/groceries') setActiveTabState('groceries');
+    else if (path === '/') setActiveTabState('cookbook');
+  }, [path]);
+  const setActiveTab = (tab: 'cookbook' | 'groceries') => navigate(tab === 'groceries' ? '/groceries' : '/');
+  const openImport = () => navigate('/add');
+  const closeImport = () => closeOverlay('/add');
+  const isImportOpen = path === '/add';
 
   // Recipes state & multi-dimensional taxonomy filter
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -91,7 +102,16 @@ export default function App() {
   };
 
   // Modals state
-  const [selectedRecipeDetail, setSelectedRecipeDetail] = useState<Recipe | null>(null);
+  // The open recipe comes from /r/:id. `recipeFallback` covers the moment between saving a new
+  // recipe and the cookbook listener delivering it.
+  const [recipeFallback, setRecipeFallback] = useState<Recipe | null>(null);
+  const [recipesLoaded, setRecipesLoaded] = useState(false);
+  const routeRecipeId = recipeIdFromPath(path);
+  const selectedRecipeDetail: Recipe | null = routeRecipeId
+    ? recipes.find((r) => r.id === routeRecipeId) ?? (recipeFallback?.id === routeRecipeId ? recipeFallback : null)
+    : null;
+  const openRecipe = (recipe: Recipe) => navigate(recipePath(recipe.id));
+  const closeRecipe = () => closeOverlay('/r');
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [cookingState, setCookingState] = useState<{
     recipe: Recipe;
@@ -103,7 +123,6 @@ export default function App() {
     servings: number;
     initialStore?: string;
   } | null>(null);
-  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isConverterOpen, setIsConverterOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isPantryOpen, setIsPantryOpen] = useState(false);
@@ -124,13 +143,21 @@ export default function App() {
     if (!householdId) {
       setRecipes([]);
       setGroceryLists([]);
+      setRecipesLoaded(false);
       return;
     }
     const reportListenerError = (what: string) => (err: Error) => {
       console.error(`${what} listener error:`, err);
       showNotice('error', `Could not load your ${what}. Check your connection; changes will sync when you're back online.`);
     };
-    const unsubscribeRecipes = firestoreService.subscribeRecipes(householdId, setRecipes, reportListenerError('recipes'));
+    const unsubscribeRecipes = firestoreService.subscribeRecipes(
+      householdId,
+      (list) => {
+        setRecipes(list);
+        setRecipesLoaded(true);
+      },
+      reportListenerError('recipes')
+    );
     const unsubscribeLists = firestoreService.subscribeGroceryLists(
       householdId,
       (lists) => {
@@ -248,13 +275,24 @@ export default function App() {
     });
   }, [recipes, organizationFilter, fuseIndex]);
 
+  // A link to a recipe that is not in this cookbook (deleted, or another household's) goes home.
+  useEffect(() => {
+    if (routeRecipeId && user && recipesLoaded && !selectedRecipeDetail) {
+      navigate('/', { replace: true });
+      showNotice('error', "That recipe isn't in your cookbook.");
+    }
+  }, [routeRecipeId, user, recipesLoaded, selectedRecipeDetail]);
+
   // Recipe actions
   const handleRecipeImported = async (newRecipe: Recipe) => {
     const householdId = requireHousehold();
     if (!householdId) return;
     const pending = firestoreService.saveRecipe(householdId, newRecipe, user?.id);
     runWrite(pending, `"${newRecipe.title}" could not be saved. Try importing it again.`);
-    setSelectedRecipeDetail({ ...newRecipe, householdId });
+    const saved = { ...newRecipe, householdId };
+    setRecipeFallback(saved);
+    // Replace /add so Back does not return to an empty Add sheet.
+    navigate(recipePath(saved.id), { replace: getPath() === '/add' });
     showNotice('success', `Saved "${newRecipe.title}" to your cookbook.`);
   };
 
@@ -262,7 +300,7 @@ export default function App() {
     const householdId = requireHousehold();
     if (!householdId) throw new Error('Sign in with Google to save changes.');
     const saved = await firestoreService.saveRecipe(householdId, edited, user?.id);
-    setSelectedRecipeDetail(saved);
+    setRecipeFallback(saved);
     showNotice('success', `Saved changes to "${saved.title}".`);
   };
 
@@ -285,7 +323,7 @@ export default function App() {
   };
 
   const handleStartCooking = (recipe: Recipe, servings?: number, unitSystem?: UnitSystem) => {
-    setSelectedRecipeDetail(null);
+    closeRecipe();
     setCookingState({
       recipe,
       servings: servings || recipe.defaultServings,
@@ -426,7 +464,7 @@ export default function App() {
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenImport={() => setIsImportOpen(true)}
+        onOpenImport={openImport}
         onOpenConverter={() => setIsConverterOpen(true)}
         onOpenChat={() => setIsChatOpen(true)}
         onOpenPantry={() => setIsPantryOpen(true)}
@@ -439,7 +477,7 @@ export default function App() {
       />
 
       {/* Main Content Body */}
-      <main className="flex-1 pb-20 sm:pb-24 w-full max-w-full overflow-x-hidden">
+      <main className="flex-1 pb-24 xl:pb-10 w-full max-w-full overflow-x-hidden">
         {isAuthLoading ? (
           <div className="flex justify-center py-32" aria-label="Loading your cookbook">
             <div className="h-8 w-8 rounded-full border-2 border-stone-300 border-t-stone-900 animate-spin" />
@@ -479,7 +517,7 @@ export default function App() {
                     setOrganizationFilter((prev) => ({ ...prev, searchQuery: q }))
                   }
                   recipes={recipes}
-                  onSelectRecipe={(r) => setSelectedRecipeDetail(r)}
+                  onSelectRecipe={openRecipe}
                   onSelectCuisine={(c) =>
                     setOrganizationFilter((prev) => ({ ...prev, cuisine: c }))
                   }
@@ -509,7 +547,7 @@ export default function App() {
                     : 'Try a different search, or clear the filters.'}
                 </p>
                 <button
-                  onClick={() => setIsImportOpen(true)}
+                  onClick={openImport}
                   className="mt-4 px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold inline-flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -522,7 +560,7 @@ export default function App() {
                   <RecipeCard
                     key={recipe.id}
                     recipe={recipe}
-                    onSelect={(r) => setSelectedRecipeDetail(r)}
+                    onSelect={openRecipe}
                     onStartCooking={(r) => handleStartCooking(r)}
                     onAddToGroceries={(r) => handleAddRecipeToGroceryList(r)}
                   />
@@ -583,14 +621,7 @@ export default function App() {
 
       {/* Ergonomic Mobile Bottom Navigation for Thumb Reachability */}
       {user && (
-      <MobileBottomNav
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenImport={() => setIsImportOpen(true)}
-        onOpenChat={() => setIsChatOpen(true)}
-        recipeCount={recipes.length}
-        groceryPendingCount={groceryPendingCount}
-      />
+      <MobileBottomNav recipeCount={recipes.length} groceryPendingCount={groceryPendingCount} />
       )}
 
       {/* Modals */}
@@ -611,16 +642,13 @@ export default function App() {
         <RecipeDetailModal
           recipe={recipes.find((r) => r.id === selectedRecipeDetail.id) ?? selectedRecipeDetail}
           onEditRecipe={(r) => setEditingRecipe(r)}
-          onClose={() => setSelectedRecipeDetail(null)}
+          onClose={closeRecipe}
           onStartCooking={(r, s, u) => handleStartCooking(r, s, u)}
           onOpenInstacart={(r, s) => handleOpenInstacart(r, s)}
           onAddAllToGroceryList={(r, s) => handleAddRecipeToGroceryList(r, s)}
           groceryLists={groceryLists}
           currentListId={currentListId}
-          onViewGroceryList={() => {
-            setSelectedRecipeDetail(null);
-            setActiveTab('groceries');
-          }}
+          onViewGroceryList={() => navigate('/groceries', { replace: true })}
           onDeleteRecipe={(id) => handleDeleteRecipe(id)}
         />
       )}
@@ -674,10 +702,14 @@ export default function App() {
         />
       )}
 
-      {isImportOpen && (
+      {user && isImportOpen && (
         <RecipeImportModal
-          onClose={() => setIsImportOpen(false)}
+          onClose={closeImport}
           onRecipeImported={handleRecipeImported}
+          onAskChefAi={() => {
+            closeImport();
+            setIsChatOpen(true);
+          }}
         />
       )}
 
@@ -698,7 +730,7 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className={`fixed left-4 right-4 bottom-24 sm:bottom-6 z-[60] mx-auto max-w-md rounded-2xl px-4 py-3 shadow-2xl flex items-start gap-3 text-sm ${
+          className={`fixed left-4 right-4 bottom-24 xl:bottom-6 z-[60] mx-auto max-w-md rounded-2xl px-4 py-3 shadow-2xl flex items-start gap-3 text-sm ${
             notice.type === 'error' ? 'bg-rose-700 text-white' : 'bg-stone-900 text-white'
           }`}
         >

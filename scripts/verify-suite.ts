@@ -4,6 +4,7 @@ import { Recipe } from '../src/types/recipe.ts';
 import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, RecipeParseError } from '../src/utils/recipeSchema.ts';
 import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully, sourceFromPastedUrl } from '../src/utils/pageExtract.ts';
 import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
+import { recipeIdFromPath, recipePath } from '../src/utils/router.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode } from '../src/utils/invite.ts';
 
 interface TestResult {
@@ -287,7 +288,19 @@ try {
   results.push({ suite: 'Gemini', name: 'Exception in suite', passed: false, error: e.message });
 }
 
-// 7. Output Summary
+// 7. Recipe links
+try {
+  assert(recipePath('recipe-123') === '/r/recipe-123', 'Routes', 'Builds a recipe link');
+  assert(recipeIdFromPath('/r/recipe-123') === 'recipe-123', 'Routes', 'Reads the recipe id from a link');
+  assert(recipeIdFromPath(recipePath('a b/c?d')) === 'a b/c?d', 'Routes', 'Round-trips ids with special characters');
+  assert(recipeIdFromPath('/') === null && recipeIdFromPath('/groceries') === null && recipeIdFromPath('/r/') === null, 'Routes', 'Other paths are not recipes');
+  assert(recipeIdFromPath('/r/a/b') === null, 'Routes', 'Extra path segments are not a recipe link');
+  assert(recipeIdFromPath('/r/%E0%A4%A') === null, 'Routes', 'A malformed link is ignored instead of crashing');
+} catch (e: any) {
+  results.push({ suite: 'Routes', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// 8. Output Summary
 const passedCount = results.filter(r => r.passed).length;
 const failedCount = results.filter(r => !r.passed).length;
 
