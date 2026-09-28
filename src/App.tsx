@@ -15,11 +15,14 @@ import {
   ArrowUpDown,
   UtensilsCrossed,
   CloudUpload,
+  LayoutGrid,
+  List,
   X,
 } from 'lucide-react';
 import { Recipe, GroceryList, GroceryItem } from './types/recipe.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { RecipeCard } from './components/RecipeCard.tsx';
+import { RecipeRow } from './components/RecipeRow.tsx';
 import { RecipeDetailModal, AddToGroceryListResult } from './components/RecipeDetailModal.tsx';
 import { InstagramCookingMode } from './components/InstagramCookingMode.tsx';
 import { RecipeImportModal } from './components/RecipeImportModal.tsx';
@@ -115,6 +118,22 @@ export default function App() {
     : null;
   const openRecipe = (recipe: Recipe) => navigate(recipePath(recipe.id));
   const closeRecipe = () => closeOverlay('/r');
+  // Cookbook layout: cards or a compact list. Remembered on this device.
+  const [cookbookView, setCookbookViewState] = useState<'grid' | 'list'>(() => {
+    try {
+      return localStorage.getItem('heirloom_cookbook_view') === 'list' ? 'list' : 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
+  const setCookbookView = (view: 'grid' | 'list') => {
+    setCookbookViewState(view);
+    try {
+      localStorage.setItem('heirloom_cookbook_view', view);
+    } catch {
+      // Storage unavailable (private mode): the choice just lasts for this visit.
+    }
+  };
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [cookingState, setCookingState] = useState<{
     recipe: Recipe;
@@ -515,6 +534,23 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-2">
+                <div role="group" aria-label="Cookbook layout" className="inline-flex rounded-xl border border-stone-200 bg-surface p-0.5">
+                  {([['grid', LayoutGrid, 'Cards'], ['list', List, 'List']] as const).map(([view, Icon, label]) => (
+                    <button
+                      key={view}
+                      type="button"
+                      onClick={() => setCookbookView(view)}
+                      aria-pressed={cookbookView === view}
+                      aria-label={`${label} view`}
+                      title={`${label} view`}
+                      className={`min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition-colors ${
+                        cookbookView === view ? 'bg-ink text-white' : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={() => setIsIngredientOrganizerOpen(true)}
@@ -588,6 +624,12 @@ export default function App() {
                   <span>Import Recipe Now</span>
                 </button>
               </div>
+            ) : cookbookView === 'list' ? (
+              <ul className="divide-y divide-stone-100 bg-surface rounded-3xl border border-stone-200/80 p-1.5 shadow-xs">
+                {filteredRecipes.map((recipe) => (
+                  <RecipeRow key={recipe.id} recipe={recipe} onSelect={openRecipe} onStartCooking={(r) => handleStartCooking(r)} />
+                ))}
+              </ul>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                 {filteredRecipes.map((recipe) => (
