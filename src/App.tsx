@@ -15,6 +15,8 @@ import {
   Compass,
   ArrowUpDown,
   UtensilsCrossed,
+  CloudUpload,
+  X,
 } from 'lucide-react';
 import { Recipe, GroceryList, GroceryItem } from './types/recipe.ts';
 import { Navbar } from './components/Navbar.tsx';
@@ -116,6 +118,7 @@ export default function App() {
   const [isPantryOpen, setIsPantryOpen] = useState(false);
   const [isDriveBackupOpen, setIsDriveBackupOpen] = useState(false);
   const [isIngredientOrganizerOpen, setIsIngredientOrganizerOpen] = useState(false);
+  const [backupPromptRecipe, setBackupPromptRecipe] = useState<Recipe | null>(null);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>(DEFAULT_PANTRY_ITEMS);
   const [canInstallPwa, setCanInstallPwa] = useState(false);
 
@@ -365,6 +368,7 @@ export default function App() {
   const handleRecipeImported = async (newRecipe: Recipe) => {
     const savedRecipe = await saveRecipeEverywhere(newRecipe);
     setSelectedRecipeDetail(savedRecipe);
+    setBackupPromptRecipe(savedRecipe);
   };
 
   const handleDeleteRecipe = async (id: string) => {
@@ -969,6 +973,55 @@ export default function App() {
           groceryLists={groceryLists}
           onOpenDriveBackup={() => setIsDriveBackupOpen(true)}
         />
+      )}
+
+      {backupPromptRecipe && (
+        <div className="fixed left-4 right-4 bottom-24 sm:bottom-6 z-40 mx-auto max-w-md rounded-3xl border border-amber-200 bg-[#FAF9F5] p-4 shadow-2xl">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+              <CloudUpload className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-stone-950">
+                    Saved "{backupPromptRecipe.title}" to your cookbook
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                    Google Drive keeps manual snapshots, not automatic sync. Create a backup now to protect this import.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBackupPromptRecipe(null)}
+                  className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                  aria-label="Dismiss backup reminder"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBackupPromptRecipe(null);
+                    setIsDriveBackupOpen(true);
+                  }}
+                  className="rounded-xl bg-stone-950 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-stone-800"
+                >
+                  Back Up Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBackupPromptRecipe(null)}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100"
+                >
+                  Later
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Google Drive Vault & Cloud Backup Modal */}

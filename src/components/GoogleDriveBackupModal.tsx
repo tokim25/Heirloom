@@ -90,7 +90,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
       setBackups(list);
       setStatusMessage({
         type: 'success',
-        text: 'Google Drive connected. You can now create and restore cookbook backups.',
+        text: 'Google Drive connected for manual backups. Tap Back Up Now whenever you want to snapshot your cookbook.',
       });
     } catch (err: any) {
       const unauthorized =
@@ -215,7 +215,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
                 Google Drive Vault
               </h2>
               <p className="text-xs text-stone-500">
-                User file storage, snapshot backups & recovery
+                Manual snapshot backups & recovery
               </p>
             </div>
           </div>
@@ -279,12 +279,12 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
               <div className={`w-3 h-3 rounded-full ${isGoogleConnected ? 'bg-emerald-500 ring-4 ring-emerald-100' : 'bg-stone-300'}`} />
               <div>
                 <h3 className="text-sm font-semibold text-stone-900">
-                  {isGoogleConnected ? 'Connected to Google Drive' : 'Google Drive Disconnected'}
+                  {isGoogleConnected ? 'Connected for Manual Backups' : 'Google Drive Disconnected'}
                 </h3>
                 <p className="text-xs text-stone-500">
                   {isGoogleConnected
-                    ? `Authenticated as ${user?.email || 'Active User'}`
-                    : 'Sign in to access your private Heirloom Recipe Vault'}
+                    ? `Drive connected as ${user?.email || 'Active User'}. Backups happen only when you tap Back Up Now.`
+                    : 'Connect to create manual backup snapshots of your cookbook'}
                 </p>
               </div>
             </div>
@@ -322,15 +322,24 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
             )}
           </div>
 
+          {isGoogleConnected && (
+            <div className="p-3 rounded-2xl bg-stone-100/70 border border-stone-200/70 flex items-start gap-2.5 text-xs text-stone-700">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p>
+                Drive Vault is a manual backup, not automatic sync. Use <strong>Back Up Now</strong> after important imports or edits.
+              </p>
+            </div>
+          )}
+
           {/* Action Card: Backup Now */}
           {isGoogleConnected && (
             <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/5 to-amber-500/15 border border-amber-500/20 flex items-center justify-between gap-4">
               <div>
                 <h4 className="text-sm font-semibold text-stone-950">
-                  Create Instant Cloud Snapshot
+                  Create Manual Cloud Snapshot
                 </h4>
                 <p className="text-xs text-stone-600 mt-0.5">
-                  Saves your complete library: {recipes.length} recipes, meal plans, and pantry lists.
+                  Saves a point-in-time copy: {recipes.length} recipes, meal plans, and pantry lists.
                 </p>
               </div>
               <button
@@ -361,7 +370,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
               <div className="text-center py-10 px-4 rounded-2xl border border-dashed border-stone-300 bg-stone-50/50">
                 <HardDrive className="w-8 h-8 text-stone-400 mx-auto mb-2 opacity-50" />
                 <p className="text-xs font-medium text-stone-600">
-                  Connect your Google Drive account above to store and view your cookbook backups.
+                  Connect your Google Drive account above to create and view manual cookbook snapshots.
                 </p>
               </div>
             ) : isLoading ? (

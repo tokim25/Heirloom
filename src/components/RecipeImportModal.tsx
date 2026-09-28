@@ -179,6 +179,14 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
       setErrorMsg('Please keep at least one ingredient and one step before saving.');
       return;
     }
+    if (parsedRecipe.ingredients.some((ingredient) => !ingredient.name.trim())) {
+      setErrorMsg('Please name every ingredient before saving, or remove blank ingredient rows.');
+      return;
+    }
+    if (parsedRecipe.steps.some((step) => !step.instruction.trim())) {
+      setErrorMsg('Please add instructions for every step before saving, or remove blank step rows.');
+      return;
+    }
 
     setIsProcessing(true);
     try {
