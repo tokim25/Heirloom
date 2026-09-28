@@ -13,6 +13,7 @@ import {
   extractPageData,
   extractYouTubeDescription,
   isPrivateAddress,
+  sourceFromPastedUrl,
   urlRetrievedSuccessfully,
 } from './src/utils/pageExtract.ts';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
@@ -207,7 +208,7 @@ Hard rules:
 
 app.post('/api/recipes/parse', async (req: Request, res: Response) => {
   try {
-    const { url, fileData, mimeType, fileName, rawText } = req.body;
+    const { url, fileData, mimeType, fileName, rawText, sourceUrl } = req.body;
 
     if (!url && !fileData && !rawText) {
       return res.status(400).json({ error: 'Provide a link, a photo or PDF, or the recipe text.' });
@@ -295,6 +296,12 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
       }
     } else {
       sourceContext = `Recipe text:\n${String(rawText).slice(0, 20000)}`;
+      // Text pasted from a page we could not read keeps a link back to that page.
+      const pasted = sourceFromPastedUrl(sourceUrl);
+      if (pasted) {
+        source = pasted.source;
+        heroImage = pasted.heroImage;
+      }
     }
 
     const generate = (contentParts: any[]) =>

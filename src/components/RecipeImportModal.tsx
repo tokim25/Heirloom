@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Link2, FileText, Image as ImageIcon, UploadCloud, Loader2, AlertCircle, Check, ArrowLeft } from 'lucide-react';
+import { X, Link2, FileText, Image as ImageIcon, UploadCloud, Loader2, AlertCircle, Check, ArrowLeft, ClipboardPaste } from 'lucide-react';
 import { Recipe } from '../types/recipe.ts';
 import { apiFetch } from '../utils/api.ts';
 import { prepareUpload, PreparedUpload } from '../utils/imageUpload.ts';
@@ -32,6 +32,9 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
   const [activeTab, setActiveTab] = useState<TabType>('link');
   const [urlInput, setUrlInput] = useState('');
   const [rawTextInput, setRawTextInput] = useState('');
+  // Set when the user falls back to pasting text for a page Heirloom could not read.
+  const [pastedFromUrl, setPastedFromUrl] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [upload, setUpload] = useState<(PreparedUpload & { previewUrl: string | null }) | null>(null);
   const [isPreparingFile, setIsPreparingFile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -85,7 +88,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
       payload = { fileData: upload.dataUrl, mimeType: upload.mimeType, fileName: upload.fileName };
     } else {
       if (!rawTextInput.trim()) return setProblem({ message: 'Paste or type the recipe first.', offerPasteText: false });
-      payload = { rawText: rawTextInput.trim() };
+      payload = { rawText: rawTextInput.trim(), ...(pastedFromUrl ? { sourceUrl: pastedFromUrl } : {}) };
     }
 
     setIsProcessing(true);
@@ -133,6 +136,24 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
       window.clearTimeout(timeoutId);
       if (importAbortRef.current === controller) importAbortRef.current = null;
       setIsProcessing(false);
+    }
+  };
+
+  const handlePasteFromClipboard = async () => {
+    setProblem(null);
+    try {
+      const text = (await navigator.clipboard.readText()).trim();
+      if (!text) {
+        setProblem({ message: 'Your clipboard is empty. Copy the recipe from the page first.', offerPasteText: false });
+        return;
+      }
+      setRawTextInput(text);
+    } catch {
+      setProblem({
+        message: 'Your browser did not allow pasting from the button. Tap into the box and paste instead.',
+        offerPasteText: false,
+      });
+      textareaRef.current?.focus();
     }
   };
 
@@ -199,6 +220,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                 onClick={() => {
                   setActiveTab(tab.id);
                   setProblem(null);
+                  setPastedFromUrl(null);
                 }}
                 className={`flex-1 min-h-11 text-sm font-medium rounded-xl flex items-center justify-center gap-1.5 transition-colors ${
                   activeTab === tab.id ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-600 hover:text-stone-900'
@@ -222,8 +244,10 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                 <button
                   type="button"
                   onClick={() => {
+                    setPastedFromUrl(activeTab === 'link' ? urlInput.trim() || null : null);
                     setActiveTab('text');
                     setProblem(null);
+                    window.setTimeout(() => textareaRef.current?.focus(), 0);
                   }}
                   className="self-start min-h-11 px-4 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-sm font-semibold"
                 >
@@ -308,12 +332,29 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
               )}
 
               {activeTab === 'text' && (
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="import-text" className="text-sm font-semibold text-stone-800">
-                    Paste the recipe
-                  </label>
+                <div className="flex flex-col gap-3">
+                  {pastedFromUrl && (
+                    <p className="text-sm text-stone-700">
+                      Open the page, copy the recipe, then tap <span className="font-semibold">Paste from clipboard</span>. Your link
+                      is kept so the saved recipe still points back to it.
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between gap-3">
+                    <label htmlFor="import-text" className="text-sm font-semibold text-stone-800">
+                      Paste the recipe
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handlePasteFromClipboard}
+                      className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-sm font-semibold text-stone-800"
+                    >
+                      <ClipboardPaste className="w-4 h-4" />
+                      Paste from clipboard
+                    </button>
+                  </div>
                   <textarea
                     id="import-text"
+                    ref={textareaRef}
                     rows={8}
                     value={rawTextInput}
                     onChange={(e) => setRawTextInput(e.target.value)}
