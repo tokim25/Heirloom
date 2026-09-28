@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Household, User } from '../types/recipe.ts';
 import { auth, googleSignInProvider, googleDriveProvider } from '../utils/firebase.ts';
 import { firestoreService } from '../utils/firestoreService.ts';
+import { closeOverlay, navigate, usePath } from '../utils/router.ts';
 import {
   signInWithPopup,
   signInWithRedirect,
@@ -89,7 +90,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(() => readDriveToken());
   const [isDriveCopyEnabled, setIsDriveCopyEnabled] = useState(() => localStorage.getItem(DRIVE_ENABLED_KEY) === 'true');
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  // Profile is a route (/profile) so the Back button closes it and it can be linked to.
+  const isProfileOpen = usePath() === '/profile';
+  const setIsProfileOpen = useCallback((open: boolean) => {
+    if (open) navigate('/profile');
+    else closeOverlay('/profile');
+  }, []);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
 

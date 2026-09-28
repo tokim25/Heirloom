@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link2, FileText, Image as ImageIcon, UploadCloud, Loader2, AlertCircle, Check, ArrowLeft, ClipboardPaste } from 'lucide-react';
+import { Link2, Sparkles, FileText, Image as ImageIcon, UploadCloud, Loader2, AlertCircle, Check, ArrowLeft, ClipboardPaste } from 'lucide-react';
 import { Recipe } from '../types/recipe.ts';
 import { apiFetch } from '../utils/api.ts';
 import { prepareUpload, PreparedUpload } from '../utils/imageUpload.ts';
@@ -10,6 +10,8 @@ import { Sheet } from './ui/Sheet.tsx';
 interface RecipeImportModalProps {
   onClose: () => void;
   onRecipeImported: (recipe: Recipe) => void | Promise<void>;
+  /** Opens Chef AI for people who do not have a recipe yet. */
+  onAskChefAi?: () => void;
 }
 
 type TabType = 'link' | 'media' | 'text';
@@ -29,9 +31,21 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: 'text', label: 'Text', icon: <FileText className="w-4 h-4" /> },
 ];
 
-export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, onRecipeImported }) => {
+/** Lets a link like /add?url=https://... (or a shared page's text) open Add with the address filled in. */
+const initialUrlFromLocation = (): string => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const direct = params.get('url');
+    if (direct && /^https?:\/\//i.test(direct)) return direct;
+    return params.get('text')?.match(/https?:\/\/\S+/)?.[0] ?? '';
+  } catch {
+    return '';
+  }
+};
+
+export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, onRecipeImported, onAskChefAi }) => {
   const [activeTab, setActiveTab] = useState<TabType>('link');
-  const [urlInput, setUrlInput] = useState('');
+  const [urlInput, setUrlInput] = useState(initialUrlFromLocation);
   const [rawTextInput, setRawTextInput] = useState('');
   // Set when the user falls back to pasting text for a page Heirloom could not read.
   const [pastedFromUrl, setPastedFromUrl] = useState<string | null>(null);
@@ -314,6 +328,16 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                   <p className="text-sm text-stone-600">
                     Works with recipe sites and YouTube videos or Shorts. Heirloom only saves what the page or video actually says.
                   </p>
+                  {onAskChefAi && (
+                    <button
+                      type="button"
+                      onClick={onAskChefAi}
+                      className="self-start inline-flex items-center gap-1.5 min-h-11 -ml-1 px-2 text-sm font-semibold text-amber-800 hover:text-amber-950 rounded-xl"
+                    >
+                      <Sparkles className="w-4 h-4" aria-hidden="true" />
+                      No recipe yet? Ask Chef AI
+                    </button>
+                  )}
                 </div>
               )}
 

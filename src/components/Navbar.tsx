@@ -64,9 +64,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-3">
         {/* Brand & Section Switcher (Desktop) */}
         <div className="flex items-center gap-4 md:gap-8 min-w-0">
-          <div
+          <button
+            type="button"
             onClick={() => setActiveTab('cookbook')}
-            className="cursor-pointer flex items-center gap-2.5 group select-none shrink-0"
+            aria-label="Heirloom, go to recipes"
+            className="cursor-pointer flex items-center gap-2.5 group select-none shrink-0 text-left"
           >
             <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs border border-stone-200/80 bg-stone-950 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <img src="/icons/icon.svg" alt="Heirloom" className="w-full h-full object-cover" />
@@ -80,14 +82,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   Recipes
                 </span>
               </div>
-              <span className="text-[10px] text-stone-500 font-medium hidden lg:inline tracking-tight -mt-0.5">
+              <span className="text-[10px] text-stone-500 font-medium hidden xl:inline tracking-tight -mt-0.5">
                 Preserve the recipe. Share the table.
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Desktop Navigation Segments */}
-          <nav className="hidden lg:flex items-center gap-1 bg-stone-200/60 p-1 rounded-2xl border border-stone-200/70 shadow-inner">
+          <nav className="hidden xl:flex items-center gap-1 bg-stone-200/60 p-1 rounded-2xl border border-stone-200/70 shadow-inner">
             <button
               onClick={() => setActiveTab('cookbook')}
               className={`group flex items-center gap-2 px-3.5 py-1.5 text-xs rounded-xl transition-all ${
@@ -151,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Ask Chef AI (Desktop - on mobile it lives in the thumb-accessible bottom bar) */}
           <button
             onClick={onOpenChat}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-950 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] shadow-xs"
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-950 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] shadow-xs"
             title="Chat with Chef AI (Find recipes, fix formatting, grocery help)"
           >
             <Sparkles className="w-4 h-4 text-amber-600 fill-amber-500/30 shrink-0" />
@@ -161,7 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Import Recipe (Desktop - on mobile it is the prominent center action in bottom bar) */}
           <button
             onClick={onOpenImport}
-            className="hidden lg:flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-stone-900 hover:bg-stone-800 rounded-xl shadow-xs transition-all active:scale-[0.98]"
+            className="hidden xl:flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-stone-900 hover:bg-stone-800 rounded-xl shadow-xs transition-all active:scale-[0.98]"
           >
             <Plus className="w-4 h-4 stroke-[2.5] shrink-0 text-white" />
             <span>Import Recipe</span>
@@ -276,7 +278,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {!isGoogleSignedIn && (
             <button
               onClick={() => setIsProfileOpen(true)}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-stone-900 hover:bg-stone-800 text-white shadow-xs transition-all active:scale-[0.98]"
+              className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-stone-900 hover:bg-stone-800 text-white shadow-xs transition-all active:scale-[0.98]"
             >
               <UserIcon className="w-3.5 h-3.5" />
               <span>Sign In</span>

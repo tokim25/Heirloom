@@ -1,135 +1,83 @@
 import React from 'react';
-import { BookOpen, ShoppingBag, Plus, Sparkles } from 'lucide-react';
+import { BookOpen, ShoppingBag, Plus, User as UserIcon } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.tsx';
+import { navigate, usePath } from '../utils/router.ts';
 
 interface MobileBottomNavProps {
-  activeTab: 'cookbook' | 'groceries';
-  setActiveTab: (tab: 'cookbook' | 'groceries') => void;
-  onOpenImport: () => void;
-  onOpenChat: () => void;
   recipeCount: number;
   groceryPendingCount: number;
 }
 
-export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
-  activeTab,
-  setActiveTab,
-  onOpenImport,
-  onOpenChat,
-  recipeCount,
-  groceryPendingCount,
-}) => {
+type TabId = 'recipes' | 'add' | 'groceries' | 'profile';
+
+/** Which tab the current address belongs to. Overlays (Add, Profile) highlight their own tab. */
+const tabForPath = (path: string): TabId => {
+  if (path === '/add') return 'add';
+  if (path === '/profile') return 'profile';
+  if (path === '/groceries') return 'groceries';
+  return 'recipes';
+};
+
+const TAB_PATHS: Record<TabId, string> = { recipes: '/', add: '/add', groceries: '/groceries', profile: '/profile' };
+
+/** Bottom tab bar for phones and tablets; the wider top bar takes over on large screens. */
+export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ recipeCount, groceryPendingCount }) => {
+  const path = usePath();
+  const { user } = useAuth();
+  const active = tabForPath(path);
+
+  const tabs: { id: TabId; label: string; badge?: number; icon: React.ReactNode }[] = [
+    { id: 'recipes', label: 'Recipes', badge: recipeCount, icon: <BookOpen className="w-6 h-6" aria-hidden="true" /> },
+    { id: 'add', label: 'Add', icon: <Plus className="w-6 h-6" aria-hidden="true" /> },
+    { id: 'groceries', label: 'Groceries', badge: groceryPendingCount, icon: <ShoppingBag className="w-6 h-6" aria-hidden="true" /> },
+    {
+      id: 'profile',
+      label: 'Profile',
+      icon: user?.avatarUrl ? (
+        <img src={user.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" referrerPolicy="no-referrer" />
+      ) : (
+        <UserIcon className="w-6 h-6" aria-hidden="true" />
+      ),
+    },
+  ];
+
   return (
     <nav
-      aria-label="Mobile Navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F5]/95 backdrop-blur-2xl border-t border-stone-200/90 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] pb-safe transition-all"
+      aria-label="Main"
+      className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F5]/95 backdrop-blur-2xl border-t border-stone-200/90 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
     >
-      <div className="max-w-md mx-auto px-3 py-2 flex items-center justify-between gap-1">
-        {/* Cookbook Tab */}
-        <button
-          onClick={() => setActiveTab('cookbook')}
-          className="flex-1 flex flex-col items-center justify-center py-1 group active:scale-95 transition-all"
-        >
-          <div
-            className={`w-12 h-8 rounded-full flex items-center justify-center relative transition-all ${
-              activeTab === 'cookbook'
-                ? 'bg-stone-900 text-amber-400 shadow-sm ring-2 ring-stone-900/10'
-                : 'bg-transparent text-stone-400 hover:text-stone-700 hover:bg-stone-100'
-            }`}
-          >
-            <BookOpen
-              className={`w-5 h-5 shrink-0 transition-transform ${
-                activeTab === 'cookbook'
-                  ? 'text-amber-400 stroke-[2.2]'
-                  : 'text-stone-400 stroke-[1.8]'
-              }`}
-            />
-            {recipeCount > 0 && (
-              <span
-                className={`absolute -top-1 -right-1 text-[9px] font-mono px-1 rounded-full font-bold ${
-                  activeTab === 'cookbook'
-                    ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'bg-stone-200 text-stone-600'
+      <ul className="max-w-lg mx-auto px-2 pt-1 flex items-stretch justify-between">
+        {tabs.map((tab) => {
+          const isActive = tab.id === active;
+          return (
+            <li key={tab.id} className="flex-1">
+              <button
+                type="button"
+                onClick={() => navigate(TAB_PATHS[tab.id])}
+                aria-current={isActive ? 'page' : undefined}
+                className={`w-full min-h-14 flex flex-col items-center justify-center gap-0.5 rounded-xl active:scale-95 transition-colors ${
+                  isActive ? 'text-stone-950' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                {recipeCount}
-              </span>
-            )}
-          </div>
-          <span
-            className={`text-[10px] tracking-tight mt-1 transition-colors ${
-              activeTab === 'cookbook'
-                ? 'font-bold text-stone-950'
-                : 'font-medium text-stone-500'
-            }`}
-          >
-            Cookbook
-          </span>
-        </button>
-
-        {/* Center Quick Action: Import / Add Recipe */}
-        <button
-          onClick={onOpenImport}
-          className="flex-1 flex flex-col items-center justify-center py-1 group active:scale-95 transition-all"
-          title="Import Recipe from URL, PDF, or Photo"
-        >
-          <div className="w-12 h-8 rounded-full bg-stone-100 border border-stone-200/90 text-stone-800 flex items-center justify-center shadow-2xs group-hover:bg-stone-200 group-hover:border-stone-300 transition-all">
-            <Plus className="w-5 h-5 shrink-0 stroke-[2.5] text-stone-800" />
-          </div>
-          <span className="text-[10px] font-semibold text-stone-700 tracking-tight mt-1">
-            Import
-          </span>
-        </button>
-
-        {/* Groceries Tab */}
-        <button
-          onClick={() => setActiveTab('groceries')}
-          className="flex-1 flex flex-col items-center justify-center py-1 group active:scale-95 transition-all"
-        >
-          <div
-            className={`w-12 h-8 rounded-full flex items-center justify-center relative transition-all ${
-              activeTab === 'groceries'
-                ? 'bg-stone-900 text-amber-400 shadow-sm ring-2 ring-stone-900/10'
-                : 'bg-transparent text-stone-400 hover:text-stone-700 hover:bg-stone-100'
-            }`}
-          >
-            <ShoppingBag
-              className={`w-5 h-5 shrink-0 transition-transform ${
-                activeTab === 'groceries'
-                  ? 'text-amber-400 stroke-[2.2]'
-                  : 'text-stone-400 stroke-[1.8]'
-              }`}
-            />
-            {groceryPendingCount > 0 && (
-              <span className="absolute -top-1 -right-1 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-amber-600 text-white font-bold animate-pulse shadow-xs">
-                {groceryPendingCount}
-              </span>
-            )}
-          </div>
-          <span
-            className={`text-[10px] tracking-tight mt-1 transition-colors ${
-              activeTab === 'groceries'
-                ? 'font-bold text-stone-950'
-                : 'font-medium text-stone-500'
-            }`}
-          >
-            Groceries
-          </span>
-        </button>
-
-        {/* Chef AI Quick Chat */}
-        <button
-          onClick={onOpenChat}
-          className="flex-1 flex flex-col items-center justify-center py-1 group active:scale-95 transition-all"
-          title="Ask Chef AI"
-        >
-          <div className="w-12 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-900 flex items-center justify-center shadow-2xs group-hover:bg-amber-500/25 group-hover:border-amber-500/40 transition-all">
-            <Sparkles className="w-5 h-5 shrink-0 text-amber-600 fill-amber-500/25 stroke-[1.8]" />
-          </div>
-          <span className="text-[10px] font-semibold text-amber-900 tracking-tight mt-1">
-            Chef AI
-          </span>
-        </button>
-      </div>
+                <span className={`relative flex items-center justify-center ${isActive ? 'text-amber-700' : ''}`}>
+                  {tab.icon}
+                  {tab.badge ? (
+                    <span
+                      className={`absolute -top-1.5 -right-3 min-w-5 h-5 px-1 rounded-full text-xs font-semibold flex items-center justify-center ${
+                        isActive ? 'bg-amber-600 text-white' : 'bg-stone-200 text-stone-700'
+                      }`}
+                    >
+                      {tab.badge > 99 ? '99+' : tab.badge}
+                      <span className="sr-only"> {tab.id === 'groceries' ? 'items to buy' : 'recipes'}</span>
+                    </span>
+                  ) : null}
+                </span>
+                <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{tab.label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 };
