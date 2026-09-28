@@ -80,6 +80,19 @@ const mergeRecipesById = (primary: Recipe[], secondary: Recipe[]) => {
   });
 };
 
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
 export default function App() {
   const { user, isProfileOpen, setIsProfileOpen } = useAuth();
   const [activeTab, setActiveTab] = useState<'cookbook' | 'groceries'>('cookbook');
@@ -311,11 +324,19 @@ export default function App() {
     let durableRecipe = scopedRecipe;
     try {
       const query = householdId ? `?householdId=${encodeURIComponent(householdId)}` : '';
-      const res = await fetch(`/api/recipes${query}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(scopedRecipe),
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 6000);
+      let res: Response;
+      try {
+        res = await fetch(`/api/recipes${query}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scopedRecipe),
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
       if (!res.ok) {
         throw new Error(await readActionError(res, 'Recipe saved locally, but could not sync to the cookbook server.'));
       }
@@ -327,9 +348,16 @@ export default function App() {
       console.warn('Recipe server sync unavailable; local copy retained:', err);
     }
 
-    const savedToFirestore = await firestoreService.saveRecipe(durableRecipe, {
-      userId: user?.id,
-      householdId,
+    const savedToFirestore = await withTimeout(
+      firestoreService.saveRecipe(durableRecipe, {
+        userId: user?.id,
+        householdId,
+      }),
+      6000,
+      'Firestore recipe sync timed out.'
+    ).catch((err) => {
+      console.warn('Recipe Firestore sync unavailable; local/server copy retained:', err);
+      return false;
     });
     if (!savedToFirestore) {
       console.warn('Recipe saved locally/server-side; realtime cloud sync is unavailable.');
