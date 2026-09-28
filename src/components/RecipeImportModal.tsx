@@ -13,6 +13,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { Ingredient, Recipe, RecipeStep } from '../types/recipe.ts';
+import { apiFetch, readApiError } from '../utils/api.ts';
 
 interface RecipeImportModalProps {
   onClose: () => void;
@@ -122,16 +123,14 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
         payload = { rawText: rawTextInput.trim() };
       }
 
-      const res = await fetch('/api/recipes/parse', {
+      const res = await apiFetch('/api/recipes/parse', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal: abortController.signal,
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to curate recipe');
+        throw new Error(await readApiError(res, 'Could not read that recipe. Try again, or paste the recipe text instead.'));
       }
 
       const data = await res.json();

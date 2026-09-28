@@ -1,5 +1,5 @@
 // Heirloom Kitchen Studio Service Worker - Offline Caching
-const CACHE_NAME = 'heirloom-kitchen-cache-v4';
+const CACHE_NAME = 'heirloom-kitchen-cache-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -38,8 +38,12 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Bypass all API requests and SSE streams
-  if (url.pathname.startsWith('/api/') || url.pathname.includes('/events')) {
+  // Bypass API calls, the Firebase auth handler, and anything cross-origin
+  if (
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/__/')
+  ) {
     return;
   }
 

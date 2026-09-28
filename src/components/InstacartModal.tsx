@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { scaleQuantity, formatFraction } from '../utils/units.ts';
 import { isIngredientInPantry } from '../utils/pantryDefaults.ts';
 import { STORES, StoreOption, resolveStore } from '../utils/storeOptions.ts';
+import { apiFetch } from '../utils/api.ts';
 
 interface InstacartModalProps {
   recipe: Recipe;
@@ -119,9 +120,8 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
     setItems(newItems);
 
     try {
-      const res = await fetch('/api/recipes/substitute', {
+      const res = await apiFetch('/api/recipes/substitute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ingredientName: item.name,
           unit: item.unit,

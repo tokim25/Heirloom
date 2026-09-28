@@ -1,6 +1,7 @@
 import { scaleQuantity, formatFraction, convertUnit, fahrenheitToCelsius, celsiusToFahrenheit, formatStepTemperatures } from '../src/utils/units.ts';
 import { getIngredientFacets, normalizeIngredientName, matchRecipeFilters, INITIAL_ORGANIZATION_FILTER, deriveProteinCategory } from '../src/utils/recipeTaxonomy.ts';
 import { Recipe } from '../src/types/recipe.ts';
+import { generateInviteCode, normalizeInviteCode, formatInviteCode } from '../src/utils/invite.ts';
 
 interface TestResult {
   suite: string;
@@ -140,7 +141,20 @@ try {
   results.push({ suite: 'Taxonomy', name: 'Exception in suite', passed: false, error: e.message });
 }
 
-// 3. Output Summary
+// 3. Household invite codes
+try {
+  const code = generateInviteCode();
+  assert(/^[A-HJ-NP-Z2-9]{8}$/.test(code), 'Invites', 'Generates 8-char codes without ambiguous characters');
+  assert(formatInviteCode('ABCD2345') === 'HEIR-ABCD-2345', 'Invites', 'Formats code for display');
+  assert(normalizeInviteCode('heir-abcd-2345') === 'ABCD2345', 'Invites', 'Normalizes formatted code');
+  assert(normalizeInviteCode(' abcd 2345 ') === 'ABCD2345', 'Invites', 'Normalizes spaced bare code');
+  assert(normalizeInviteCode('HEIRABCD') === 'HEIRABCD', 'Invites', 'Keeps a bare code that starts with HEIR');
+  assert(normalizeInviteCode(formatInviteCode(code)) === code, 'Invites', 'Round-trips generated codes');
+} catch (e: any) {
+  results.push({ suite: 'Invites', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// 4. Output Summary
 const passedCount = results.filter(r => r.passed).length;
 const failedCount = results.filter(r => !r.passed).length;
 

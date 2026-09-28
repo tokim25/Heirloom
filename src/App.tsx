@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -27,25 +27,24 @@ import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { InstacartModal } from './components/InstacartModal.tsx';
 import { GroceryListView } from './components/GroceryListView.tsx';
 import { UnitConverterModal } from './components/UnitConverterModal.tsx';
-import { BugReportModal } from './components/BugReportModal.tsx';
-import { GitHubModal } from './components/GitHubModal.tsx';
 import { UserProfileModal } from './components/UserProfileModal.tsx';
 import { GeminiChatModal } from './components/GeminiChatModal.tsx';
 import { PantryModal } from './components/PantryModal.tsx';
 import { GoogleDriveBackupModal } from './components/GoogleDriveBackupModal.tsx';
 import { IngredientOrganizerModal } from './components/IngredientOrganizerModal.tsx';
-import { MiseBackupPayload } from './utils/googleDriveService.ts';
+import { googleDriveService, DriveAuthError, HeirloomDrivePayload } from './utils/googleDriveService.ts';
 import { PantryItem } from './types/recipe.ts';
 import { DEFAULT_PANTRY_ITEMS, isIngredientInPantry } from './utils/pantryDefaults.ts';
 import { promptPwaInstall } from './utils/pwa.ts';
 import { useAuth } from './context/AuthContext.tsx';
 import { UnitSystem, scaleQuantity } from './utils/units.ts';
-import { firestoreService } from './utils/firestoreService.ts';
+import { firestoreService, formatInviteCode } from './utils/firestoreService.ts';
 import { sounds } from './utils/sound.ts';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { PredictiveSearchBar } from './components/PredictiveSearchBar.tsx';
 import { RecipeOrganizationToolbar } from './components/RecipeOrganizationToolbar.tsx';
 import { Analytics } from '@vercel/analytics/react';
+import { WelcomeScreen } from './components/WelcomeScreen.tsx';
 import {
   RecipeOrganizationFilter,
   INITIAL_ORGANIZATION_FILTER,
@@ -53,56 +52,22 @@ import {
 } from './utils/recipeTaxonomy.ts';
 import { createRecipeSearchIndex } from './utils/searchEngine.ts';
 
-const localRecipesKey = (householdId?: string) => `heirloom_saved_recipes_${householdId || 'local'}`;
-
-const DEFAULT_RECIPE_IDS = new Set([
-  'salmon-skillet-01',
-  'tuscan-kale-stew-02',
-  'biang-biang-noodles-03',
-]);
-
-const isDefaultRecipe = (recipe: Recipe) => DEFAULT_RECIPE_IDS.has(recipe.id);
-
-const readLocalRecipes = (householdId?: string): Recipe[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(localRecipesKey(householdId));
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const writeLocalRecipes = (householdId: string | undefined, recipes: Recipe[]) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(localRecipesKey(householdId), JSON.stringify(recipes));
-};
-
-const mergeRecipesById = (primary: Recipe[], secondary: Recipe[]) => {
-  const seen = new Set<string>();
-  return [...primary, ...secondary].filter((recipe) => {
-    if (seen.has(recipe.id)) return false;
-    seen.add(recipe.id);
-    return true;
-  });
-};
-
-const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-};
-
 export default function App() {
-  const { user, isProfileOpen, setIsProfileOpen } = useAuth();
+  const {
+    user,
+    isAuthLoading,
+    isProfileOpen,
+    setIsProfileOpen,
+    isDriveModalOpen: isDriveBackupOpen,
+    setIsDriveModalOpen: setIsDriveBackupOpen,
+    isDriveCopyEnabled,
+    googleAccessToken,
+    markDriveTokenExpired,
+    joinHousehold,
+    household,
+    signInWithGoogle,
+    authErrorMessage,
+  } = useAuth();
   const [activeTab, setActiveTab] = useState<'cookbook' | 'groceries'>('cookbook');
 
   // Recipes state & multi-dimensional taxonomy filter
@@ -114,10 +79,16 @@ export default function App() {
   const [groceryLists, setGroceryLists] = useState<GroceryList[]>([]);
   const [currentListId, setCurrentListId] = useState<string>('');
   const [partnerNotification, setPartnerNotification] = useState<string | null>(null);
-  const [groceryActionMessage, setGroceryActionMessage] = useState<{
-    type: 'error' | 'success';
-    text: string;
-  } | null>(null);
+  const [notice, setNotice] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [driveCopyStatus, setDriveCopyStatus] = useState<{ lastCopiedAt: string | null; error: string | null }>({
+    lastCopiedAt: null,
+    error: null,
+  });
+
+  const showNotice = (type: 'error' | 'success', text: string) => {
+    setNotice({ type, text });
+    window.setTimeout(() => setNotice((current) => (current?.text === text ? null : current)), 5000);
+  };
 
   // Modals state
   const [selectedRecipeDetail, setSelectedRecipeDetail] = useState<Recipe | null>(null);
@@ -133,13 +104,9 @@ export default function App() {
   } | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isConverterOpen, setIsConverterOpen] = useState(false);
-  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
-  const [isGitHubOpen, setIsGitHubOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isPantryOpen, setIsPantryOpen] = useState(false);
-  const [isDriveBackupOpen, setIsDriveBackupOpen] = useState(false);
   const [isIngredientOrganizerOpen, setIsIngredientOrganizerOpen] = useState(false);
-  const [backupPromptRecipe, setBackupPromptRecipe] = useState<Recipe | null>(null);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>(DEFAULT_PANTRY_ITEMS);
   const [canInstallPwa, setCanInstallPwa] = useState(false);
 
@@ -150,160 +117,87 @@ export default function App() {
     return () => window.removeEventListener('can-install-pwa', handleCanInstall);
   }, []);
 
-  // Load initial recipes
+  // Firestore listeners: the cookbook and grocery lists for the user's household.
   useEffect(() => {
     const householdId = user?.householdId;
-    if (!householdId) return;
-    const householdScope = `householdId=${encodeURIComponent(householdId)}`;
-
-    async function fetchRecipes() {
-      try {
-        const res = await fetch(`/api/recipes?${householdScope}`);
-        if (res.ok) {
-          const data = await res.json();
-          const localRecipes = readLocalRecipes(householdId);
-          const serverRecipes = Array.isArray(data.recipes) ? data.recipes : [];
-          const visibleServerRecipes =
-            localRecipes.length > 0 ? serverRecipes.filter((recipe: Recipe) => !isDefaultRecipe(recipe)) : serverRecipes;
-          setRecipes(mergeRecipesById(localRecipes, visibleServerRecipes));
-        }
-      } catch (err) {
-        console.error('Failed to load recipes:', err);
-        setRecipes(readLocalRecipes(householdId));
-      }
+    if (!householdId) {
+      setRecipes([]);
+      setGroceryLists([]);
+      return;
     }
-    fetchRecipes();
-
-    // Subscribe to real-time Firestore recipes
-    const unsubscribe = firestoreService.subscribeRecipes((updatedList) => {
-      if (updatedList.length > 0) {
-        setRecipes((prev) => {
-          const updatedIds = new Set(updatedList.map((recipe) => recipe.id));
-          const retainedRecipes = prev.filter((recipe) => !updatedIds.has(recipe.id));
-          return [...updatedList, ...retainedRecipes];
-        });
-      }
-    }, householdId);
-
-    return () => unsubscribe();
+    const reportListenerError = (what: string) => (err: Error) => {
+      console.error(`${what} listener error:`, err);
+      showNotice('error', `Could not load your ${what}. Check your connection; changes will sync when you're back online.`);
+    };
+    const unsubscribeRecipes = firestoreService.subscribeRecipes(householdId, setRecipes, reportListenerError('recipes'));
+    const unsubscribeLists = firestoreService.subscribeGroceryLists(
+      householdId,
+      (lists) => {
+        notifyPartnerActivity(previousListsRef.current, lists);
+        previousListsRef.current = lists;
+        setGroceryLists(lists);
+      },
+      reportListenerError('grocery lists')
+    );
+    return () => {
+      unsubscribeRecipes();
+      unsubscribeLists();
+      previousListsRef.current = [];
+    };
   }, [user?.householdId]);
 
-  // Load initial grocery lists & subscribe to SSE real-time stream
+  // Chime when someone else in the household checks an item off.
+  const previousListsRef = useRef<GroceryList[]>([]);
+  const notifyPartnerActivity = (prev: GroceryList[], next: GroceryList[]) => {
+    if (prev.length === 0) return;
+    const previousChecked = new Map<string, boolean>();
+    prev.forEach((list) => list.items.forEach((item) => previousChecked.set(item.id, item.checked)));
+    for (const list of next) {
+      for (const item of list.items) {
+        const wasChecked = previousChecked.get(item.id);
+        if (item.checked && wasChecked === false && item.checkedBy && item.checkedBy !== user?.name) {
+          sounds.playPartnerChime();
+          setPartnerNotification(`${item.checkedBy} just checked off "${item.name}"`);
+          window.setTimeout(() => setPartnerNotification(null), 4000);
+          return;
+        }
+      }
+    }
+  };
+
+  // Keep the one Drive file in step with the cookbook while Drive access is active.
   useEffect(() => {
-    const householdId = user?.householdId;
-    if (!householdId) return;
-    const householdScope = `householdId=${encodeURIComponent(householdId)}`;
-
-    async function fetchLists() {
+    if (!isDriveCopyEnabled || !googleAccessToken || !user?.householdId) return;
+    const timeoutId = window.setTimeout(async () => {
       try {
-        let res = await fetch(`/api/groceries?${householdScope}`);
-        if (!res.ok) {
-          res = await fetch(`/api/grocery-lists?${householdScope}`);
-        }
-        const contentType = res.headers.get('content-type') || '';
-        if (res.ok && contentType.includes('application/json')) {
-          const data = await res.json();
-          const lists = data.lists || [];
-          if (Array.isArray(lists) && lists.length > 0) {
-            setGroceryLists(lists);
-            if (!currentListId) {
-              setCurrentListId(lists[0].id);
-            }
-          }
-        }
-      } catch (err) {
-        console.debug('Local grocery list state active:', err);
+        await googleDriveService.writeLibrary(googleAccessToken, user.householdId, recipes, groceryLists);
+        setDriveCopyStatus({ lastCopiedAt: new Date().toISOString(), error: null });
+      } catch (err: any) {
+        if (err instanceof DriveAuthError) markDriveTokenExpired();
+        setDriveCopyStatus((prev) => ({ ...prev, error: err?.message || 'Google Drive copy failed.' }));
       }
-    }
-    fetchLists();
+    }, 4000);
+    return () => window.clearTimeout(timeoutId);
+  }, [recipes, groceryLists, isDriveCopyEnabled, googleAccessToken, user?.householdId]);
 
-    // Connect to Server-Sent Events (SSE) for multi-device & partner live updates
-    let eventSource: EventSource | null = null;
-    try {
-      if (typeof window !== 'undefined' && 'EventSource' in window) {
-        eventSource = new EventSource(`/api/groceries/events?${householdScope}`);
-        eventSource.onmessage = (e) => {
-          try {
-            const payload = JSON.parse(e.data);
-            if (payload.householdId && payload.householdId !== householdId) return;
-            if (payload.type === 'ITEM_UPDATED') {
-              const { listId, item, userName } = payload;
-              if (!listId || !item) return;
-              setGroceryLists((prev) =>
-                prev.map((list) => {
-                  if (list.id !== listId) return list;
-                  return {
-                    ...list,
-                    items: list.items.map((i) => (i.id === item.id ? { ...i, ...item } : i)),
-                  };
-                })
-              );
-
-              // Play sound and trigger partner notification banner if checked
-              if (item.checked && userName && userName !== user?.name) {
-                sounds.playPartnerChime();
-                setPartnerNotification(`${userName} just checked off "${item.name}"!`);
-                setTimeout(() => setPartnerNotification(null), 4000);
-              }
-            } else if (payload.type === 'ITEM_ADDED') {
-              const { listId, item, payload: itemsPayload } = payload;
-              const itemsToAdd = Array.isArray(itemsPayload) ? itemsPayload : item ? [item] : [];
-              if (!listId || itemsToAdd.length === 0) return;
-              setGroceryLists((prev) =>
-                prev.map((list) => {
-                  if (list.id !== listId) return list;
-                  return { ...list, items: [...list.items, ...itemsToAdd] };
-                })
-              );
-            } else if (payload.type === 'ITEM_DELETED') {
-              const { listId, itemId } = payload;
-              if (!listId || !itemId) return;
-              setGroceryLists((prev) =>
-                prev.map((list) => {
-                  if (list.id !== listId) return list;
-                  return { ...list, items: list.items.filter((i) => i.id !== itemId) };
-                })
-              );
-            } else if (payload.type === 'COMPLETED_CLEARED') {
-              const { listId } = payload;
-              if (!listId) return;
-              setGroceryLists((prev) =>
-                prev.map((list) => {
-                  if (list.id !== listId) return list;
-                  return { ...list, items: list.items.filter((i) => !i.checked) };
-                })
-              );
-            }
-          } catch {
-            // Heartbeat or non-JSON message
-          }
-        };
-
-        eventSource.onerror = () => {
-          // Silent fallback if SSE drops
-        };
-      }
-    } catch (err) {
-      console.warn('SSE subscription notice:', err);
-    }
-
-    // Also subscribe to Firestore grocery lists
-    const unsubscribeFirestore = firestoreService.subscribeGroceryLists((lists) => {
-      if (lists.length > 0) {
-        setGroceryLists(lists);
-      }
-    }, householdId);
-
-    return () => {
-      if (eventSource) eventSource.close();
-      unsubscribeFirestore();
-    };
-  }, [user, currentListId]);
+  // Lists are shared through the household, so its invite code and members apply to every list.
+  const householdLists = useMemo(() => {
+    const collaborators = Object.values(household?.members || {}).map((member, index) => ({
+      id: member.id,
+      name: member.name,
+      email: member.email,
+      avatarUrl: member.avatarUrl,
+      color: ['#1C1917', '#0284C7', '#A16207', '#047857'][index % 4],
+      status: 'active' as const,
+    }));
+    const inviteCode = household?.inviteCode ? formatInviteCode(household.inviteCode) : '';
+    return groceryLists.map((list) => ({ ...list, inviteCode, collaborators }));
+  }, [groceryLists, household]);
 
   // Current active grocery list
   const currentGroceryList = useMemo(() => {
-    return groceryLists.find((l) => l.id === currentListId) || groceryLists[0] || null;
-  }, [groceryLists, currentListId]);
+    return householdLists.find((l) => l.id === currentListId) || householdLists[0] || null;
+  }, [householdLists, currentListId]);
 
   // Total pending grocery items across lists
   const groceryPendingCount = useMemo(() => {
@@ -313,69 +207,21 @@ export default function App() {
     );
   }, [groceryLists]);
 
-  const readActionError = async (res: Response, fallback: string) => {
-    try {
-      const data = await res.json();
-      return data.error || fallback;
-    } catch {
-      return fallback;
-    }
+  // Writes apply locally right away (Firestore's cache fires the listener); a failure
+  // is surfaced instead of silently leaving devices out of sync.
+  const runWrite = (promise: Promise<unknown>, failureMessage: string) => {
+    promise.catch((err) => {
+      console.error(failureMessage, err);
+      showNotice('error', failureMessage);
+    });
   };
 
-  const saveRecipeEverywhere = async (recipe: Recipe) => {
-    const householdId = recipe.householdId || user?.householdId;
-    const scopedRecipe = {
-      ...recipe,
-      userId: recipe.userId || user?.id,
-      householdId,
-    };
-
-    writeLocalRecipes(householdId, mergeRecipesById([scopedRecipe], readLocalRecipes(householdId)));
-    setRecipes((prev) => mergeRecipesById([scopedRecipe], prev));
-
-    let durableRecipe = scopedRecipe;
-    try {
-      const query = householdId ? `?householdId=${encodeURIComponent(householdId)}` : '';
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 6000);
-      let res: Response;
-      try {
-        res = await fetch(`/api/recipes${query}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(scopedRecipe),
-          signal: controller.signal,
-        });
-      } finally {
-        window.clearTimeout(timeoutId);
-      }
-      if (!res.ok) {
-        throw new Error(await readActionError(res, 'Recipe saved locally, but could not sync to the cookbook server.'));
-      }
-      const data = await res.json();
-      durableRecipe = data.recipe || scopedRecipe;
-      writeLocalRecipes(householdId, mergeRecipesById([durableRecipe], readLocalRecipes(householdId)));
-      setRecipes((prev) => mergeRecipesById([durableRecipe], prev));
-    } catch (err) {
-      console.warn('Recipe server sync unavailable; local copy retained:', err);
+  const requireHousehold = () => {
+    if (!user?.householdId) {
+      showNotice('error', 'Sign in with Google to save recipes and lists.');
+      return null;
     }
-
-    const savedToFirestore = await withTimeout(
-      firestoreService.saveRecipe(durableRecipe, {
-        userId: user?.id,
-        householdId,
-      }),
-      6000,
-      'Firestore recipe sync timed out.'
-    ).catch((err) => {
-      console.warn('Recipe Firestore sync unavailable; local/server copy retained:', err);
-      return false;
-    });
-    if (!savedToFirestore) {
-      console.warn('Recipe saved locally/server-side; realtime cloud sync is unavailable.');
-    }
-
-    return durableRecipe;
+    return user.householdId;
   };
 
   // Index recipes for typo-tolerant fuzzy searching
@@ -385,17 +231,14 @@ export default function App() {
   const filteredRecipes = useMemo(() => {
     let list = recipes;
 
-    // 1. Fuzzy search with typo tolerance (salmn -> salmon, spagetti -> spaghetti)
     const query = organizationFilter.searchQuery.trim();
     if (query) {
       const results = fuseIndex.search(query);
       list = results.map((r) => r.item);
     }
 
-    // 2. Multi-dimensional taxonomy filters (cuisine, prep time, cooking duration, hero ingredient)
     list = list.filter((r) => matchRecipeFilters(r, organizationFilter));
 
-    // 3. Sorting (newest, quickest cook time, fastest prep time, alphabetical)
     return [...list].sort((a, b) => {
       if (organizationFilter.sortBy === 'quickest') return a.totalTimeMinutes - b.totalTimeMinutes;
       if (organizationFilter.sortBy === 'prepTime') return a.prepTimeMinutes - b.prepTimeMinutes;
@@ -406,39 +249,30 @@ export default function App() {
 
   // Recipe actions
   const handleRecipeImported = async (newRecipe: Recipe) => {
-    const savedRecipe = await saveRecipeEverywhere(newRecipe);
-    setSelectedRecipeDetail(savedRecipe);
-    setBackupPromptRecipe(savedRecipe);
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    const pending = firestoreService.saveRecipe(householdId, newRecipe, user?.id);
+    runWrite(pending, `"${newRecipe.title}" could not be saved. Try importing it again.`);
+    setSelectedRecipeDetail({ ...newRecipe, householdId });
+    showNotice('success', `Saved "${newRecipe.title}" to your cookbook.`);
   };
 
   const handleDeleteRecipe = async (id: string) => {
-    setRecipes((prev) => prev.filter((r) => r.id !== id));
-    writeLocalRecipes(user?.householdId, readLocalRecipes(user?.householdId).filter((r) => r.id !== id));
-    const householdId = user?.householdId;
-    const query = householdId ? `?householdId=${encodeURIComponent(householdId)}` : '';
-    fetch(`/api/recipes/${encodeURIComponent(id)}${query}`, { method: 'DELETE' }).catch((err) => {
-      console.warn('Recipe server delete failed:', err);
-    });
-    await firestoreService.deleteRecipe(id);
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    runWrite(firestoreService.deleteRecipe(householdId, id), 'That recipe could not be deleted. Try again.');
   };
 
-  const handleRestoreBackup = async (payload: MiseBackupPayload) => {
-    if (payload.recipes && payload.recipes.length > 0) {
-      const restoredRecipes = payload.recipes.map((recipe) => ({
-        ...recipe,
-        userId: recipe.userId || user?.id,
-        householdId: recipe.householdId || user?.householdId,
-      }));
-      for (const r of restoredRecipes) {
-        await saveRecipeEverywhere(r);
-      }
-    }
-    if (payload.groceryLists && payload.groceryLists.length > 0) {
-      setGroceryLists(payload.groceryLists);
-    }
-    if (payload.pantryItems && payload.pantryItems.length > 0) {
-      setPantryItems(payload.pantryItems);
-    }
+  const handleRestoreFromDrive = async (payload: HeirloomDrivePayload) => {
+    const householdId = requireHousehold();
+    if (!householdId) return 0;
+    const current = new Map(recipes.map((r) => [r.id, r]));
+    const toRestore = (payload.recipes || []).filter((r) => {
+      const existing = current.get(r.id);
+      return !existing || (r.updatedAt || '') > (existing.updatedAt || '');
+    });
+    await Promise.all(toRestore.map((r) => firestoreService.saveRecipe(householdId, r, user?.id)));
+    return toRestore.length;
   };
 
   const handleStartCooking = (recipe: Recipe, servings?: number, unitSystem?: UnitSystem) => {
@@ -458,274 +292,115 @@ export default function App() {
     });
   };
 
-  // Add all recipe ingredients to shared grocery list
+  // Add all recipe ingredients to a shared grocery list (creating one if needed)
   const handleAddRecipeToGroceryList = async (
     recipe: Recipe,
     servings: number = recipe.defaultServings,
     targetListId: string = currentListId
   ): Promise<AddToGroceryListResult> => {
-    const targetList = groceryLists.find((list) => list.id === targetListId) || currentGroceryList;
-    if (!targetList) {
-      return {
-        success: false,
-        message: 'Create or choose a grocery list before adding recipe ingredients.',
-      };
+    const householdId = requireHousehold();
+    if (!householdId) {
+      return { success: false, message: 'Sign in with Google to build a grocery list.' };
     }
 
     try {
-      const itemsToAdd = recipe.ingredients.map((ing) => {
-        const scaled = scaleQuantity(ing.amount, recipe.defaultServings, servings);
-        return {
-          name: ing.name,
-          amount: scaled,
-          unit: ing.unit,
-          category: ing.category || 'Other',
-          recipeId: recipe.id,
-          recipeTitle: recipe.title,
-          assignedTo: 'Anyone',
-          addedBy: user?.name || 'Collaborator',
-        };
-      });
-
-      const res = await fetch(`/api/groceries/${targetList.id}/items/bulk`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsToAdd, user, householdId: user?.householdId }),
-      });
-
-      if (!res.ok) {
-        return {
-          success: false,
-          message: `Could not add ingredients to ${targetList.title}. Please try again.`,
-        };
+      let targetList = groceryLists.find((list) => list.id === targetListId) || currentGroceryList;
+      let listId = targetList?.id;
+      let listTitle = targetList?.title || 'Groceries';
+      if (!listId) {
+        listId = await firestoreService.createGroceryList(householdId, 'Groceries', user?.preferredStore || '');
       }
 
-      const data = await res.json();
-      setGroceryLists((prev) =>
-        prev.map((l) => (l.id === data.list.id ? data.list : l))
+      const itemsToAdd = recipe.ingredients.map((ing) => ({
+        name: ing.name,
+        amount: scaleQuantity(ing.amount, recipe.defaultServings, servings),
+        unit: ing.unit,
+        category: ing.category || 'Other',
+        recipeId: recipe.id,
+        recipeTitle: recipe.title,
+        assignedTo: 'Anyone',
+        addedBy: user?.name || 'Collaborator',
+      }));
+      runWrite(
+        firestoreService.addGroceryItems(householdId, listId, itemsToAdd),
+        `Could not add ingredients to ${listTitle}. Try again.`
       );
-      setCurrentListId(data.list.id);
-      firestoreService.saveGroceryList(data.list, { householdId: user?.householdId });
-
+      setCurrentListId(listId);
       return {
         success: true,
-        listTitle: data.list.title,
-        message: `Added ${itemsToAdd.length} ingredients to ${data.list.title}.`,
+        listTitle,
+        message: `Added ${itemsToAdd.length} ingredients to ${listTitle}.`,
       };
     } catch (err) {
       console.error('Failed to add recipe to grocery list:', err);
-      return {
-        success: false,
-        message: 'Could not reach the grocery list service. Please check your connection and try again.',
-      };
+      return { success: false, message: 'Could not create a grocery list. Check your connection and try again.' };
     }
   };
 
   // Grocery item actions
-  const handleUpdateGroceryItem = async (
-    listId: string,
-    itemId: string,
-    updates: Partial<GroceryItem>
-  ) => {
-    try {
-      const res = await fetch(`/api/groceries/${listId}/items/${itemId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...updates,
-          userName: user?.name || 'Collaborator',
-          householdId: user?.householdId,
-        }),
-      });
-      if (!res.ok) {
-        setGroceryActionMessage({
-          type: 'error',
-          text: await readActionError(res, 'Could not update this item. Please try again.'),
-        });
-        return;
-      }
-
-      const data = await res.json();
-      setGroceryActionMessage(null);
-      setGroceryLists((prev) =>
-        prev.map((l) => {
-          if (l.id !== listId) return l;
-          return {
-            ...l,
-            items: l.items.map((i) => (i.id === itemId ? data.item : i)),
-          };
-        })
-      );
-    } catch (err) {
-      console.error('Failed to update grocery item:', err);
-      setGroceryActionMessage({
-        type: 'error',
-        text: 'Could not reach the grocery list service. Please try again.',
-      });
+  const handleUpdateGroceryItem = async (listId: string, itemId: string, updates: Partial<GroceryItem>) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    const withActor: Partial<GroceryItem> = { ...updates };
+    if (typeof updates.checked === 'boolean') {
+      withActor.checkedBy = updates.checked ? user?.name || 'Someone' : undefined;
+      withActor.checkedAt = updates.checked ? new Date().toISOString() : undefined;
     }
+    runWrite(firestoreService.updateGroceryItem(householdId, listId, itemId, withActor), 'Could not update this item. Try again.');
   };
 
   const handleDeleteGroceryItem = async (listId: string, itemId: string) => {
-    try {
-      const scope = user?.householdId ? `?householdId=${encodeURIComponent(user.householdId)}` : '';
-      const res = await fetch(`/api/groceries/${listId}/items/${itemId}${scope}`, { method: 'DELETE' });
-      if (!res.ok) {
-        setGroceryActionMessage({
-          type: 'error',
-          text: await readActionError(res, 'Could not delete this item. Please try again.'),
-        });
-        return;
-      }
-
-      setGroceryActionMessage(null);
-      setGroceryLists((prev) =>
-        prev.map((l) => {
-          if (l.id !== listId) return l;
-          return {
-            ...l,
-            items: l.items.filter((i) => i.id !== itemId),
-          };
-        })
-      );
-    } catch (err) {
-      console.error('Failed to delete grocery item:', err);
-      setGroceryActionMessage({
-        type: 'error',
-        text: 'Could not reach the grocery list service. The item was not deleted.',
-      });
-    }
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    runWrite(firestoreService.deleteGroceryItems(householdId, listId, [itemId]), 'Could not delete this item. Try again.');
   };
 
   const handleAddGroceryItem = async (listId: string, itemData: Partial<GroceryItem>) => {
-    try {
-      const res = await fetch(`/api/groceries/${listId}/items`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...itemData, user, householdId: user?.householdId }),
-      });
-      if (!res.ok) {
-        setGroceryActionMessage({
-          type: 'error',
-          text: await readActionError(res, 'Could not add this item. Please try again.'),
-        });
-        return;
-      }
-
-      const data = await res.json();
-      setGroceryActionMessage(null);
-      setGroceryLists((prev) =>
-        prev.map((l) => {
-          if (l.id !== listId) return l;
-          return {
-            ...l,
-            items: [...l.items, data.item],
-          };
-        })
-      );
-    } catch (err) {
-      console.error('Failed to add grocery item:', err);
-      setGroceryActionMessage({
-        type: 'error',
-        text: 'Could not reach the grocery list service. Please try again.',
-      });
-    }
+    const householdId = requireHousehold();
+    if (!householdId || !itemData.name) return;
+    runWrite(
+      firestoreService.addGroceryItems(householdId, listId, [
+        {
+          name: itemData.name,
+          amount: itemData.amount ?? null,
+          unit: itemData.unit || '',
+          category: itemData.category || 'Other',
+          assignedTo: itemData.assignedTo || 'Anyone',
+          addedBy: user?.name || 'Collaborator',
+          recipeId: itemData.recipeId,
+          recipeTitle: itemData.recipeTitle,
+        },
+      ]),
+      'Could not add this item. Try again.'
+    );
   };
 
   const handleClearCompletedGroceries = async (listId: string) => {
-    try {
-      const scope = user?.householdId ? `?householdId=${encodeURIComponent(user.householdId)}` : '';
-      const res = await fetch(`/api/groceries/${listId}/completed${scope}`, { method: 'DELETE' });
-      if (!res.ok) {
-        setGroceryActionMessage({
-          type: 'error',
-          text: await readActionError(res, 'Could not clear completed items. Please try again.'),
-        });
-        return;
-      }
-
-      setGroceryActionMessage(null);
-      setGroceryLists((prev) =>
-        prev.map((l) => {
-          if (l.id !== listId) return l;
-          return {
-            ...l,
-            items: l.items.filter((i) => !i.checked),
-          };
-        })
-      );
-    } catch (err) {
-      console.error('Failed to clear completed items:', err);
-      setGroceryActionMessage({
-        type: 'error',
-        text: 'Could not reach the grocery list service. Completed items were not cleared.',
-      });
-    }
+    const householdId = requireHousehold();
+    const list = groceryLists.find((l) => l.id === listId);
+    if (!householdId || !list) return;
+    const checkedIds = list.items.filter((i) => i.checked).map((i) => i.id);
+    runWrite(firestoreService.deleteGroceryItems(householdId, listId, checkedIds), 'Could not clear completed items. Try again.');
   };
 
   const handleCreateNewList = async (title: string, store: string) => {
-    if (!user?.householdId) {
-      setGroceryActionMessage({
-        type: 'error',
-        text: 'Sign in before creating a shared grocery list.',
-      });
-      return;
-    }
+    const householdId = requireHousehold();
+    if (!householdId) return;
     try {
-      const res = await fetch('/api/groceries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, store, user, householdId: user.householdId }),
-      });
-      if (!res.ok) {
-        setGroceryActionMessage({
-          type: 'error',
-          text: await readActionError(res, 'Could not create this list. Please try again.'),
-        });
-        return;
-      }
-
-      const data = await res.json();
-      setGroceryActionMessage(null);
-      setGroceryLists((prev) => [data.list, ...prev]);
-      setCurrentListId(data.list.id);
-      firestoreService.saveGroceryList(data.list, { householdId: user?.householdId });
+      const id = await firestoreService.createGroceryList(householdId, title, store);
+      setCurrentListId(id);
     } catch (err) {
-      console.error('Failed to create new grocery list:', err);
-      setGroceryActionMessage({
-        type: 'error',
-        text: 'Could not reach the grocery list service. Please try again.',
-      });
+      console.error('Failed to create grocery list:', err);
+      showNotice('error', 'Could not create this list. Check your connection and try again.');
     }
   };
 
-  const handleJoinGroceryList = async (code: string) => {
+  const handleJoinHousehold = async (code: string) => {
     try {
-      const res = await fetch('/api/grocery-lists/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteCode: code, user }),
-      });
-      if (!res.ok) {
-        setGroceryActionMessage({
-          type: 'error',
-          text: await readActionError(res, 'Could not join that list. Check the invite code and try again.'),
-        });
-        return;
-      }
-
-      const data = await res.json();
-      setGroceryActionMessage(null);
-      setGroceryLists((prev) => {
-        const exists = prev.some((l) => l.id === data.list.id);
-        return exists ? prev.map((l) => (l.id === data.list.id ? data.list : l)) : [data.list, ...prev];
-      });
-      setCurrentListId(data.list.id);
-    } catch (err) {
-      console.error('Failed to join grocery list:', err);
-      setGroceryActionMessage({
-        type: 'error',
-        text: 'Could not reach the grocery list service. Please try again.',
-      });
+      await joinHousehold(code);
+      showNotice('success', 'You joined the household. Recipes and lists are now shared.');
+    } catch (err: any) {
+      showNotice('error', err?.message || 'Could not join with that code. Check it and try again.');
     }
   };
 
@@ -739,8 +414,6 @@ export default function App() {
         onOpenConverter={() => setIsConverterOpen(true)}
         onOpenChat={() => setIsChatOpen(true)}
         onOpenPantry={() => setIsPantryOpen(true)}
-        onOpenBugReport={() => setIsBugReportOpen(true)}
-        onOpenGitHub={() => setIsGitHubOpen(true)}
         onOpenDriveBackup={() => setIsDriveBackupOpen(true)}
         onOpenIngredientOrganizer={() => setIsIngredientOrganizerOpen(true)}
         canInstallPwa={canInstallPwa}
@@ -751,7 +424,13 @@ export default function App() {
 
       {/* Main Content Body */}
       <main className="flex-1 pb-20 sm:pb-24 w-full max-w-full overflow-x-hidden">
-        {activeTab === 'cookbook' ? (
+        {isAuthLoading ? (
+          <div className="flex justify-center py-32" aria-label="Loading your cookbook">
+            <div className="h-8 w-8 rounded-full border-2 border-stone-300 border-t-stone-900 animate-spin" />
+          </div>
+        ) : !user ? (
+          <WelcomeScreen onSignIn={signInWithGoogle} errorMessage={authErrorMessage} />
+        ) : activeTab === 'cookbook' ? (
           <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 flex flex-col gap-6 sm:gap-8 w-full max-w-full">
             {/* Cookbook Header & Action Bar */}
             <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-stone-200/80">
@@ -814,9 +493,13 @@ export default function App() {
             {filteredRecipes.length === 0 ? (
               <div className="py-20 text-center bg-white rounded-3xl border border-stone-200/80 p-8">
                 <ChefHat className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-                <h3 className="font-serif text-2xl text-stone-900">No matching recipes</h3>
-                <p className="text-xs text-stone-600 mt-1 max-w-sm mx-auto">
-                  Try adjusting your search terms, prep time, or cuisine filters.
+                <h3 className="font-serif text-2xl text-stone-900">
+                  {recipes.length === 0 ? 'Add your first recipe' : 'No matching recipes'}
+                </h3>
+                <p className="text-sm text-stone-600 mt-1 max-w-sm mx-auto">
+                  {recipes.length === 0
+                    ? 'Paste a link, snap a photo of a recipe card, or upload a PDF. Heirloom turns it into a clean, cookable recipe.'
+                    : 'Try a different search, or clear the filters.'}
                 </p>
                 <button
                   onClick={() => setIsImportOpen(true)}
@@ -843,7 +526,7 @@ export default function App() {
         ) : (
           /* Shared Groceries Tab */
           <GroceryListView
-            groceryLists={groceryLists}
+            groceryLists={householdLists}
             currentList={currentGroceryList}
             setCurrentList={(l) => setCurrentListId(l.id)}
             onUpdateItem={handleUpdateGroceryItem}
@@ -851,7 +534,7 @@ export default function App() {
             onAddItem={handleAddGroceryItem}
             onClearCompleted={handleClearCompletedGroceries}
             onCreateList={handleCreateNewList}
-            onJoinList={handleJoinGroceryList}
+            onJoinList={handleJoinHousehold}
             onOpenInstacartForList={(list) => {
               // Convert grocery list items into a temporary recipe format for Instacart shopping links
               const fakeRecipe: Recipe = {
@@ -883,14 +566,15 @@ export default function App() {
               handleOpenInstacart(fakeRecipe, 2, list.store);
             }}
             partnerNotification={partnerNotification}
-            actionMessage={groceryActionMessage}
-            onDismissActionMessage={() => setGroceryActionMessage(null)}
+            actionMessage={null}
+            onDismissActionMessage={() => setNotice(null)}
             recipes={recipes}
           />
         )}
       </main>
 
       {/* Ambient Quick Action: Ask Chef AI (Desktop only, mobile accesses via bottom nav) */}
+      {user && (
       <div className="hidden lg:block fixed bottom-6 right-6 z-40">
         <button
           onClick={() => setIsChatOpen(true)}
@@ -901,8 +585,10 @@ export default function App() {
           <span>Ask Chef AI</span>
         </button>
       </div>
+      )}
 
       {/* Ergonomic Mobile Bottom Navigation for Thumb Reachability */}
+      {user && (
       <MobileBottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -911,6 +597,7 @@ export default function App() {
         recipeCount={recipes.length}
         groceryPendingCount={groceryPendingCount}
       />
+      )}
 
       {/* Modals */}
       {isChatOpen && (
@@ -995,17 +682,6 @@ export default function App() {
         <UnitConverterModal onClose={() => setIsConverterOpen(false)} />
       )}
 
-      {isBugReportOpen && (
-        <BugReportModal onClose={() => setIsBugReportOpen(false)} />
-      )}
-
-      {isGitHubOpen && (
-        <GitHubModal
-          onClose={() => setIsGitHubOpen(false)}
-          onOpenBugReport={() => setIsBugReportOpen(true)}
-        />
-      )}
-
       {isProfileOpen && (
         <UserProfileModal
           onClose={() => setIsProfileOpen(false)}
@@ -1015,52 +691,23 @@ export default function App() {
         />
       )}
 
-      {backupPromptRecipe && (
-        <div className="fixed left-4 right-4 bottom-24 sm:bottom-6 z-40 mx-auto max-w-md rounded-3xl border border-amber-200 bg-[#FAF9F5] p-4 shadow-2xl">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-              <CloudUpload className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-stone-950">
-                    Saved "{backupPromptRecipe.title}" to your cookbook
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-stone-600">
-                    Google Drive keeps manual snapshots, not automatic sync. Create a backup now to protect this import.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setBackupPromptRecipe(null)}
-                  className="rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-                  aria-label="Dismiss backup reminder"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBackupPromptRecipe(null);
-                    setIsDriveBackupOpen(true);
-                  }}
-                  className="rounded-xl bg-stone-950 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-stone-800"
-                >
-                  Back Up Now
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBackupPromptRecipe(null)}
-                  className="rounded-xl px-3 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100"
-                >
-                  Later
-                </button>
-              </div>
-            </div>
-          </div>
+      {notice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed left-4 right-4 bottom-24 sm:bottom-6 z-[60] mx-auto max-w-md rounded-2xl px-4 py-3 shadow-2xl flex items-start gap-3 text-sm ${
+            notice.type === 'error' ? 'bg-rose-700 text-white' : 'bg-stone-900 text-white'
+          }`}
+        >
+          <span className="flex-1 leading-snug">{notice.text}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="-m-1 p-1 rounded-full text-white/70 hover:text-white"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -1068,10 +715,8 @@ export default function App() {
       <GoogleDriveBackupModal
         isOpen={isDriveBackupOpen}
         onClose={() => setIsDriveBackupOpen(false)}
-        recipes={recipes}
-        groceryLists={groceryLists}
-        pantryItems={pantryItems}
-        onRestoreBackup={handleRestoreBackup}
+        copyStatus={driveCopyStatus}
+        onRestore={handleRestoreFromDrive}
       />
 
       {/* Organize By Ingredient Fast Inverted Index Modal */}

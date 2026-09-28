@@ -1,176 +1,123 @@
 /**
- * Google Drive Backup & Storage Service for Mise
- * Uses Google Drive REST API v3 with least-privilege 'drive.file' scope.
- * 
- * Safety Guideline: Destructive or mutating file actions require user confirmation.
+ * Google Drive copy of the cookbook.
+ *
+ * Firestore is the source of truth. Drive holds one file, "Heirloom Recipes.json", that is
+ * rewritten in place whenever the cookbook changes while Drive access is active. Uses the
+ * least-privilege drive.file scope, so Heirloom can only see files it created.
  */
 
-import { Recipe, GroceryList, PantryItem } from '../types/recipe.ts';
+import { Recipe, GroceryList } from '../types/recipe.ts';
 
-export interface DriveBackupFile {
+export const DRIVE_LIBRARY_FILE_NAME = 'Heirloom Recipes.json';
+
+export interface DriveFile {
   id: string;
   name: string;
-  size?: string;
-  createdTime: string;
   modifiedTime: string;
   webViewLink?: string;
 }
 
-export interface MiseBackupPayload {
+export interface HeirloomDrivePayload {
   version: string;
   appName: string;
   exportedAt: string;
   recipes: Recipe[];
   groceryLists: GroceryList[];
-  pantryItems: PantryItem[];
-  metadata: {
-    recipeCount: number;
-    listCount: number;
-    pantryCount: number;
-  };
 }
 
-export type HeirloomBackupPayload = MiseBackupPayload;
+export class DriveAuthError extends Error {}
 
-const DRIVE_FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files';
-const DRIVE_UPLOAD_ENDPOINT = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+const FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files';
+const UPLOAD_ENDPOINT = 'https://www.googleapis.com/upload/drive/v3/files';
+const FILE_FIELDS = 'id,name,modifiedTime,webViewLink';
 
-const parseDriveError = async (response: Response, fallback: string) => {
-  const errData = await response.json().catch(() => ({}));
-  const message = errData?.error?.message || fallback;
-  if (response.status === 401) {
-    return 'Google Drive authorization expired. Please connect Google Drive again.';
+const driveFetch = async (token: string, url: string, init: RequestInit = {}) => {
+  const res = await fetch(url, {
+    ...init,
+    headers: { ...(init.headers || {}), Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new DriveAuthError('Google Drive access expired. Reconnect Drive to keep your copy up to date.');
   }
-  if (response.status === 403 && message.toLowerCase().includes('insufficient')) {
-    return 'Google Drive needs permission again. Please reconnect and approve Drive file access.';
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error?.message || `Google Drive request failed (${res.status}).`);
   }
-  return message;
+  return res;
 };
 
+const fileIdKey = (householdId: string) => `heirloom_drive_file_${householdId}`;
+
 export const googleDriveService = {
-  /**
-   * Search for existing Heirloom & legacy Mise backups on the user's Google Drive
-   */
-  async listBackups(accessToken: string): Promise<DriveBackupFile[]> {
-    try {
-      const query = encodeURIComponent("(name contains 'heirloom-recipe-backup' or name contains 'mise-recipe-backup') and trashed = false");
-      const url = `${DRIVE_FILES_ENDPOINT}?q=${query}&orderBy=createdTime desc&fields=files(id,name,size,createdTime,modifiedTime,webViewLink)`;
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(await parseDriveError(response, `Failed to fetch backups (${response.status})`));
+  async findLibraryFile(token: string, householdId: string): Promise<DriveFile | null> {
+    const cachedId = localStorage.getItem(fileIdKey(householdId));
+    if (cachedId) {
+      try {
+        const res = await driveFetch(token, `${FILES_ENDPOINT}/${cachedId}?fields=${FILE_FIELDS},trashed`);
+        const file = await res.json();
+        if (!file.trashed) return file;
+      } catch (err) {
+        if (err instanceof DriveAuthError) throw err;
       }
-
-      const data = await response.json();
-      return (data.files as DriveBackupFile[]) || [];
-    } catch (err: any) {
-      console.error('Google Drive listBackups error:', err);
-      throw err;
+      localStorage.removeItem(fileIdKey(householdId));
     }
+    const q = encodeURIComponent(`name = '${DRIVE_LIBRARY_FILE_NAME}' and trashed = false`);
+    const res = await driveFetch(token, `${FILES_ENDPOINT}?q=${q}&orderBy=modifiedTime desc&fields=files(${FILE_FIELDS})`);
+    const { files } = await res.json();
+    const file = files?.[0] || null;
+    if (file) localStorage.setItem(fileIdKey(householdId), file.id);
+    return file;
   },
 
-  /**
-   * Create a new backup snapshot file in Google Drive
-   */
-  async createBackup(
-    accessToken: string,
+  /** Creates or overwrites the single library file with the current cookbook. */
+  async writeLibrary(
+    token: string,
+    householdId: string,
     recipes: Recipe[],
-    groceryLists: GroceryList[],
-    pantryItems: PantryItem[]
-  ): Promise<DriveBackupFile> {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `heirloom-recipe-backup-${timestamp}.json`;
-
-    const payload: HeirloomBackupPayload = {
-      version: '1.2.0',
-      appName: 'Heirloom — Preserve the recipe. Share the table.',
+    groceryLists: GroceryList[]
+  ): Promise<DriveFile> {
+    const payload: HeirloomDrivePayload = {
+      version: '2.0.0',
+      appName: 'Heirloom',
       exportedAt: new Date().toISOString(),
       recipes,
       groceryLists,
-      pantryItems,
-      metadata: {
-        recipeCount: recipes.length,
-        listCount: groceryLists.length,
-        pantryCount: pantryItems.length,
-      },
     };
+    const body = JSON.stringify(payload, null, 2);
+    const existing = await this.findLibraryFile(token, householdId);
 
+    if (existing) {
+      const res = await driveFetch(token, `${UPLOAD_ENDPOINT}/${existing.id}?uploadType=media&fields=${FILE_FIELDS}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+      return res.json();
+    }
+
+    const boundary = `heirloom-${crypto.randomUUID()}`;
     const metadata = {
-      name: fileName,
+      name: DRIVE_LIBRARY_FILE_NAME,
       mimeType: 'application/json',
-      description: `Heirloom Recipe Archive Backup containing ${recipes.length} recipes and ${pantryItems.length} pantry items.`,
+      description: 'Automatic copy of your Heirloom cookbook. Heirloom keeps this file up to date.',
     };
-
-    const boundary = '-------314159265358979323846';
-    const delimiter = `\r\n--${boundary}\r\n`;
-    const closeDelimiter = `\r\n--${boundary}--`;
-
-    const multipartRequestBody =
-      delimiter +
-      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-      JSON.stringify(metadata) +
-      delimiter +
-      'Content-Type: application/json\r\n\r\n' +
-      JSON.stringify(payload, null, 2) +
-      closeDelimiter;
-
-    const response = await fetch(DRIVE_UPLOAD_ENDPOINT, {
+    const multipart =
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
+    const res = await driveFetch(token, `${UPLOAD_ENDPOINT}?uploadType=multipart&fields=${FILE_FIELDS}`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`,
-      },
-      body: multipartRequestBody,
+      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+      body: multipart,
     });
-
-    if (!response.ok) {
-      throw new Error(await parseDriveError(response, `Failed to create Drive backup (${response.status})`));
-    }
-
-    const createdFile = await response.json();
-    return createdFile as DriveBackupFile;
+    const file = await res.json();
+    localStorage.setItem(fileIdKey(householdId), file.id);
+    return file;
   },
 
-  /**
-   * Download and parse a backup file from Google Drive
-   */
-  async downloadBackup(accessToken: string, fileId: string): Promise<MiseBackupPayload> {
-    const url = `${DRIVE_FILES_ENDPOINT}/${fileId}?alt=media`;
-
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(await parseDriveError(response, `Failed to download backup file (${response.status})`));
-    }
-
-    const json = await response.json();
-    return json as MiseBackupPayload;
-  },
-
-  /**
-   * Delete a backup file from Google Drive (user confirmed)
-   */
-  async deleteBackup(accessToken: string, fileId: string): Promise<void> {
-    const url = `${DRIVE_FILES_ENDPOINT}/${fileId}`;
-
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok && response.status !== 204) {
-      throw new Error(await parseDriveError(response, `Failed to delete backup file (${response.status})`));
-    }
+  async readLibrary(token: string, householdId: string): Promise<HeirloomDrivePayload | null> {
+    const file = await this.findLibraryFile(token, householdId);
+    if (!file) return null;
+    const res = await driveFetch(token, `${FILES_ENDPOINT}/${file.id}?alt=media`);
+    return res.json();
   },
 };
