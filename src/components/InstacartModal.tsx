@@ -18,6 +18,7 @@ import { scaleQuantity, formatFraction } from '../utils/units.ts';
 import { isIngredientInPantry } from '../utils/pantryDefaults.ts';
 import { STORES, StoreOption, resolveStore } from '../utils/storeOptions.ts';
 import { apiFetch } from '../utils/api.ts';
+import { Sheet } from './ui/Sheet.tsx';
 
 interface InstacartModalProps {
   recipe: Recipe;
@@ -202,8 +203,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-2xl bg-[#FAF9F5] rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col my-auto max-h-[90vh]">
+    <Sheet open onClose={onClose} title="Shop on Instacart" variant="bare" size="2xl">
         {/* Modal Header */}
         <div className="p-5 sm:p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between bg-white/70">
           <div className="flex items-center gap-3">
@@ -499,7 +499,6 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
             </a>
           </div>
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };

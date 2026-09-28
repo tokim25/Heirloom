@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { PantryItem } from '../types/recipe.ts';
+import { Sheet } from './ui/Sheet.tsx';
 
 interface PantryModalProps {
   onClose: () => void;
@@ -59,8 +60,7 @@ export const PantryModal: React.FC<PantryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-2xl bg-[#FAF9F5] rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col my-auto max-h-[90vh]">
+    <Sheet open onClose={onClose} title="Pantry staples" variant="bare" size="2xl">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-stone-200/80 bg-white/80 backdrop-blur-md flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -225,7 +225,6 @@ export const PantryModal: React.FC<PantryModalProps> = ({
             <span>Add Item</span>
           </button>
         </form>
-      </div>
-    </div>
+    </Sheet>
   );
 };

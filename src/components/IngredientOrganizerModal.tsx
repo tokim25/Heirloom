@@ -18,6 +18,7 @@ import {
   RecipeOrganizationFilter,
 } from '../utils/recipeTaxonomy.ts';
 import { sounds } from '../utils/sound.ts';
+import { Sheet } from './ui/Sheet.tsx';
 
 interface IngredientOrganizerModalProps {
   isOpen: boolean;
@@ -111,8 +112,7 @@ export const IngredientOrganizerModal: React.FC<IngredientOrganizerModalProps> =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#FAF9F5] w-full max-w-2xl rounded-3xl border border-stone-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+    <Sheet open onClose={onClose} title="Organize by ingredient" variant="bare" size="2xl">
         
         {/* Header */}
         <div className="px-6 py-5 border-b border-stone-200/80 flex items-center justify-between bg-stone-50/70">
@@ -300,7 +300,6 @@ export const IngredientOrganizerModal: React.FC<IngredientOrganizerModalProps> =
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };

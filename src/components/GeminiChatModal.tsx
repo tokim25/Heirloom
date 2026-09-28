@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Recipe, GroceryItem } from '../types/recipe.ts';
 import { apiFetch } from '../utils/api.ts';
+import { Sheet } from './ui/Sheet.tsx';
 
 interface Message {
   id: string;
@@ -234,8 +235,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-stone-900/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-200">
-      <div className="w-full max-w-xl bg-[#FAF9F5] h-full shadow-2xl border-l border-stone-200 flex flex-col animate-in slide-in-from-right duration-300">
+    <Sheet open onClose={onClose} title="Chef AI chat" variant="bare" size="xl" placement="right">
         {/* Chat Header */}
         <div className="p-4 sm:p-5 border-b border-stone-200 bg-white/80 backdrop-blur-md flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -488,7 +488,6 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
             <Send className="w-4 h-4" />
           </button>
         </form>
-      </div>
-    </div>
+    </Sheet>
   );
 };

@@ -138,3 +138,8 @@
 @media (min-width: 640px) {
   .sheet-panel { animation: sheet-panel-in-desktop 200ms ease-out; }
 }
+@keyframes sheet-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.sheet-drawer { animation: sheet-drawer-in 300ms cubic-bezier(0.32, 0.72, 0, 1); }

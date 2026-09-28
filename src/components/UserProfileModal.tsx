@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { GroceryList, Recipe } from '../types/recipe.ts';
 import { formatInviteCode } from '../utils/firestoreService.ts';
 import { STORE_NAMES } from '../utils/storeOptions.ts';
+import { Sheet } from './ui/Sheet.tsx';
 
 interface UserProfileModalProps {
   onClose: () => void;
@@ -187,8 +188,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-lg bg-[#FAF9F5] rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col my-auto max-h-[90vh]">
+    <Sheet open onClose={onClose} title="Account and kitchen profile" variant="bare" size="lg">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between bg-white/50">
           <div className="flex items-center gap-3">
@@ -592,7 +592,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </form>
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };

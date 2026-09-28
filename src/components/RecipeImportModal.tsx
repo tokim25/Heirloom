@@ -195,7 +195,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
       onClose={handleClose}
       title={parsedRecipe ? 'Check your recipe' : 'Add a recipe'}
       description={parsedRecipe ? 'Fix anything that looks off, then save.' : undefined}
-      size="lg"
+      size="xl"
       footer={
         <>
           {parsedRecipe ? (

@@ -22,7 +22,7 @@ import { formatFraction } from '../utils/units.ts';
 import { sounds } from '../utils/sound.ts';
 import { predictGroceryItem, PredictiveGroceryItem } from '../utils/searchEngine.ts';
 import { STORE_NAMES } from '../utils/storeOptions.ts';
-import { ConfirmSheet } from './ui/Sheet.tsx';
+import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
 
 interface GroceryListViewProps {
   groceryLists: GroceryList[];
@@ -120,8 +120,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
   // Rendered from both the empty state and the main view.
   const newListModal = showNewListModal ? (
-        <div className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-stone-200">
+        <Sheet open onClose={() => setShowNewListModal(false)} title="Create or join a list" variant="bare" size="md">
+          <div className="p-6 overflow-y-auto">
             {/* Tabs */}
             <div className="flex rounded-xl bg-stone-100 p-1 mb-5">
               <button
@@ -251,7 +251,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
               </>
             )}
           </div>
-        </div>
+        </Sheet>
   ) : null;
 
   if (!currentList) {
