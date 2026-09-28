@@ -319,8 +319,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
                     <ShieldCheck className={`w-4 h-4 ${isGoogleConnected ? 'text-emerald-600' : 'text-stone-400'}`} />
                     {isGoogleConnected
-                      ? 'Google Drive Backup Vault Active'
-                      : 'Google Drive Vault Needs Authorization'}
+                      ? 'Google Drive Manual Backups Active'
+                      : 'Google Drive Backups Need Authorization'}
                   </span>
                   {onOpenDriveBackup && (
                     <button
@@ -331,7 +331,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       }}
                       className="text-amber-700 hover:text-amber-800 font-medium underline flex items-center gap-1"
                     >
-                      <span>{isGoogleConnected ? 'Manage Cloud Vault' : 'Authorize Drive Vault'}</span>
+                      <span>{isGoogleConnected ? 'Manage Backups' : 'Authorize Drive Backups'}</span>
                       <ExternalLink className="w-3 h-3" />
                     </button>
                   )}

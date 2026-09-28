@@ -123,7 +123,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
     setConfirmDialog({
       isOpen: true,
       title: 'Back Up Recipes to Google Drive?',
-      description: `This will create a new cloud archive containing ${recipes.length} recipes, ${groceryLists.length} grocery lists, and ${pantryItems.length} pantry staples in your personal Google Drive.`,
+      description: `This will create a manual point-in-time snapshot containing ${recipes.length} recipes, ${groceryLists.length} grocery lists, and ${pantryItems.length} pantry staples in your personal Google Drive.`,
       confirmText: 'Confirm & Back Up',
       confirmVariant: 'primary',
       onConfirm: async () => {
@@ -153,7 +153,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
     setConfirmDialog({
       isOpen: true,
       title: 'Restore Recipes from Google Drive?',
-      description: `This will download "${backup.name}" and merge restored recipes and ingredients into your Heirloom recipe library. Existing recipes with identical IDs will be safely synchronized.`,
+      description: `This will download "${backup.name}" and merge restored recipes and ingredients into your Heirloom recipe library. Existing recipes with identical IDs will be safely updated.`,
       confirmText: 'Restore Recipes',
       confirmVariant: 'primary',
       onConfirm: async () => {
