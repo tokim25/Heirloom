@@ -10,6 +10,7 @@ import {
   ExternalLink,
   ChevronDown,
   Trash2,
+  ListPlus,
   Pencil,
   Plus,
   Minus,
@@ -85,303 +86,179 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     return acc;
   }, {});
 
+  const facts = [
+    { label: 'Prep', value: `${recipe.prepTimeMinutes} min` },
+    { label: 'Cook', value: `${recipe.cookTimeMinutes} min` },
+    { label: 'Total', value: `${recipe.totalTimeMinutes} min` },
+    ...(recipe.nutrition?.calories ? [{ label: 'Calories', value: `${recipe.nutrition.calories} kcal` }] : []),
+  ];
+
   return (
-    <Sheet open onClose={onClose} title={recipe.title} variant="bare" size="4xl">
-        {/* Floating Edit and Close Buttons */}
-        <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
-          {onEditRecipe && (
-            <button
-              type="button"
-              onClick={() => onEditRecipe(recipe)}
-              className="min-h-11 px-4 inline-flex items-center gap-1.5 rounded-full bg-stone-900/60 hover:bg-stone-900 text-white text-sm font-semibold backdrop-blur-md transition-all shadow-md"
-            >
-              <Pencil className="w-4 h-4" />
-              Edit
-            </button>
-          )}
+    <Sheet open onClose={onClose} title={recipe.title} variant="bare" size="4xl" fullOnMobile>
+      {/* Floating Edit and Close buttons, clear of the iPhone notch */}
+      <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-30 flex items-center gap-2">
+        {onEditRecipe && (
           <button
             type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-stone-900/60 hover:bg-stone-900 text-white backdrop-blur-md transition-all shadow-md"
+            onClick={() => onEditRecipe(recipe)}
+            className="min-h-11 px-4 inline-flex items-center gap-1.5 rounded-full bg-stone-900/70 hover:bg-stone-900 text-white text-sm font-semibold backdrop-blur-md transition-all shadow-md"
           >
-            <X className="w-5 h-5" />
+            <Pencil className="w-4 h-4" aria-hidden="true" />
+            Edit
           </button>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-stone-900/70 hover:bg-stone-900 text-white backdrop-blur-md transition-all shadow-md"
+        >
+          <X className="w-5 h-5" aria-hidden="true" />
+        </button>
+      </div>
 
-        {/* Hero Section */}
-        <div className="relative h-64 sm:h-80 w-full overflow-hidden bg-stone-200 shrink-0">
+      {/* Everything scrolls together, so the picture moves out of the way as you read */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+        <div className="relative h-56 sm:h-80 w-full overflow-hidden bg-stone-200">
           {recipe.heroImage && !imageFailed ? (
             <img
               src={recipe.heroImage}
-              alt={recipe.title}
+              alt=""
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
               onError={() => setImageFailed(true)}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-amber-50 via-stone-100 to-stone-300 flex items-center justify-center">
-              <ChefHat className="w-14 h-14 text-amber-800/60" />
+              <ChefHat className="w-14 h-14 text-amber-800/60" aria-hidden="true" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
 
-          {/* Hero Content Overlay */}
-          <div className="absolute bottom-6 left-6 right-6 text-white flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-white/90">
+          <div className="absolute bottom-5 left-5 right-5 sm:bottom-6 sm:left-8 sm:right-8 text-white flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/90">
               <span className="font-semibold">{recipe.cuisine}</span>
               <span aria-hidden="true" className="text-white/40">·</span>
               <span>{recipe.difficulty}</span>
-              <span aria-hidden="true" className="text-white/40">·</span>
-              <span>{recipe.totalTimeMinutes} min total</span>
-              {recipe.source.type === 'youtube' && (
+              {recipe.source.url && (
                 <>
                   <span aria-hidden="true" className="text-white/40">·</span>
                   <a
                     href={recipe.source.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-red-300 hover:text-white transition-colors underline"
+                    className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-white"
                   >
-                    <Youtube className="w-3.5 h-3.5" />
-                    <span>Watch video</span>
+                    {recipe.source.type === 'youtube' ? (
+                      <Youtube className="w-4 h-4 text-red-300" aria-hidden="true" />
+                    ) : (
+                      <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                    )}
+                    <span>{recipe.source.type === 'youtube' ? 'Watch video' : recipe.source.sourceName || 'Original'}</span>
                   </a>
                 </>
               )}
             </div>
-
-            <h1 className="font-serif text-3xl sm:text-4xl text-white tracking-tight leading-tight">
-              {recipe.title}
-            </h1>
+            <h1 className="font-serif text-3xl sm:text-4xl text-white tracking-tight leading-tight">{recipe.title}</h1>
           </div>
         </div>
 
-        {/* Action Toolbar */}
-        <div className="bg-white px-6 py-4 border-b border-stone-200/80 flex flex-wrap items-center justify-between gap-4 shrink-0">
-          {/* Servings Adjuster */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
-              Servings:
-            </span>
-            <div className="flex items-center bg-stone-100 rounded-xl p-1 border border-stone-200/70">
-              <button
-                onClick={() => setServings((prev) => Math.max(1, prev - 1))}
-                className="hit-area p-1.5 rounded-lg hover:bg-white text-stone-700 hover:text-stone-900 transition-colors"
-                title="Decrease Servings"
-                aria-label="Decrease servings"
-              >
-                <Minus className="w-3.5 h-3.5" />
-              </button>
-              <span className="w-8 text-center text-sm font-semibold text-stone-900">
-                {servings}
-              </span>
-              <button
-                onClick={() => setServings((prev) => prev + 1)}
-                className="hit-area p-1.5 rounded-lg hover:bg-white text-stone-700 hover:text-stone-900 transition-colors"
-                title="Increase Servings"
-                aria-label="Increase servings"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
+        <div className="px-5 sm:px-8 py-6 flex flex-col gap-8">
+          {/* Quick facts */}
+          <dl className="flex items-stretch divide-x divide-stone-200 border-y border-stone-200/80 py-3">
+            {facts.map((fact) => (
+              <div key={fact.label} className="flex-1 px-3 first:pl-0 last:pr-0 text-center sm:text-left">
+                <dt className="text-xs font-medium text-stone-600 uppercase tracking-wider">{fact.label}</dt>
+                <dd className="text-lg font-serif text-stone-900 tabular-nums">{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
 
-            {/* Unit System Switcher */}
-            <div className="flex items-center bg-stone-100 rounded-xl p-1 border border-stone-200/70">
-              <button
-                onClick={() => setUnitSystem('imperial')}
-                className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all ${
-                  unitSystem === 'imperial'
-                    ? 'bg-white text-stone-900 shadow-sm'
-                    : 'text-stone-500 hover:text-stone-800'
-                }`}
-              >
-                US (Cups/Oz)
-              </button>
-              <button
-                onClick={() => setUnitSystem('metric')}
-                className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all ${
-                  unitSystem === 'metric'
-                    ? 'bg-white text-stone-900 shadow-sm'
-                    : 'text-stone-500 hover:text-stone-800'
-                }`}
-              >
-                Metric (g/ml)
-              </button>
-            </div>
-          </div>
+          {recipe.description && <p className="text-stone-700 text-base leading-relaxed">{recipe.description}</p>}
 
-          {/* Primary Action Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onStartCooking(recipe, servings, unitSystem)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-semibold shadow-md shadow-amber-500/20 transition-all hover:shadow-lg active:scale-95"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Start cooking</span>
-            </button>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+            {/* Ingredients, with servings and units right where they apply */}
+            <section className="lg:col-span-5 flex flex-col gap-4" aria-labelledby="ingredients-heading">
+              <h2 id="ingredients-heading" className="font-serif text-2xl text-stone-900 font-medium">
+                Ingredients
+              </h2>
 
-            <button
-              onClick={() => onOpenInstacart(recipe, servings)}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-sm transition-all hover:shadow active:scale-95"
-              title="Prepare Instacart shopping links"
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Shop on Instacart</span>
-            </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center bg-stone-100 rounded-xl border border-stone-200/70" role="group" aria-label="Servings">
+                  <button
+                    type="button"
+                    onClick={() => setServings((prev) => Math.max(1, prev - 1))}
+                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-stone-700 hover:bg-white active:bg-white"
+                    aria-label="Fewer servings"
+                  >
+                    <Minus className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                  <span className="min-w-20 text-center text-sm font-semibold text-stone-900" aria-live="polite">
+                    {servings} {servings === 1 ? 'serving' : 'servings'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setServings((prev) => prev + 1)}
+                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-stone-700 hover:bg-white active:bg-white"
+                    aria-label="More servings"
+                  >
+                    <Plus className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                </div>
 
-            {groceryLists.length > 0 && (
-              <select
-                value={selectedListId}
-                onChange={(e) => setSelectedListId(e.target.value)}
-                className="max-w-[190px] px-3 py-2.5 rounded-xl bg-white border border-stone-300 text-xs font-medium text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30"
-                title="Choose destination grocery list"
-              >
-                {groceryLists.map((list) => (
-                  <option key={list.id} value={list.id}>
-                    {list.title}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <button
-              onClick={handleAddGroceries}
-              disabled={isAddingToList}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all disabled:opacity-60 ${
-                addListStatus?.success
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                  : addListStatus && !addListStatus.success
-                  ? 'bg-rose-50 text-rose-700 border-rose-300'
-                  : 'bg-white hover:bg-stone-50 text-stone-800 border-stone-300 shadow-sm'
-              }`}
-            >
-              {addListStatus?.success ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Added!</span>
-                </>
-              ) : addListStatus && !addListStatus.success ? (
-                <>
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Needs List</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{isAddingToList ? 'Adding...' : 'Add to List'}</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {addListStatus && (
-            <div
-              className={`basis-full text-xs rounded-xl px-3 py-2 flex items-center justify-between gap-3 ${
-                addListStatus.success
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                  : 'bg-rose-50 text-rose-800 border border-rose-200'
-              }`}
-            >
-              <span>{addListStatus.message}</span>
-              {onViewGroceryList && (
-                <button
-                  type="button"
-                  onClick={onViewGroceryList}
-                  className="font-semibold underline underline-offset-2 shrink-0"
-                >
-                  {addListStatus.success ? 'View cart' : 'Open groceries'}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Scrollable Content Area */}
-        <div className="overflow-y-auto p-6 sm:p-8 flex flex-col gap-8">
-          {/* Quick Metrics Bar (Editorial Hairline Dividers) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 py-4 border-y border-stone-200/80">
-            <div>
-              <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
-                Prep Time
-              </span>
-              <p className="text-xl font-serif text-stone-900 mt-0.5 tabular-nums">
-                {recipe.prepTimeMinutes} mins
-              </p>
-            </div>
-            <div>
-              <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
-                Cook Time
-              </span>
-              <p className="text-xl font-serif text-stone-900 mt-0.5 tabular-nums">
-                {recipe.cookTimeMinutes} mins
-              </p>
-            </div>
-            <div>
-              <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
-                Total Time
-              </span>
-              <p className="text-xl font-serif text-stone-900 mt-0.5 tabular-nums">
-                {recipe.totalTimeMinutes} mins
-              </p>
-            </div>
-            <div>
-              <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
-                Calories (Est.)
-              </span>
-              <p className="text-xl font-serif text-stone-900 mt-0.5 tabular-nums">
-                {recipe.nutrition?.calories ? `${recipe.nutrition.calories} kcal` : '—'}
-              </p>
-            </div>
-          </div>
-
-          {/* Description */}
-          {recipe.description && (
-            <p className="text-stone-700 text-sm sm:text-base leading-relaxed font-normal">
-              {recipe.description}
-            </p>
-          )}
-
-          {/* Split: Ingredients & Steps */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left: Ingredients (5 cols) */}
-            <div className="lg:col-span-5 flex flex-col gap-5">
-              <div className="flex items-center justify-between border-b border-stone-200 pb-2">
-                <h3 className="font-serif text-2xl text-stone-900 font-medium">
-                  Ingredients
-                </h3>
-                <span className="text-xs text-stone-600">
-                  Scaled for {servings} {servings === 1 ? 'serving' : 'servings'}
-                </span>
+                <div className="flex items-center bg-stone-100 rounded-xl border border-stone-200/70 p-1" role="group" aria-label="Units">
+                  {(['imperial', 'metric'] as const).map((system) => (
+                    <button
+                      key={system}
+                      type="button"
+                      onClick={() => setUnitSystem(system)}
+                      aria-pressed={unitSystem === system}
+                      className={`min-h-9 px-3 text-sm font-medium rounded-lg transition-all ${
+                        unitSystem === system ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      {system === 'imperial' ? 'US' : 'Metric'}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex flex-col gap-6">
+              {groceryLists.length > 1 && (
+                <label className="flex items-center gap-2 text-sm text-stone-700">
+                  <span className="shrink-0">Add to list</span>
+                  <select
+                    value={selectedListId}
+                    onChange={(e) => setSelectedListId(e.target.value)}
+                    className="flex-1 min-w-0 min-h-11 px-3 rounded-xl bg-white border border-stone-300 text-sm font-medium text-stone-800"
+                  >
+                    {groceryLists.map((list) => (
+                      <option key={list.id} value={list.id}>
+                        {list.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <div className="flex flex-col gap-5">
                 {Object.entries(categorizedIngredients).map(([category, items]) => (
                   <div key={category} className="flex flex-col gap-2">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-600">
-                      {category}
-                    </h4>
-                    <ul className="divide-y divide-stone-100 bg-white rounded-2xl border border-stone-200/80 p-2 shadow-xs">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-600">{category}</h3>
+                    <ul className="divide-y divide-stone-100 bg-white rounded-2xl border border-stone-200/80 px-2 shadow-xs">
                       {items.map((ing) => {
                         const scaled = scaleQuantity(ing.amount, recipe.defaultServings, servings);
                         const converted = convertUnit(scaled, ing.unit, ing.name, unitSystem);
                         const displayQty = formatFraction(converted.amount);
 
                         return (
-                          <li
-                            key={ing.id}
-                            className="py-2.5 px-3 flex items-baseline justify-between text-xs sm:text-sm hover:bg-stone-50/80 rounded-xl transition-colors"
-                          >
-                            <div className="flex items-baseline gap-2">
-                              <span className="font-semibold text-stone-900 whitespace-nowrap">
-                                {displayQty ? `${displayQty} ${converted.unit}` : converted.unit}
-                              </span>
-                              <span className="text-stone-800">{ing.name}</span>
-                              {ing.notes && (
-                                <span className="text-stone-600 text-xs italic">
-                                  ({ing.notes})
-                                </span>
-                              )}
-                            </div>
+                          <li key={ing.id} className="py-3 px-2 flex items-baseline gap-2 text-base">
+                            <span className="font-semibold text-stone-900 whitespace-nowrap">
+                              {displayQty ? `${displayQty} ${converted.unit}` : converted.unit}
+                            </span>
+                            <span className="text-stone-800">
+                              {ing.name}
+                              {ing.notes && <span className="text-stone-600 text-sm italic"> ({ing.notes})</span>}
+                            </span>
                           </li>
                         );
                       })}
@@ -389,80 +266,145 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
 
-            {/* Right: Step by Step Instructions (7 cols) */}
-            <div className="lg:col-span-7 flex flex-col gap-5">
-              <div className="flex items-center justify-between border-b border-stone-200 pb-2">
-                <h3 className="font-serif text-2xl text-stone-900 font-medium">
+            {/* Method */}
+            <section className="lg:col-span-7 flex flex-col gap-4" aria-labelledby="method-heading">
+              <div className="flex items-baseline justify-between">
+                <h2 id="method-heading" className="font-serif text-2xl text-stone-900 font-medium">
                   Method
-                </h3>
-                <span className="text-xs text-stone-600">
-                  {recipe.steps.length} steps
-                </span>
+                </h2>
+                <span className="text-sm text-stone-600">{recipe.steps.length} steps</span>
               </div>
 
-              <div className="flex flex-col gap-4">
+              <ol className="flex flex-col gap-3">
                 {recipe.steps.map((step, idx) => (
-                  <div
-                    key={step.stepNumber}
-                    className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex flex-col gap-2 hover:border-stone-300 transition-all"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-stone-900 text-white text-xs font-medium flex items-center justify-center">
+                  <li key={step.stepNumber} className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-7 h-7 shrink-0 rounded-full bg-stone-900 text-white text-sm font-medium flex items-center justify-center">
                           {idx + 1}
                         </span>
-                        <h4 className="font-serif text-lg font-medium text-stone-900">
-                          {step.title || `Step ${idx + 1}`}
-                        </h4>
+                        <h3 className="font-serif text-lg font-medium text-stone-900">{step.title || `Step ${idx + 1}`}</h3>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        {step.timerSeconds && (
+                      <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
+                        {step.timerSeconds ? (
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
-                            <Clock className="w-3 h-3 text-amber-600" />
+                            <Clock className="w-3 h-3 text-amber-600" aria-hidden="true" />
                             {Math.round(step.timerSeconds / 60)} min
                           </span>
-                        )}
+                        ) : null}
                         {step.temperature && (
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 text-xs font-medium">
-                            <Flame className="w-3 h-3 text-amber-500" />
+                            <Flame className="w-3 h-3 text-amber-500" aria-hidden="true" />
                             {step.temperature}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <p className="text-xs sm:text-sm text-stone-700 leading-relaxed">
+                    <p className="text-base text-stone-700 leading-relaxed">
                       {formatStepTemperatures(step.instruction, unitSystem)}
                     </p>
 
                     {step.tips && (
-                      <div className="text-xs text-amber-800 bg-amber-50/60 p-2.5 rounded-xl border border-amber-100 flex items-start gap-1.5">
-                        <span className="font-semibold text-amber-900">Tip:</span>
-                        <span>{step.tips}</span>
+                      <div className="text-sm text-amber-900 bg-amber-50/70 p-3 rounded-xl border border-amber-100">
+                        <span className="font-semibold">Tip: </span>
+                        {step.tips}
                       </div>
                     )}
-                  </div>
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ol>
+            </section>
           </div>
 
-          {/* Delete Recipe */}
           {onDeleteRecipe && (
-            <div className="pt-6 border-t border-stone-200 flex justify-end">
+            <div className="pt-4 border-t border-stone-200 flex justify-end">
               <button
+                type="button"
                 onClick={() => setConfirmingDelete(true)}
-                className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 hover:underline"
+                className="inline-flex items-center gap-1.5 min-h-11 px-2 text-sm text-rose-700 hover:text-rose-800 hover:underline"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Remove Recipe from Library</span>
+                <Trash2 className="w-4 h-4" aria-hidden="true" />
+                <span>Delete recipe</span>
               </button>
             </div>
           )}
         </div>
+      </div>
+
+      {/* Sticky actions: the one thing you came to do, always in reach */}
+      <div className="shrink-0 bg-white/95 backdrop-blur border-t border-stone-200">
+        {addListStatus && (
+          <div
+            role="status"
+            className={`mx-4 mt-3 text-sm rounded-xl px-3 py-2 flex items-center justify-between gap-3 ${
+              addListStatus.success
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-rose-50 text-rose-800 border border-rose-200'
+            }`}
+          >
+            <span>{addListStatus.message}</span>
+            {onViewGroceryList && (
+              <button
+                type="button"
+                onClick={onViewGroceryList}
+                className="min-h-11 font-semibold underline underline-offset-2 shrink-0"
+              >
+                {addListStatus.success ? 'View list' : 'Open groceries'}
+              </button>
+            )}
+          </div>
+        )}
+        <div className="px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2 max-w-4xl mx-auto">
+          <button
+            type="button"
+            onClick={() => onStartCooking(recipe, servings, unitSystem)}
+            className="flex-1 min-h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-base font-semibold shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all"
+          >
+            <Play className="w-4 h-4 fill-current" aria-hidden="true" />
+            Start cooking
+          </button>
+
+          <button
+            type="button"
+            onClick={handleAddGroceries}
+            disabled={isAddingToList}
+            aria-label={addListStatus?.success ? 'Added to your list' : 'Add ingredients to grocery list'}
+            title="Add ingredients to grocery list"
+            className={`min-h-12 min-w-12 sm:px-4 inline-flex items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-60 ${
+              addListStatus?.success
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : addListStatus
+                ? 'bg-rose-50 text-rose-700 border-rose-300'
+                : 'bg-white hover:bg-stone-50 text-stone-800 border-stone-300'
+            }`}
+          >
+            {addListStatus?.success ? (
+              <Check className="w-5 h-5" aria-hidden="true" />
+            ) : addListStatus ? (
+              <AlertCircle className="w-5 h-5" aria-hidden="true" />
+            ) : (
+              <ListPlus className="w-5 h-5" aria-hidden="true" />
+            )}
+            <span className="hidden sm:inline">{isAddingToList ? 'Adding…' : addListStatus?.success ? 'Added' : 'Add to list'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenInstacart(recipe, servings)}
+            aria-label="Shop on Instacart"
+            title="Shop on Instacart"
+            className="min-h-12 min-w-12 sm:px-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium active:scale-[0.98] transition-all"
+          >
+            <ShoppingBag className="w-5 h-5" aria-hidden="true" />
+            <span className="hidden sm:inline">Instacart</span>
+          </button>
+        </div>
+      </div>
+
       <ConfirmSheet
         open={confirmingDelete}
         title={`Delete "${recipe.title}"?`}
