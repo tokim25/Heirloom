@@ -247,7 +247,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                 <span className="text-xs font-semibold uppercase tracking-wider text-amber-800">
                   Chef Gemini AI
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold">
                   Gemini 3.8 Flash
                 </span>
               </div>
@@ -329,13 +329,13 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                     <div className="mt-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 flex flex-col gap-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                          <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
                             Chef Recipe Generated
                           </span>
                           <h4 className="font-serif text-base text-stone-900 font-semibold mt-0.5">
                             {m.parsedRecipe.title}
                           </h4>
-                          <p className="text-[11px] text-stone-600 mt-0.5">
+                          <p className="text-xs text-stone-600 mt-0.5">
                             {m.parsedRecipe.totalTimeMinutes}m total • {m.parsedRecipe.ingredients.length} ingredients • {m.parsedRecipe.difficulty}
                           </p>
                         </div>
@@ -378,7 +378,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                         )}
                       </button>
                       {recipeSaveError && (
-                        <div className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-2">
+                        <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-2">
                           {recipeSaveError}
                         </div>
                       )}
@@ -389,7 +389,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                   {m.parsedGroceryItems && m.parsedGroceryItems.length > 0 && (
                     <div className="mt-3 p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col gap-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
                           Suggested Shopping Items ({m.parsedGroceryItems.length})
                         </span>
                         <ShoppingBag className="w-4 h-4 text-emerald-700" />
@@ -419,7 +419,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                         {isGroceriesAdded ? (
                           <>
                             <Check className="w-3.5 h-3.5" />
-                            <span>Added to Shared Groceries!</span>
+                            <span>Added to your grocery list</span>
                           </>
                         ) : (
                           <>
@@ -432,7 +432,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                   )}
                 </div>
 
-                <span className="text-[10px] text-stone-400 mt-1 px-1">
+                <span className="text-xs text-stone-400 mt-1 px-1">
                   {m.timestamp}
                 </span>
               </div>
@@ -455,7 +455,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
             <button
               key={i}
               onClick={() => handleSendMessage(prompt)}
-              className="text-[11px] px-3 py-1.5 rounded-full bg-white hover:bg-stone-50 text-stone-700 border border-stone-200 whitespace-nowrap shadow-xs transition-colors shrink-0"
+              className="text-xs px-3 py-1.5 rounded-full bg-white hover:bg-stone-50 text-stone-700 border border-stone-200 whitespace-nowrap shadow-xs transition-colors shrink-0"
             >
               {prompt}
             </button>

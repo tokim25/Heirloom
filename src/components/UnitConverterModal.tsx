@@ -159,7 +159,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
 
               <div className="grid grid-cols-2 gap-4 items-center">
                 <div className="bg-white p-4 rounded-2xl border border-stone-200">
-                  <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
                     Volume in Cups
                   </span>
                   <input
@@ -175,7 +175,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                         key={q}
                         type="button"
                         onClick={() => setCupsInput(q)}
-                        className="px-2 py-0.5 rounded-md bg-stone-100 text-[10px] text-stone-700 hover:bg-stone-200"
+                        className="px-2 py-0.5 rounded-md bg-stone-100 text-xs text-stone-700 hover:bg-stone-200"
                       >
                         {q}c
                       </button>
@@ -184,13 +184,13 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                 </div>
 
                 <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl text-amber-950">
-                  <span className="text-[11px] font-semibold text-amber-900 uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider">
                     Weight in Grams
                   </span>
                   <p className="text-3xl font-serif font-bold text-amber-950 mt-1">
                     {calculatedGrams()} g
                   </p>
-                  <span className="text-[11px] text-amber-800 mt-2 block">
+                  <span className="text-xs text-amber-800 mt-2 block">
                     Exact weight for {selectedIngredient.name}
                   </span>
                 </div>
@@ -212,7 +212,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                     onChange={(e) => handleFahrenheitChange(Number(e.target.value))}
                     className="text-3xl font-serif text-stone-900 font-medium bg-transparent focus:outline-none mt-1"
                   />
-                  <span className="text-[11px] text-stone-400 mt-2">
+                  <span className="text-xs text-stone-400 mt-2">
                     Standard US Oven
                   </span>
                 </div>
@@ -227,7 +227,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                     onChange={(e) => handleCelsiusChange(Number(e.target.value))}
                     className="text-3xl font-serif text-amber-950 font-bold bg-transparent focus:outline-none mt-1"
                   />
-                  <span className="text-[11px] text-amber-800 mt-2">
+                  <span className="text-xs text-amber-800 mt-2">
                     European / Metric Oven
                   </span>
                 </div>

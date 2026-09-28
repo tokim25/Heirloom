@@ -78,13 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="font-serif text-2xl sm:text-3xl tracking-tight text-stone-900 group-hover:text-stone-700 transition-colors">
                   Heirloom
                 </span>
-                <span className="text-[10px] uppercase tracking-wider text-amber-800 font-bold px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/30 hidden sm:inline">
-                  Recipes
-                </span>
               </div>
-              <span className="text-[10px] text-stone-500 font-medium hidden xl:inline tracking-tight -mt-0.5">
-                Preserve the recipe. Share the table.
-              </span>
             </div>
           </button>
 
@@ -107,7 +101,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               />
               <span>Cookbook</span>
               <span
-                className={`text-[11px] font-mono transition-colors ${
+                className={`text-xs font-mono transition-colors ${
                   activeTab === 'cookbook'
                     ? 'text-amber-900 font-bold'
                     : 'text-stone-400'
@@ -132,10 +126,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     : 'text-stone-400 group-hover:text-stone-600 stroke-[1.8]'
                 }`}
               />
-              <span>Shared Groceries</span>
+              <span>Groceries</span>
               {groceryPendingCount > 0 && (
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold transition-colors ${
+                  className={`px-1.5 py-0.2 rounded-full text-xs font-mono font-bold transition-colors ${
                     activeTab === 'groceries'
                       ? 'bg-amber-600 text-white'
                       : 'bg-stone-300 text-stone-700'
@@ -169,7 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Import Recipe</span>
           </button>
 
-          {/* Unified Studio Tools Dropdown */}
+          {/* More menu */}
           <div className="relative" ref={toolsMenuRef}>
             <button
               onClick={() => setIsToolsMenuOpen(!isToolsMenuOpen)}
@@ -178,7 +172,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-stone-900 text-white border-stone-900'
                   : 'bg-white text-stone-700 border-stone-200/80 hover:bg-stone-50'
               }`}
-              title="Studio Tools & Settings"
+              title="More" aria-label="More options" aria-haspopup="menu" aria-expanded={isToolsMenuOpen}
             >
               <MoreHorizontal
                 className={`w-4 h-4 shrink-0 ${
@@ -189,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {isToolsMenuOpen && (
               <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-2xl rounded-2xl shadow-xl border border-stone-200/80 py-2 z-50 animate-in fade-in duration-100">
-                <div className="px-3.5 py-2 border-b border-stone-100 text-[11px] font-semibold tracking-wider uppercase text-stone-600">
+                <div className="px-3.5 py-2 border-b border-stone-100 text-xs font-semibold tracking-wider uppercase text-stone-600">
                   Tools & Settings
                 </div>
 
@@ -205,7 +199,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <Cloud className="w-4 h-4 text-amber-600 shrink-0" />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium">Google Drive Copy</span>
-                        <span className="text-[10px] text-stone-600 truncate">Automatic copy of your cookbook</span>
+                        <span className="text-xs text-stone-600 truncate">Automatic copy of your cookbook</span>
                       </div>
                     </button>
                   )}
@@ -221,7 +215,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <Layers className="w-4 h-4 text-amber-600 shrink-0" />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium">Organize by Ingredient</span>
-                        <span className="text-[10px] text-stone-600 truncate">Instant reverse index by ingredient</span>
+                        <span className="text-xs text-stone-600 truncate">Find recipes by what you have</span>
                       </div>
                     </button>
                   )}
@@ -236,7 +230,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <UtensilsCrossed className="w-4 h-4 text-emerald-600 shrink-0" />
                     <div className="flex flex-col min-w-0">
                       <span className="font-medium">Pantry Checklist</span>
-                      <span className="text-[10px] text-stone-600 truncate">Track staples you already have</span>
+                      <span className="text-xs text-stone-600 truncate">Track staples you already have</span>
                     </div>
                   </button>
 
@@ -250,7 +244,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <Calculator className="w-4 h-4 text-amber-600 shrink-0" />
                     <div className="flex flex-col min-w-0">
                       <span className="font-medium">Culinary Converter</span>
-                      <span className="text-[10px] text-stone-600 truncate">Cups to Grams, °F to °C</span>
+                      <span className="text-xs text-stone-600 truncate">Cups to Grams, °F to °C</span>
                     </div>
                   </button>
 
@@ -265,7 +259,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <Download className="w-4 h-4 text-blue-600 shrink-0" />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium">Install Offline App</span>
-                        <span className="text-[10px] text-stone-600 truncate">Add to Home Screen / Desktop</span>
+                        <span className="text-xs text-stone-600 truncate">Add to Home Screen / Desktop</span>
                       </div>
                     </button>
                   )}
@@ -289,7 +283,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={() => setIsProfileOpen(true)}
             className="flex items-center gap-2 p-1 rounded-full hover:bg-stone-200/60 transition-colors shrink-0"
-            title={isGoogleSignedIn ? 'Account & Household Settings' : 'Sign In or Account Settings'}
+            aria-label={isGoogleSignedIn ? 'Profile and household settings' : 'Sign in or open settings'}
           >
             <div className="relative">
               {isGoogleSignedIn && user?.avatarUrl ? (

@@ -196,8 +196,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <UserIcon className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
-                Chef Profile & Identity
+              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                Profile
               </span>
               <h2 className="font-serif text-2xl text-stone-900 leading-tight">
                 Account & Kitchen Profile
@@ -235,7 +235,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-medium text-stone-900 text-base">{user.name}</h3>
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
                           <Check className="w-3 h-3 text-emerald-600" />
                           Google Verified
                         </span>
@@ -356,7 +356,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       <div className="flex-1">
                         <p className="font-semibold">{authError?.message || authErrorMessage}</p>
                         {authError?.isDomainError && (
-                          <p className="text-rose-700 text-[11px] mt-1">
+                          <p className="text-rose-700 text-xs mt-1">
                             Firebase requires listing custom domains under Authorized Domains to prevent unauthorized OAuth redirects.
                           </p>
                         )}
@@ -388,7 +388,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <Tag className="w-3.5 h-3.5 text-amber-600" />
                   <span>Dietary Preferences & Culinary Tags</span>
                 </label>
-                <p className="text-[11px] text-stone-500 mt-0.5">
+                <p className="text-xs text-stone-500 mt-0.5">
                   Automatically extracts tags from your {recipes.length} recipes + custom tags you add.
                 </p>
               </div>
@@ -462,7 +462,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     <span>{item}</span>
                     {isFromCookbook && (
                       <span
-                        className={`text-[9px] px-1 py-0.2 rounded-full ${
+                        className={`text-xs px-1 py-0.2 rounded-full ${
                           active ? 'bg-amber-600/30 text-stone-950' : 'bg-stone-100 text-stone-500'
                         }`}
                         title="Found in your recipes"
@@ -485,7 +485,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     <Users className="w-3.5 h-3.5 text-amber-600" />
                     <span>Household</span>
                   </label>
-                  <p className="text-[11px] text-stone-500 mt-0.5">
+                  <p className="text-xs text-stone-500 mt-0.5">
                     Everyone here shares the cookbook and grocery lists.
                   </p>
                 </div>

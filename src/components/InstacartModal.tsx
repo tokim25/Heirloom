@@ -215,7 +215,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                 <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
                   Instacart Shopping Handoff
                 </span>
-                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold whitespace-nowrap leading-none">
+                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold whitespace-nowrap leading-none">
                   Store Fulfillment
                 </span>
               </div>
@@ -247,7 +247,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                   <span className="font-semibold text-stone-900 text-sm sm:text-base truncate">
                     {selectedStore.name}
                   </span>
-                  <span className="inline-flex items-center justify-center gap-1 text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full whitespace-nowrap leading-none">
+                  <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full whitespace-nowrap leading-none">
                     <Check className="w-3 h-3 text-emerald-700" />
                     {selectedStore.isCustom ? 'Custom Store' : 'Preferred Store'}
                   </span>
@@ -260,7 +260,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                   <span className="truncate">{selectedStore.tagline}</span>
                 </p>
                 {selectedStore.isCustom && (
-                  <p className="text-[11px] text-amber-700 mt-1">
+                  <p className="text-xs text-amber-700 mt-1">
                     This store is saved exactly as chosen. Instacart links will use general search because Heirloom does not have a curated shortcut for it yet.
                   </p>
                 )}
@@ -305,10 +305,10 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                           <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                         )}
                       </div>
-                      <span className="text-[10px] text-stone-500 truncate">
+                      <span className="text-xs text-stone-500 truncate">
                         {store.tagline}
                       </span>
-                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-stone-600">
+                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-stone-600">
                         <span>⏱ {store.delivery}</span>
                         <span>•</span>
                         <span>Min {store.minOrder}</span>
@@ -332,7 +332,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
             </span>
           </div>
           {missingPriceCount > 0 && (
-            <p className="text-[11px] text-stone-500 -mt-2">
+            <p className="text-xs text-stone-500 -mt-2">
               {missingPriceCount} selected {missingPriceCount === 1 ? 'item is' : 'items are'} missing sourced pricing. Heirloom does not show live Instacart prices.
             </p>
           )}
@@ -369,7 +369,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                           {item.name}
                         </span>
                         {item.isInPantry && (
-                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold border border-emerald-200 whitespace-nowrap leading-none">
+                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200 whitespace-nowrap leading-none">
                             In Pantry
                           </span>
                         )}
@@ -377,11 +377,11 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-[11px] text-stone-600 font-medium text-right">
+                      <span className="text-xs text-stone-600 font-medium text-right">
                         {typeof item.estimatedPrice === 'number' ? (
                           <>
                             <span className="font-mono">${item.estimatedPrice.toFixed(2)}</span>
-                            <span className="block text-[10px] text-stone-400">rough est.</span>
+                            <span className="block text-xs text-stone-400">rough est.</span>
                           </>
                         ) : (
                           <span className="text-stone-400">Price unavailable</span>
@@ -392,7 +392,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                         href={getItemSearchUrl(item.query)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 font-medium px-2 py-1 rounded-lg hover:bg-emerald-50 border border-emerald-200/80 transition-colors whitespace-nowrap"
+                        className="inline-flex items-center justify-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-medium px-2 py-1 rounded-lg hover:bg-emerald-50 border border-emerald-200/80 transition-colors whitespace-nowrap"
                         title={`Find ${item.name} at ${selectedStore.name} on Instacart`}
                       >
                         <span>Find Item</span>
@@ -412,12 +412,12 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleApplySubstitution(idx)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-medium shadow-xs"
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-xs"
                         >
                           Use this Sub
                         </button>
                       </div>
-                      <p className="text-stone-700 text-[11px] leading-relaxed">
+                      <p className="text-stone-700 text-xs leading-relaxed">
                         <strong className="text-stone-900">Ratio:</strong> {item.substitution.ratio} • <strong className="text-stone-900">Why:</strong> {item.substitution.reason}
                       </p>
                     </div>
@@ -443,7 +443,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
           </div>
 
           {/* Transparent How-it-Works Explainer */}
-          <div className="p-3 bg-stone-100/70 border border-stone-200 rounded-2xl text-[11px] text-stone-600 leading-relaxed">
+          <div className="p-3 bg-stone-100/70 border border-stone-200 rounded-2xl text-xs text-stone-600 leading-relaxed">
             <span className="font-semibold text-stone-800">How Instacart shopping works:</span> Heirloom does not create or manage an Instacart cart. Tap <strong className="text-stone-800">Open {selectedStore.name}</strong> to launch the store, or tap <strong className="text-stone-800">Find Item</strong> beside any ingredient to search for it directly on Instacart.
           </div>
         </div>
@@ -451,7 +451,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
         {/* Modal Footer */}
         <div className="p-4 sm:p-5 border-t border-stone-200/80 bg-stone-50 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center justify-between w-full sm:w-auto sm:flex-col sm:items-start">
-            <span className="text-[11px] text-stone-500">
+            <span className="text-xs text-stone-500">
               Ready for {selectedStore.name}
             </span>
             <span className="text-sm font-semibold text-stone-900">
@@ -461,7 +461,7 @@ export const InstacartModal: React.FC<InstacartModalProps> = ({
                 : ' • prices unavailable'}
             </span>
             {missingPriceCount > 0 && (
-              <span className="text-[10px] text-stone-500">
+              <span className="text-xs text-stone-500">
                 Missing prices are excluded from the subtotal.
               </span>
             )}

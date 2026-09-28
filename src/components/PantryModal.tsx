@@ -72,7 +72,7 @@ export const PantryModal: React.FC<PantryModalProps> = ({
                 <span className="text-xs font-semibold uppercase tracking-wider text-amber-800">
                   Kitchen Inventory
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold">
                   {inStockCount} of {pantryItems.length} In Stock
                 </span>
               </div>
@@ -139,7 +139,7 @@ export const PantryModal: React.FC<PantryModalProps> = ({
           </p>
           <button
             onClick={onResetDefaults}
-            className="flex items-center gap-1 text-[11px] text-amber-800 hover:text-amber-950 underline shrink-0 ml-2"
+            className="flex items-center gap-1 text-xs text-amber-800 hover:text-amber-950 underline shrink-0 ml-2"
           >
             <RefreshCw className="w-3 h-3" />
             <span>Reset Staples</span>
@@ -173,14 +173,14 @@ export const PantryModal: React.FC<PantryModalProps> = ({
                   <h4 className="text-xs font-semibold text-stone-900 leading-tight">
                     {item.name}
                   </h4>
-                  <span className="text-[10px] text-stone-500">
+                  <span className="text-xs text-stone-500">
                     {item.category}
                   </span>
                 </div>
               </div>
 
               <span
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                   item.inStock
                     ? 'bg-emerald-100 text-emerald-800'
                     : 'bg-stone-200 text-stone-600'

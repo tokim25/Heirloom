@@ -45,14 +45,14 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
 
         {/* Quiet Source Identifier (Single clean badge) */}
         {recipe.source.type === 'youtube' && (
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-medium tracking-wide">
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium tracking-wide">
             <Youtube className="w-3.5 h-3.5 text-red-400" />
             <span>YouTube Short</span>
           </div>
         )}
 
         {recipe.source.type === 'link' && recipe.source.sourceName && (
-          <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-white/90 text-[11px] font-medium tracking-wide">
+          <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-white/90 text-xs font-medium tracking-wide">
             <ExternalLink className="w-3 h-3 text-stone-300" />
             <span className="truncate max-w-[130px]">{recipe.source.sourceName}</span>
           </div>
