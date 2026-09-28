@@ -23,6 +23,8 @@ interface SheetProps {
    * header and body (for windows with a custom layout). 'standard' adds the title bar and footer.
    */
   variant?: 'standard' | 'bare';
+  /** On phones, fill the whole screen instead of leaving a gap above a bottom sheet. */
+  fullOnMobile?: boolean;
   /** 'right' makes a full-height drawer (used by Chef AI chat). */
   placement?: 'center' | 'right';
   /** Set false while something is saving so the sheet cannot be dismissed mid-write. */
@@ -52,6 +54,7 @@ export const Sheet: React.FC<SheetProps> = ({
   size = 'xl',
   variant = 'standard',
   placement = 'center',
+  fullOnMobile = false,
   dismissible = true,
 }) => {
   const id = useId();
@@ -118,7 +121,9 @@ export const Sheet: React.FC<SheetProps> = ({
   const isDrawer = placement === 'right';
   const panelClass = isDrawer
     ? `sheet-drawer w-full ${SIZES[size]} bg-[#FAF9F5] h-full shadow-2xl border-l border-stone-200 flex flex-col overflow-hidden focus:outline-none`
-    : `sheet-panel relative w-full ${SIZES[size]} bg-[#FAF9F5] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 flex flex-col max-h-[94dvh] sm:max-h-[90dvh] overflow-hidden focus:outline-none`;
+    : `sheet-panel relative w-full ${SIZES[size]} bg-[#FAF9F5] ${
+        fullOnMobile ? 'h-[100dvh] rounded-none' : 'rounded-t-3xl max-h-[94dvh]'
+      } sm:h-auto sm:rounded-3xl sm:max-h-[90dvh] shadow-2xl border border-stone-200 flex flex-col overflow-hidden focus:outline-none`;
 
   return createPortal(
     <div
