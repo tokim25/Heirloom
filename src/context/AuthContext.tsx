@@ -55,15 +55,6 @@ const writeSessionDriveToken = (accessToken: string | null) => {
   }
 };
 
-const shouldUseRedirectSignIn = () => {
-  if (typeof window === 'undefined') return false;
-  const userAgent = window.navigator.userAgent;
-  return (
-    window.navigator.maxTouchPoints > 1 ||
-    /Android|iPhone|iPad|iPod|CriOS|FxiOS|EdgiOS/i.test(userAgent)
-  );
-};
-
 const markProfileReturn = () => {
   if (typeof window === 'undefined') return;
   sessionStorage.setItem('heirloom_return_to_profile', 'true');
@@ -210,11 +201,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async (): Promise<string | null> => {
     try {
       setAuthErrorMessage(null);
-      if (shouldUseRedirectSignIn()) {
-        markProfileReturn();
-        await signInWithRedirect(auth, googleSignInProvider);
-        return null;
-      }
       const result = await signInWithPopup(auth, googleSignInProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const accessToken = credential?.accessToken || null;
