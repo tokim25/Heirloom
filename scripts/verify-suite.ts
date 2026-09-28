@@ -7,6 +7,7 @@ import { generateWithFallback, isTransientGeminiError } from '../src/utils/gemin
 import { recipeIdFromPath, recipePath } from '../src/utils/router.ts';
 import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils/groceryMerge.ts';
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
+import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl } from '../src/utils/storeOptions.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode } from '../src/utils/invite.ts';
 
 interface TestResult {
@@ -345,7 +346,20 @@ try {
   results.push({ suite: 'Groceries', name: 'Exception in suite', passed: false, error: e.message });
 }
 
-// 9. Output Summary
+// 9. Stores
+try {
+  assert(!STORE_NAMES.some((n) => /trader/i.test(n)), 'Stores', "Trader Joe's is not offered (it does not sell through Instacart)");
+  assert(storeNotice("Trader Joe's")?.includes("doesn't sell through Instacart") === true, 'Stores', "A saved Trader Joe's gets a plain warning");
+  assert(storeNotice('Sprouts Farmers Market') === null && storeNotice('Aldi') === null, 'Stores', 'Other stores get no warning');
+  assert(resolveStore('Aldi').isCustom === true && resolveStore('Aldi').slug === '', 'Stores', 'An added store works without a built-in link');
+  assert(instacartSearchUrl(resolveStore('Sprouts Farmers Market'), 'ground beef') === 'https://www.instacart.com/store/sprouts/s?k=ground%20beef', 'Stores', 'Item search links are store-specific');
+  assert(instacartSearchUrl(resolveStore('Aldi'), 'ground beef') === 'https://www.instacart.com/store/s?k=ground%20beef', 'Stores', 'An added store falls back to a general Instacart search');
+  assert(STORES.every((s) => s.slug), 'Stores', 'Every built-in store has a link slug');
+} catch (e: any) {
+  results.push({ suite: 'Stores', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// 10. Output Summary
 const passedCount = results.filter(r => r.passed).length;
 const failedCount = results.filter(r => !r.passed).length;
 
