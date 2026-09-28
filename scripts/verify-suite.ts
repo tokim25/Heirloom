@@ -3,6 +3,7 @@ import { getIngredientFacets, normalizeIngredientName, matchRecipeFilters, INITI
 import { Recipe } from '../src/types/recipe.ts';
 import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, RecipeParseError } from '../src/utils/recipeSchema.ts';
 import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID } from '../src/utils/pageExtract.ts';
+import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode } from '../src/utils/invite.ts';
 
 interface TestResult {
@@ -240,7 +241,44 @@ try {
   results.push({ suite: 'Pages', name: 'Exception in suite', passed: false, error: e.message });
 }
 
-// 6. Output Summary
+// 6. Gemini retry policy
+try {
+  const opts = { models: ['a', 'b', 'c'], attemptTimeoutMs: 1000, totalBudgetMs: 50000, retryPauseMs: 0, sleep: async () => {} };
+  const overloaded = Object.assign(new Error('{"error":{"code":503,"status":"UNAVAILABLE"}}'), { status: 503 });
+  const missing = Object.assign(new Error('not found'), { status: 404 });
+
+  assert(isTransientGeminiError(overloaded) && isTransientGeminiError({ name: 'AbortError' }), 'Gemini', '503 and timeouts are transient');
+  assert(!isTransientGeminiError(missing), 'Gemini', '404 is not transient');
+
+  const calls: string[] = [];
+  const ok = await generateWithFallback(async (m) => { calls.push(m); if (m === 'c') return 'done'; throw overloaded; }, opts);
+  assert(ok === 'done' && calls.join('') === 'abc', 'Gemini', 'Falls through models until one succeeds');
+
+  let attempts = 0;
+  const recovered = await generateWithFallback(async () => { attempts += 1; if (attempts <= 3) throw overloaded; return 'ok'; }, opts);
+  assert(recovered === 'ok' && attempts === 4, 'Gemini', 'Retries a second pass after everything is briefly overloaded');
+
+  let thrown: any = null;
+  try {
+    await generateWithFallback(async (m) => { throw m === 'c' ? missing : overloaded; }, opts);
+  } catch (e) { thrown = e; }
+  assert(isTransientGeminiError(thrown), 'Gemini', 'Reports the overload, not a later 404, so users are told to retry');
+
+  let permanentCalls = 0;
+  try { await generateWithFallback(async () => { permanentCalls += 1; throw missing; }, opts); } catch {}
+  assert(permanentCalls === 3, 'Gemini', 'Does not do a second pass for permanent errors');
+
+  let clock = 0;
+  const budgetCalls: string[] = [];
+  try {
+    await generateWithFallback(async (m) => { budgetCalls.push(m); clock += 47000; throw overloaded; }, { ...opts, now: () => clock });
+  } catch {}
+  assert(budgetCalls.length === 1, 'Gemini', 'Stops trying once the time budget is spent');
+} catch (e: any) {
+  results.push({ suite: 'Gemini', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// 7. Output Summary
 const passedCount = results.filter(r => r.passed).length;
 const failedCount = results.filter(r => !r.passed).length;
 
