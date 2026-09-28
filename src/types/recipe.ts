@@ -72,6 +72,9 @@ export interface Recipe {
     sourceName?: string;
     fileName?: string;
     youtubeId?: string;
+    /** Set when this recipe was saved from a link someone else shared. */
+    sharedBy?: string;
+    sharedFromShareId?: string;
   };
   heroImage: string;
   prepTimeMinutes: number;
@@ -89,6 +92,17 @@ export interface Recipe {
     carbs?: string;
     fat?: string;
   };
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A recipe someone chose to share by link. A snapshot: later edits to the original are not included. */
+export interface SharedRecipe {
+  id: string;
+  fromUid: string;
+  fromName: string;
+  recipeId: string;
+  recipe: Omit<Recipe, 'id' | 'userId' | 'householdId'>;
   createdAt: string;
   updatedAt: string;
 }

@@ -60,5 +60,18 @@ service cloud.firestore {
         allow read, write: if isMember(hid);
       }
     }
+
+    // A recipe shared by link. The id is a 20-character random string, so a link cannot be guessed; anyone
+    // signed in who has the link can read that one share, but nobody can list shares they do not own.
+    // Only the person who made a share can change or remove it.
+    match /shares/{shareId} {
+      allow get: if signedIn();
+      allow list: if signedIn() && resource.data.fromUid == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.fromUid == request.auth.uid
+        && request.resource.data.fromUid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.fromUid == request.auth.uid;
+    }
   }
 }

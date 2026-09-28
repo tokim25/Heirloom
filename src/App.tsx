@@ -27,6 +27,9 @@ import { RecipeDetailModal, AddToGroceryListResult } from './components/RecipeDe
 import { InstagramCookingMode } from './components/InstagramCookingMode.tsx';
 import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { RecipeEditModal } from './components/RecipeEditModal.tsx';
+import { ShareRecipeSheet } from './components/ShareRecipeSheet.tsx';
+import { SharedRecipeSheet } from './components/SharedRecipeSheet.tsx';
+import { recipeFromShare } from './utils/shareLink.ts';
 import { ShoppingMode } from './components/ShoppingMode.tsx';
 import { GroceryListView } from './components/GroceryListView.tsx';
 import { UnitConverterModal } from './components/UnitConverterModal.tsx';
@@ -43,7 +46,7 @@ import { useAuth } from './context/AuthContext.tsx';
 import { UnitSystem, scaleQuantity } from './utils/units.ts';
 import { firestoreService, formatInviteCode } from './utils/firestoreService.ts';
 import { planGroceryMerge } from './utils/groceryMerge.ts';
-import { closeOverlay, getPath, navigate, recipeIdFromPath, recipePath, usePath } from './utils/router.ts';
+import { closeOverlay, getPath, navigate, recipeIdFromPath, recipePath, shareIdFromPath, usePath } from './utils/router.ts';
 import { sounds } from './utils/sound.ts';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { PredictiveSearchBar } from './components/PredictiveSearchBar.tsx';
@@ -134,6 +137,8 @@ export default function App() {
       // Storage unavailable (private mode): the choice just lasts for this visit.
     }
   };
+  const [sharingRecipe, setSharingRecipe] = useState<Recipe | null>(null);
+  const shareId = shareIdFromPath(path);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [cookingState, setCookingState] = useState<{
     recipe: Recipe;
@@ -689,6 +694,7 @@ export default function App() {
         <RecipeDetailModal
           recipe={recipes.find((r) => r.id === selectedRecipeDetail.id) ?? selectedRecipeDetail}
           onEditRecipe={(r) => setEditingRecipe(r)}
+          onShareRecipe={(r) => setSharingRecipe(r)}
           onClose={closeRecipe}
           onStartCooking={(r, s, u) => handleStartCooking(r, s, u)}
           onOpenInstacart={(r, s) => handleShopRecipe(r, s)}
@@ -756,6 +762,44 @@ export default function App() {
             setPantryItems((prev) => [newItem, ...prev]);
           }}
           onResetDefaults={() => setPantryItems(DEFAULT_PANTRY_ITEMS)}
+        />
+      )}
+
+      {user && sharingRecipe && (
+        <ShareRecipeSheet
+          recipe={sharingRecipe}
+          load={() => firestoreService.findOwnShare(user.id, sharingRecipe.id)}
+          create={() => firestoreService.createShare({ id: user.id, name: user.name }, sharingRecipe)}
+          refresh={(share) => firestoreService.refreshShare(share, sharingRecipe)}
+          stop={(share) => firestoreService.deleteShare(share.id)}
+          onClose={() => setSharingRecipe(null)}
+        />
+      )}
+
+      {user && shareId && (
+        <SharedRecipeSheet
+          shareId={shareId}
+          load={(id) => firestoreService.getShare(id)}
+          savedRecipe={recipes.find((r) => r.source.sharedFromShareId === shareId)}
+          onOpenSaved={() => {
+            const saved = recipes.find((r) => r.source.sharedFromShareId === shareId);
+            if (saved) navigate(recipePath(saved.id), { replace: true });
+          }}
+          onSave={async (shared) => {
+            const householdId = requireHousehold();
+            if (!householdId) throw new Error('Not signed in');
+            const copy = recipeFromShare(shared, {
+              newId: `recipe-${crypto.randomUUID()}`,
+              householdId,
+              userId: user.id,
+              now: new Date().toISOString(),
+            });
+            await firestoreService.saveRecipe(householdId, copy, user.id);
+            setRecipeFallback(copy);
+            navigate(recipePath(copy.id), { replace: true });
+            showNotice('success', `Saved "${copy.title}" to your cookbook.`);
+          }}
+          onClose={() => closeOverlay('/s')}
         />
       )}
 

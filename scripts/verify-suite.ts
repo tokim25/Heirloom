@@ -4,7 +4,8 @@ import { Recipe } from '../src/types/recipe.ts';
 import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, RecipeParseError } from '../src/utils/recipeSchema.ts';
 import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully, sourceFromPastedUrl } from '../src/utils/pageExtract.ts';
 import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
-import { recipeIdFromPath, recipePath } from '../src/utils/router.ts';
+import { recipeIdFromPath, recipePath, shareIdFromPath, sharePath } from '../src/utils/router.ts';
+import { generateShareId, shareUrl, sanitizeRecipeForShare, recipeFromShare, SHARE_ID_LENGTH } from '../src/utils/shareLink.ts';
 import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils/groceryMerge.ts';
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
 import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl, visibleStoreNames } from '../src/utils/storeOptions.ts';
@@ -364,7 +365,32 @@ try {
   results.push({ suite: 'Stores', name: 'Exception in suite', passed: false, error: e.message });
 }
 
-// 10. Output Summary
+// 10. Sharing recipes
+try {
+  const id = generateShareId();
+  assert(id.length === SHARE_ID_LENGTH && /^[a-z2-9]+$/.test(id) && !/[ilo01]/.test(id), 'Sharing', 'Share ids are 20 characters without look-alikes');
+  assert(new Set(Array.from({ length: 200 }, generateShareId)).size === 200, 'Sharing', 'Share ids do not repeat');
+  assert(shareUrl('https://heirloom.tonykim.io/', 'abc') === 'https://heirloom.tonykim.io/s/abc', 'Sharing', 'Builds the share link');
+  assert(shareIdFromPath(sharePath('abc123')) === 'abc123' && shareIdFromPath('/r/abc') === null && shareIdFromPath('/s/') === null && shareIdFromPath('/s/a/b') === null, 'Sharing', 'Only /s/:id is a share link');
+
+  const recipe = { id: 'r1', userId: 'u1', householdId: 'h1', title: 'Burger', description: '', source: { type: 'link' as const, url: 'https://x.test', sourceName: 'x.test', youtubeId: undefined }, heroImage: '', prepTimeMinutes: 5, cookTimeMinutes: 15, totalTimeMinutes: 20, defaultServings: 4, cuisine: 'American', difficulty: 'Easy' as const, ingredients: [], steps: [], createdAt: 'a', updatedAt: 'b' };
+  const snap = sanitizeRecipeForShare(recipe);
+  assert(!('id' in snap) && !('userId' in snap) && !('householdId' in snap), 'Sharing', 'A share leaves out ids that point into your household');
+  assert(snap.title === 'Burger' && !('youtubeId' in snap.source), 'Sharing', 'The recipe content is kept and undefined values are dropped');
+
+  let tooBig = false;
+  try { sanitizeRecipeForShare({ ...recipe, description: 'x'.repeat(800_000) }); } catch { tooBig = true; }
+  assert(tooBig, 'Sharing', 'A recipe near the size limit is refused');
+
+  const shared = { id: 'sh1', fromUid: 'u1', fromName: 'Alex', recipeId: 'r1', recipe: snap, createdAt: 'a', updatedAt: 'a' };
+  const copy = recipeFromShare(shared, { newId: 'new1', householdId: 'h2', userId: 'u2', now: 'now' });
+  assert(copy.id === 'new1' && copy.householdId === 'h2' && copy.userId === 'u2' && copy.createdAt === 'now', 'Sharing', 'A saved copy belongs to the recipient');
+  assert(copy.source.sharedBy === 'Alex' && copy.source.sharedFromShareId === 'sh1' && copy.source.url === 'https://x.test', 'Sharing', 'A saved copy remembers who shared it and keeps the original source');
+} catch (e: any) {
+  results.push({ suite: 'Sharing', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// 11. Output Summary
 const passedCount = results.filter(r => r.passed).length;
 const failedCount = results.filter(r => !r.passed).length;
 
