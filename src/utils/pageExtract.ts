@@ -104,3 +104,12 @@ export const isPrivateAddress = (address: string): boolean => {
   return lower === '::1' || lower === '::' || lower.startsWith('fc') || lower.startsWith('fd') ||
     lower.startsWith('fe80') || lower.startsWith('::ffff:');
 };
+
+/** True only when Gemini's URL fetcher reports it really retrieved the page (not a guess). */
+export const urlRetrievedSuccessfully = (response: any): boolean => {
+  const metadata = response?.candidates?.[0]?.urlContextMetadata?.urlMetadata;
+  return (
+    Array.isArray(metadata) &&
+    metadata.some((entry: any) => entry?.urlRetrievalStatus === 'URL_RETRIEVAL_STATUS_SUCCESS')
+  );
+};

@@ -2,7 +2,7 @@ import { scaleQuantity, formatFraction, convertUnit, fahrenheitToCelsius, celsiu
 import { getIngredientFacets, normalizeIngredientName, matchRecipeFilters, INITIAL_ORGANIZATION_FILTER, deriveProteinCategory } from '../src/utils/recipeTaxonomy.ts';
 import { Recipe } from '../src/types/recipe.ts';
 import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, RecipeParseError } from '../src/utils/recipeSchema.ts';
-import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID } from '../src/utils/pageExtract.ts';
+import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully } from '../src/utils/pageExtract.ts';
 import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode } from '../src/utils/invite.ts';
 
@@ -237,6 +237,11 @@ try {
   assert(isPrivateAddress('169.254.169.254') && isPrivateAddress('10.0.0.5') && isPrivateAddress('127.0.0.1'), 'Security', 'Blocks metadata, private and loopback IPv4');
   assert(isPrivateAddress('::1') && isPrivateAddress('fd00::1'), 'Security', 'Blocks loopback and unique-local IPv6');
   assert(!isPrivateAddress('93.184.216.34'), 'Security', 'Allows public addresses');
+
+  const fetched = (status: string) => ({ candidates: [{ urlContextMetadata: { urlMetadata: [{ urlRetrievalStatus: status }] } }] });
+  assert(urlRetrievedSuccessfully(fetched('URL_RETRIEVAL_STATUS_SUCCESS')), 'Pages', 'Accepts a confirmed page retrieval');
+  assert(!urlRetrievedSuccessfully(fetched('URL_RETRIEVAL_STATUS_ERROR')), 'Pages', 'Rejects a failed retrieval');
+  assert(!urlRetrievedSuccessfully({ candidates: [{}] }) && !urlRetrievedSuccessfully(null), 'Pages', 'Rejects answers with no retrieval proof (model memory)');
 } catch (e: any) {
   results.push({ suite: 'Pages', name: 'Exception in suite', passed: false, error: e.message });
 }
