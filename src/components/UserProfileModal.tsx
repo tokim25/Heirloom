@@ -365,10 +365,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
                   <div>
                     <h3 className="font-semibold text-stone-900 text-sm sm:text-base">
-                      Sign in with Google
+                      Sign in & Sync with Google Drive
                     </h3>
                     <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">
-                      Save your cookbook to your account and keep your kitchen profile consistent. Google Drive backup is authorized separately from the vault.
+                      Save your cookbook to your account and authorize Drive file access for recipe sync and backups.
                     </p>
                   </div>
                 </div>
@@ -404,7 +404,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                           d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                         />
                       </svg>
-                      <span>Continue with Google</span>
+                      <span>Continue with Google Drive</span>
                     </>
                   )}
                 </button>

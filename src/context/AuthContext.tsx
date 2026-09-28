@@ -123,12 +123,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const result = await getRedirectResult(auth);
         const redirectUser = result?.user || auth.currentUser;
+        const credential = result ? GoogleAuthProvider.credentialFromResult(result) : null;
+        const driveAccessToken = credential?.accessToken || null;
         if (!redirectUser) {
           if (shouldReturnToProfile) {
             setIsProfileOpen(true);
             setAuthErrorMessage('Google sign-in did not finish. Please try again, and make sure popups and redirects are allowed for this site.');
           }
           return;
+        }
+        if (result && !driveAccessToken) {
+          setIsProfileOpen(true);
+          setAuthErrorMessage('Google sign-in worked, but Drive permission was not granted. Please continue with Google again and approve Drive file access.');
+          return;
+        }
+        if (driveAccessToken) {
+          setGoogleAccessToken(driveAccessToken);
+          writeSessionDriveToken(driveAccessToken);
         }
         setIsGoogleSignedIn(true);
         setAuthErrorMessage(null);
@@ -197,15 +208,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Standard Google Sign-In (profile & email ONLY, no scary unverified app warnings)
+  // Core Google setup: identity plus Drive file access for cookbook sync/backups.
   const signInWithGoogle = async (): Promise<string | null> => {
     try {
       setAuthErrorMessage(null);
-      const result = await signInWithPopup(auth, googleSignInProvider);
+      const result = await signInWithPopup(auth, googleDriveProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const accessToken = credential?.accessToken || null;
-      // Standard Google sign-in returns only identity scopes. Do not treat that
-      // token as Drive authorization; Drive requires the incremental provider.
+      if (!accessToken) {
+        throw new Error('Google sign-in worked, but Drive permission was not granted. Please approve Drive file access to finish setup.');
+      }
+      setGoogleAccessToken(accessToken);
+      writeSessionDriveToken(accessToken);
       if (result.user) {
         setIsGoogleSignedIn(true);
         setAuthErrorMessage(null);
@@ -219,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         err?.code === 'auth/operation-not-supported-in-this-environment'
       ) {
         markProfileReturn();
-        await signInWithRedirect(auth, googleSignInProvider);
+        await signInWithRedirect(auth, googleDriveProvider);
         return null;
       }
       console.error('Google Sign-in error:', err);
