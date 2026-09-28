@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   X,
   Link2,
@@ -38,6 +38,8 @@ const parseNumberInput = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const IMPORT_TIMEOUT_MS = 45000;
+
 export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
   onClose,
   onRecipeImported,
@@ -51,6 +53,13 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [parsedRecipe, setParsedRecipe] = useState<Recipe | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      importAbortRef.current?.abort();
+    };
+  }, []);
 
   const reviewWarnings = parsedRecipe
     ? [
@@ -82,6 +91,12 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
   const handleImport = async () => {
     setErrorMsg(null);
     setIsProcessing(true);
+    importAbortRef.current?.abort();
+    const abortController = new AbortController();
+    importAbortRef.current = abortController;
+    const timeoutId = window.setTimeout(() => {
+      abortController.abort();
+    }, IMPORT_TIMEOUT_MS);
 
     try {
       let payload: Record<string, unknown> = {};
@@ -111,6 +126,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: abortController.signal,
       });
 
       if (!res.ok) {
@@ -126,11 +142,29 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
       }
     } catch (err: unknown) {
       console.error('Import error:', err);
-      const msg = err instanceof Error ? err.message : 'Failed to import recipe';
+      const msg =
+        err instanceof DOMException && err.name === 'AbortError'
+          ? 'Recipe curation timed out or was stopped. Please try again, or paste the recipe text instead of uploading the full file.'
+          : err instanceof Error
+          ? err.message
+          : 'Failed to import recipe';
       setErrorMsg(msg);
     } finally {
+      window.clearTimeout(timeoutId);
+      if (importAbortRef.current === abortController) {
+        importAbortRef.current = null;
+      }
       setIsProcessing(false);
     }
+  };
+
+  const handleStopImport = () => {
+    importAbortRef.current?.abort();
+  };
+
+  const handleClose = () => {
+    importAbortRef.current?.abort();
+    onClose();
   };
 
   const handleSavePreview = async () => {
@@ -166,7 +200,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
         })),
         updatedAt: new Date().toISOString(),
       });
-      onClose();
+      handleClose();
     } catch (err: unknown) {
       console.error('Save imported recipe error:', err);
       const msg = err instanceof Error ? err.message : 'Failed to save recipe';
@@ -270,7 +304,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
           </div>
 
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 rounded-full hover:bg-stone-200 text-stone-500 hover:text-stone-900 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -787,11 +821,10 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({
             <>
               <button
                 type="button"
-                onClick={onClose}
-                disabled={isProcessing}
+                onClick={isProcessing ? handleStopImport : handleClose}
                 className="px-4 py-2 text-xs font-medium text-stone-600 hover:text-stone-900 rounded-xl transition-colors"
               >
-                Cancel
+                {isProcessing ? 'Stop' : 'Cancel'}
               </button>
 
               <button

@@ -51,6 +51,33 @@ import {
 } from './utils/recipeTaxonomy.ts';
 import { createRecipeSearchIndex } from './utils/searchEngine.ts';
 
+const localRecipesKey = (householdId?: string) => `heirloom_saved_recipes_${householdId || 'local'}`;
+
+const readLocalRecipes = (householdId?: string): Recipe[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(localRecipesKey(householdId));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeLocalRecipes = (householdId: string | undefined, recipes: Recipe[]) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(localRecipesKey(householdId), JSON.stringify(recipes));
+};
+
+const mergeRecipesById = (primary: Recipe[], secondary: Recipe[]) => {
+  const seen = new Set<string>();
+  return [...primary, ...secondary].filter((recipe) => {
+    if (seen.has(recipe.id)) return false;
+    seen.add(recipe.id);
+    return true;
+  });
+};
+
 export default function App() {
   const { user, isProfileOpen, setIsProfileOpen } = useAuth();
   const [activeTab, setActiveTab] = useState<'cookbook' | 'groceries'>('cookbook');
@@ -110,10 +137,11 @@ export default function App() {
         const res = await fetch(`/api/recipes?${householdScope}`);
         if (res.ok) {
           const data = await res.json();
-          setRecipes(data.recipes || []);
+          setRecipes(mergeRecipesById(readLocalRecipes(householdId), data.recipes || []));
         }
       } catch (err) {
         console.error('Failed to load recipes:', err);
+        setRecipes(readLocalRecipes(householdId));
       }
     }
     fetchRecipes();
@@ -123,8 +151,8 @@ export default function App() {
       if (updatedList.length > 0) {
         setRecipes((prev) => {
           const updatedIds = new Set(updatedList.map((recipe) => recipe.id));
-          const publicRecipes = prev.filter((recipe) => !recipe.householdId && !updatedIds.has(recipe.id));
-          return [...updatedList, ...publicRecipes];
+          const retainedRecipes = prev.filter((recipe) => !updatedIds.has(recipe.id));
+          return [...updatedList, ...retainedRecipes];
         });
       }
     }, householdId);
@@ -299,19 +327,23 @@ export default function App() {
       userId: newRecipe.userId || user?.id,
       householdId: newRecipe.householdId || user?.householdId,
     };
+    const householdId = scopedRecipe.householdId || user?.householdId;
+    const nextLocalRecipes = mergeRecipesById([scopedRecipe], readLocalRecipes(householdId));
+    writeLocalRecipes(householdId, nextLocalRecipes);
+    setRecipes((prev) => mergeRecipesById([scopedRecipe], prev));
     const saved = await firestoreService.saveRecipe(scopedRecipe, {
       userId: user?.id,
       householdId: user?.householdId,
     });
     if (!saved) {
-      throw new Error('Recipe was curated, but Heirloom could not save it to your cookbook. Please check your connection and try again.');
+      console.warn('Recipe saved locally; cloud recipe sync is unavailable.');
     }
-    setRecipes((prev) => [scopedRecipe, ...prev]);
     setSelectedRecipeDetail(scopedRecipe);
   };
 
   const handleDeleteRecipe = async (id: string) => {
     setRecipes((prev) => prev.filter((r) => r.id !== id));
+    writeLocalRecipes(user?.householdId, readLocalRecipes(user?.householdId).filter((r) => r.id !== id));
     await firestoreService.deleteRecipe(id);
   };
 

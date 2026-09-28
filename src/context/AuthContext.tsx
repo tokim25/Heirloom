@@ -26,6 +26,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const readLocalPreferredStore = () => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('heirloom_preferred_store');
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('mise_auth_token'));
@@ -47,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email,
       name,
       avatarUrl: fbUser.photoURL || previousUser?.avatarUrl,
-      preferredStore: previousUser?.preferredStore || 'Whole Foods Market',
+      preferredStore: readLocalPreferredStore() || previousUser?.preferredStore || 'Whole Foods Market',
       dietaryPreferences: previousUser?.dietaryPreferences || [],
       partnerEmail: previousUser?.partnerEmail || '',
       householdId: previousUser?.householdId || `household-${fbUser.uid}`,
@@ -171,6 +176,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (updates: Partial<User>) => {
     if (!user) return;
+    const optimisticUser = { ...user, ...updates };
+    setUser(optimisticUser);
+    if (updates.preferredStore && typeof window !== 'undefined') {
+      localStorage.setItem('heirloom_preferred_store', updates.preferredStore);
+    }
     try {
       const res = await fetch('/api/auth/profile', {
         method: 'PUT',
@@ -182,11 +192,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (res.ok) {
         const data = await res.json();
-        setUser(data.user);
+        setUser({ ...data.user, ...updates });
+        setIsProfileOpen(false);
+      } else {
         setIsProfileOpen(false);
       }
     } catch (err) {
       console.error('Update profile error:', err);
+      setIsProfileOpen(false);
     }
   };
 

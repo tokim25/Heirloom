@@ -617,23 +617,23 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
 
           {/* Interactive Cooking Timer (if step has timer) */}
           {timerSecondsLeft !== null && (
-            <div className="bg-stone-950/60 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
+            <div className="bg-stone-950/45 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-inner">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                 {/* Circular timer progress badge */}
-                <div className="relative w-14 h-14 flex items-center justify-center">
-                  <svg className="w-14 h-14 -rotate-90">
+                <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
+                  <svg className="w-16 h-16 -rotate-90">
                     <circle
-                      cx="28"
-                      cy="28"
-                      r="24"
+                      cx="32"
+                      cy="32"
+                      r="27"
                       className="text-white/10 stroke-current"
                       strokeWidth="3"
                       fill="transparent"
                     />
                     <circle
-                      cx="28"
-                      cy="28"
-                      r="24"
+                      cx="32"
+                      cy="32"
+                      r="27"
                       className={`transition-all duration-1000 ${
                         timerSecondsLeft === 0
                           ? 'text-emerald-400 animate-pulse'
@@ -642,35 +642,38 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                           : 'text-white/50'
                       } stroke-current`}
                       strokeWidth="3.5"
-                      strokeDasharray={150.8}
+                      strokeDasharray={169.6}
                       strokeDashoffset={
                         initialTimerDuration
-                          ? 150.8 * (1 - timerSecondsLeft / initialTimerDuration)
+                          ? 169.6 * (1 - timerSecondsLeft / initialTimerDuration)
                           : 0
                       }
                       strokeLinecap="round"
                       fill="transparent"
                     />
                   </svg>
-                  <span className="absolute font-mono text-xs font-bold text-white">
+                  <span className="absolute font-mono text-sm font-bold text-white tracking-tight">
                     {formatTime(timerSecondsLeft)}
                   </span>
                 </div>
 
-                <div>
-                  <div className="text-xs text-white/60 uppercase tracking-wider font-medium">
-                    {timerSecondsLeft === 0 ? 'Timer Finished!' : 'Step Timer'}
+                <div className="min-w-0">
+                  <div className="text-[10px] text-white/45 uppercase tracking-[0.22em] font-semibold">
+                    {timerSecondsLeft === 0 ? 'Timer Done' : 'Step Timer'}
                   </div>
-                  <div className="text-sm font-medium text-amber-300">
+                  <div className="text-lg font-semibold text-amber-300 leading-snug">
                     {isTimerRunning ? 'Running in kitchen…' : timerSecondsLeft === 0 ? 'Ready to move to next step!' : 'Paused'}
+                  </div>
+                  <div className="text-[11px] text-white/45 mt-0.5">
+                    {isTimerRunning ? 'You can keep cooking; this will alert you.' : 'Start when this step begins.'}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-[1fr_auto_auto] gap-2 sm:flex sm:items-center sm:justify-end">
                 <button
                   onClick={() => setIsTimerRunning(!isTimerRunning)}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-medium text-xs shadow-md transition-all ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md transition-all ${
                     isTimerRunning
                       ? 'bg-white/20 hover:bg-white/30 text-white'
                       : 'bg-amber-500 hover:bg-amber-400 text-stone-950'
@@ -691,7 +694,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                   onClick={() => {
                     setTimerSecondsLeft((prev) => (prev ? prev + 60 : 60));
                   }}
-                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 text-xs font-medium"
+                  className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 text-xs font-semibold"
                   title="Add 1 minute"
                 >
                   +1m
@@ -702,7 +705,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                     setIsTimerRunning(false);
                     setTimerSecondsLeft(initialTimerDuration || 0);
                   }}
-                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/80"
+                  className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 flex items-center justify-center"
                   title="Reset Timer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />

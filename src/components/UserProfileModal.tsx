@@ -53,7 +53,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     logout,
   } = useAuth();
 
-  const [preferredStore, setPreferredStore] = useState(user?.preferredStore || 'Whole Foods Market');
+  const [preferredStore, setPreferredStore] = useState(() => {
+    const savedLocal =
+      typeof window !== 'undefined' ? localStorage.getItem('heirloom_preferred_store') : null;
+    return savedLocal || user?.preferredStore || 'Whole Foods Market';
+  });
   const [partnerEmail, setPartnerEmail] = useState(user?.partnerEmail || '');
   const [dietaryPreferences, setDietaryPreferences] = useState<string[]>(user?.dietaryPreferences || ['High-Protein']);
   const [customTagInput, setCustomTagInput] = useState('');
