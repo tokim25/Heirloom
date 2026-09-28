@@ -535,7 +535,24 @@ export default function App() {
             </div>
 
             {/* Recipes Grid */}
-            {filteredRecipes.length === 0 ? (
+            {!recipesLoaded ? (
+              <div
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
+                role="status"
+                aria-label="Loading your recipes"
+              >
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="rounded-3xl overflow-hidden border border-stone-200/70 bg-white animate-pulse">
+                    <div className="h-48 bg-stone-200/70" />
+                    <div className="p-5 flex flex-col gap-3">
+                      <div className="h-3 w-1/3 rounded bg-stone-200/70" />
+                      <div className="h-5 w-3/4 rounded bg-stone-200/70" />
+                      <div className="h-3 w-full rounded bg-stone-200/70" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredRecipes.length === 0 ? (
               <div className="py-20 text-center bg-white rounded-3xl border border-stone-200/80 p-8">
                 <ChefHat className="w-12 h-12 text-stone-300 mx-auto mb-3" />
                 <h3 className="font-serif text-2xl text-stone-900">

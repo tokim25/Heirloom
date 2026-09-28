@@ -147,12 +147,12 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
       {isOpen && searchQuery.trim().length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-xl border border-stone-200 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-stone-100 max-h-[420px] overflow-y-auto">
           {/* Header pill indicator */}
-          <div className="px-3.5 py-2 bg-stone-50/80 flex items-center justify-between text-[11px] text-stone-500">
+          <div className="px-3.5 py-2 bg-stone-50/80 flex items-center justify-between text-xs text-stone-500">
             <div className="flex items-center gap-1.5">
               <Sparkles className="w-3 h-3 text-amber-500" />
               <span>Predictive & Fuzzy Matches</span>
             </div>
-            <span className="font-mono text-[10px] text-stone-400">
+            <span className="font-mono text-xs text-stone-400">
               {resultsCount} in cookbook
             </span>
           </div>
@@ -166,7 +166,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
               {/* Recipe matches */}
               {suggestions.matchingRecipes.length > 0 && (
                 <div className="p-1.5">
-                  <div className="px-2 py-1 text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+                  <div className="px-2 py-1 text-xs font-semibold text-stone-400 uppercase tracking-wider">
                     Recipes ({suggestions.matchingRecipes.length})
                   </div>
                   {suggestions.matchingRecipes.map(({ recipe, matchReason }) => {
@@ -202,7 +202,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
                           <div className="text-xs font-medium text-stone-900 truncate">
                             {recipe.title}
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-stone-500 mt-0.5">
+                          <div className="flex items-center gap-2 text-xs text-stone-500 mt-0.5">
                             <span className="font-medium text-amber-800">{recipe.cuisine}</span>
                             <span>•</span>
                             <span className="flex items-center gap-0.5">
@@ -230,7 +230,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
               {/* Ingredient matches */}
               {suggestions.matchingIngredients.length > 0 && (
                 <div className="p-1.5">
-                  <div className="px-2 py-1 text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+                  <div className="px-2 py-1 text-xs font-semibold text-stone-400 uppercase tracking-wider">
                     Ingredients in your kitchen
                   </div>
                   <div className="grid grid-cols-1 gap-1">
@@ -254,7 +254,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
                           <span className="font-medium truncate capitalize">
                             {ing.name}
                           </span>
-                          <span className="text-[10px] text-stone-400 font-mono shrink-0 ml-2">
+                          <span className="text-xs text-stone-400 font-mono shrink-0 ml-2">
                             in {ing.recipesCount} recipe{ing.recipesCount > 1 ? 's' : ''}
                           </span>
                         </button>
@@ -267,7 +267,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
               {/* Cuisine matches */}
               {suggestions.matchingCuisines.length > 0 && (
                 <div className="p-1.5">
-                  <div className="px-2 py-1 text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+                  <div className="px-2 py-1 text-xs font-semibold text-stone-400 uppercase tracking-wider">
                     Cuisines
                   </div>
                   <div className="flex flex-wrap gap-1 px-1 py-0.5">
@@ -278,7 +278,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
                           onSelectCuisine(c);
                           setIsOpen(false);
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 text-[11px] font-medium transition-colors"
+                        className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-medium transition-colors"
                       >
                         {c}
                       </button>
@@ -290,9 +290,9 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
           )}
 
           {/* Footer keyboard hint */}
-          <div className="px-3.5 py-1.5 bg-stone-50/60 text-[10px] text-stone-400 flex items-center justify-between">
-            <span>Press <kbd className="px-1 py-0.5 bg-white border border-stone-200 rounded text-[9px]">↓</kbd> <kbd className="px-1 py-0.5 bg-white border border-stone-200 rounded text-[9px]">↑</kbd> to navigate</span>
-            <span><kbd className="px-1 py-0.5 bg-white border border-stone-200 rounded text-[9px]">Enter</kbd> to select</span>
+          <div className="px-3.5 py-1.5 bg-stone-50/60 text-xs text-stone-400 flex items-center justify-between">
+            <span>Press <kbd className="px-1 py-0.5 bg-white border border-stone-200 rounded text-xs">↓</kbd> <kbd className="px-1 py-0.5 bg-white border border-stone-200 rounded text-xs">↑</kbd> to navigate</span>
+            <span><kbd className="px-1 py-0.5 bg-white border border-stone-200 rounded text-xs">Enter</kbd> to select</span>
           </div>
         </div>
       )}

@@ -354,7 +354,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             <Bell className="w-4 h-4 animate-bounce" />
             <span>{partnerNotification}</span>
           </div>
-          <span className="text-[10px] uppercase tracking-wider bg-stone-950/15 px-2 py-0.5 rounded-full font-bold">
+          <span className="text-xs uppercase tracking-wider bg-stone-950/15 px-2 py-0.5 rounded-full font-bold">
             Live Sync
           </span>
         </div>
@@ -410,7 +410,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             <span>•</span>
             <span>{pendingItems.length} items remaining to purchase</span>
             <span>•</span>
-            <span className="font-mono text-[11px] text-stone-400" title="Heirloom List Code">
+            <span className="font-mono text-xs text-stone-400" title="Heirloom List Code">
               Code: {cleanInviteCode}
             </span>
           </p>
@@ -423,7 +423,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
               {currentList.collaborators.slice(0, 4).map((collaborator) => (
                 <div
                   key={collaborator.id || collaborator.email}
-                  className={`w-8 h-8 rounded-full border-2 border-white bg-stone-200 flex items-center justify-center overflow-hidden text-[10px] font-bold text-stone-700 shadow-xs ${
+                  className={`w-8 h-8 rounded-full border-2 border-white bg-stone-200 flex items-center justify-center overflow-hidden text-xs font-bold text-stone-700 shadow-xs ${
                     collaborator.status === 'pending' ? 'opacity-60 ring-2 ring-amber-300/70' : ''
                   }`}
                   title={`${collaborator.name}${collaborator.status === 'pending' ? ' (pending invite)' : ''}`}
@@ -541,7 +541,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           {/* Predictive item suggestions */}
           {showPredictions && newItemName.trim().length > 0 && predictiveItems.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-lg z-30 overflow-hidden divide-y divide-stone-100 max-h-56 overflow-y-auto">
-              <div className="px-3 py-1 bg-stone-50/90 text-[10px] text-stone-500 font-medium flex items-center justify-between">
+              <div className="px-3 py-1 bg-stone-50/90 text-xs text-stone-500 font-medium flex items-center justify-between">
                 <span>Suggested items</span>
                 <span className="text-stone-400">Click to fill</span>
               </div>
@@ -557,12 +557,12 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                       {pred.name}
                     </span>
                     {pred.recipeTitle && (
-                      <span className="text-[10px] text-stone-400 truncate">
+                      <span className="text-xs text-stone-400 truncate">
                         From: {pred.recipeTitle}
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] font-mono text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded-md shrink-0">
+                  <span className="text-xs font-mono text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded-md shrink-0">
                     {pred.category}
                   </span>
                 </button>
@@ -574,7 +574,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         <button
           type="button"
           onClick={() => setShowQuickAddDetails((isOpen) => !isOpen)}
-          className="sm:hidden self-start px-2 py-1 text-[11px] font-medium text-stone-500 hover:text-stone-800"
+          className="sm:hidden self-start px-2 py-1 text-xs font-medium text-stone-500 hover:text-stone-800"
         >
           {showQuickAddDetails ? 'Hide options' : 'Qty, aisle, or assignee'}
         </button>
@@ -640,7 +640,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       {/* Filter and Task Division Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-stone-600 w-full">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full max-w-full">
-          <span className="hidden sm:inline font-medium text-stone-500 uppercase tracking-wider text-[10px] shrink-0">
+          <span className="hidden sm:inline font-medium text-stone-500 uppercase tracking-wider text-xs shrink-0">
             Assigned:
           </span>
           <button
@@ -673,7 +673,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         {completedItems.length > 0 && (
           <button
             onClick={() => onClearCompleted(currentList.id)}
-            className="flex items-center gap-1 text-[11px] text-stone-500 hover:text-stone-800 transition-colors shrink-0 self-end sm:self-auto"
+            className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-800 transition-colors shrink-0 self-end sm:self-auto"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Clear Completed ({completedItems.length})</span>
@@ -712,8 +712,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <button
                           onClick={() => handleToggleCheck(item)}
-                          className="w-5 h-5 shrink-0 rounded-md border-2 border-stone-300 hover:border-stone-900 flex items-center justify-center transition-all bg-white"
-                          title="Check off item"
+                          className="hit-area w-5 h-5 shrink-0 rounded-md border-2 border-stone-300 hover:border-stone-900 flex items-center justify-center transition-all bg-white"
+                          title="Check off item" aria-label={`Check off ${item.name}`}
                         >
                           {item.checked && <Check className="w-3.5 h-3.5 text-stone-900 stroke-[3]" />}
                         </button>
@@ -729,7 +729,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                               {item.name}
                             </span>
                             {item.recipeTitle && (
-                              <span className="text-[10px] text-stone-500 hidden md:inline shrink-0">
+                              <span className="text-xs text-stone-500 hidden md:inline shrink-0">
                                 for {item.recipeTitle}
                               </span>
                             )}
@@ -737,7 +737,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
                           {/* Substitution details if out of stock */}
                           {item.isOutOfStock && item.substitution && (
-                            <div className="mt-1 flex items-center gap-1.5 text-[11px] sm:text-xs text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 w-fit">
+                            <div className="mt-1 flex items-center gap-1.5 text-xs sm:text-xs text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 w-fit">
                               <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
                               <span className="truncate max-w-[220px] sm:max-w-none">
                                 Sub: {item.substitution.name} ({item.substitution.ratio})
@@ -749,7 +749,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
                       {/* Right Meta: Assignee pill & Actions */}
                       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-                        <span className="sm:hidden max-w-[78px] truncate text-[10px] font-medium px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-600">
+                        <span className="sm:hidden max-w-[78px] truncate text-xs font-medium px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-600">
                           {item.assignedTo === user?.name ? 'Me' : item.assignedTo}
                         </span>
 
@@ -760,7 +760,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                               assignedTo: e.target.value,
                             })
                           }
-                          className="hidden sm:block text-[10px] sm:text-[11px] font-medium px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-700 focus:outline-none"
+                          className="hidden sm:block text-xs sm:text-xs font-medium px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-700 focus:outline-none"
                           title="Assign to partner or family"
                         >
                           {assigneeOptions.map((name) => (
@@ -772,8 +772,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
                         <button
                           onClick={() => onDeleteItem(currentList.id, item.id)}
-                          className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 p-1 rounded-lg text-stone-400 hover:text-rose-600 transition-all"
-                          title="Delete item"
+                          className="hit-area opacity-60 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 p-1 rounded-lg text-stone-400 hover:text-rose-600 transition-all"
+                          title="Delete item" aria-label={`Delete ${item.name}`}
                         >
                           <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </button>
@@ -801,8 +801,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                   <div className="flex items-center gap-3.5">
                     <button
                       onClick={() => handleToggleCheck(item)}
-                      className="w-5 h-5 rounded-md bg-stone-900 text-white flex items-center justify-center transition-all"
-                      title="Uncheck item"
+                      className="hit-area w-5 h-5 rounded-md bg-stone-900 text-white flex items-center justify-center transition-all"
+                      title="Uncheck item" aria-label={`Uncheck ${item.name}`}
                     >
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
                     </button>
@@ -810,7 +810,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                       {item.amount ? `${item.amount} ${item.unit} ` : ''}{item.name}
                     </span>
                     {item.checkedBy && (
-                      <span className="text-[10px] text-stone-400 italic">
+                      <span className="text-xs text-stone-400 italic">
                         (checked by {item.checkedBy})
                       </span>
                     )}
@@ -818,7 +818,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
                   <button
                     onClick={() => onDeleteItem(currentList.id, item.id)}
-                    className="p-1 text-stone-400 hover:text-rose-600"
+                    className="hit-area p-1 text-stone-400 hover:text-rose-600"
+                    aria-label={`Delete ${item.name}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

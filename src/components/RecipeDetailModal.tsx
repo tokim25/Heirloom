@@ -166,8 +166,9 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             <div className="flex items-center bg-stone-100 rounded-xl p-1 border border-stone-200/70">
               <button
                 onClick={() => setServings((prev) => Math.max(1, prev - 1))}
-                className="p-1.5 rounded-lg hover:bg-white text-stone-700 hover:text-stone-900 transition-colors"
+                className="hit-area p-1.5 rounded-lg hover:bg-white text-stone-700 hover:text-stone-900 transition-colors"
                 title="Decrease Servings"
+                aria-label="Decrease servings"
               >
                 <Minus className="w-3.5 h-3.5" />
               </button>
@@ -176,8 +177,9 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               </span>
               <button
                 onClick={() => setServings((prev) => prev + 1)}
-                className="p-1.5 rounded-lg hover:bg-white text-stone-700 hover:text-stone-900 transition-colors"
+                className="hit-area p-1.5 rounded-lg hover:bg-white text-stone-700 hover:text-stone-900 transition-colors"
                 title="Increase Servings"
+                aria-label="Increase servings"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
@@ -215,7 +217,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-semibold shadow-md shadow-amber-500/20 transition-all hover:shadow-lg active:scale-95"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Cook in Stories Mode</span>
+              <span>Start cooking</span>
             </button>
 
             <button
@@ -299,7 +301,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
           {/* Quick Metrics Bar (Editorial Hairline Dividers) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 py-4 border-y border-stone-200/80">
             <div>
-              <span className="text-[11px] font-medium text-stone-500 uppercase tracking-wider">
+              <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
                 Prep Time
               </span>
               <p className="text-xl font-serif text-stone-900 mt-0.5 tabular-nums">
@@ -307,7 +309,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               </p>
             </div>
             <div>
-              <span className="text-[11px] font-medium text-stone-500 uppercase tracking-wider">
+              <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
                 Cook Time
               </span>
               <p className="text-xl font-serif text-stone-900 mt-0.5 tabular-nums">
@@ -315,7 +317,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               </p>
             </div>
             <div>
-              <span className="text-[11px] font-medium text-stone-500 uppercase tracking-wider">
+              <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
                 Total Time
               </span>
               <p className="text-xl font-serif text-stone-900 mt-0.5 tabular-nums">
@@ -323,7 +325,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               </p>
             </div>
             <div>
-              <span className="text-[11px] font-medium text-stone-500 uppercase tracking-wider">
+              <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
                 Calories (Est.)
               </span>
               <p className="text-xl font-serif text-stone-900 mt-0.5 tabular-nums">
@@ -418,13 +420,13 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
 
                       <div className="flex items-center gap-2">
                         {step.timerSeconds && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-medium">
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
                             <Clock className="w-3 h-3 text-amber-600" />
                             {Math.round(step.timerSeconds / 60)} min
                           </span>
                         )}
                         {step.temperature && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 text-[11px] font-medium">
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 text-xs font-medium">
                             <Flame className="w-3 h-3 text-amber-500" />
                             {step.temperature}
                           </span>

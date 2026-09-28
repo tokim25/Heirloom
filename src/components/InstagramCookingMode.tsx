@@ -476,14 +476,14 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
               <X className="w-5 h-5" />
             </button>
             <div className="flex flex-col min-w-0">
-              <span className="text-[11px] font-medium tracking-wider uppercase text-amber-300">
+              <span className="text-xs font-medium tracking-wider uppercase text-amber-300">
                 Step {currentStepIndex + 1} of {totalSteps}
               </span>
               <span className="text-xs text-white/80 font-serif italic truncate max-w-[110px] xs:max-w-[160px] sm:max-w-md">
                 {recipe.title}
               </span>
               {hasRestoredSession && (
-                <span className="mt-1 text-[10px] text-emerald-200 font-semibold">
+                <span className="mt-1 text-xs text-emerald-200 font-semibold">
                   Resumed saved session
                 </span>
               )}
@@ -539,14 +539,14 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-stone-400" />}
             </button>
-            <div className="px-2.5 py-1 rounded-full bg-white/10 text-[11px] font-medium tracking-wide">
+            <div className="px-2.5 py-1 rounded-full bg-white/10 text-xs font-medium tracking-wide">
               {servings} {servings === 1 ? 'serving' : 'servings'}
             </div>
           </div>
         </div>
 
         {!voiceSupported && (
-          <div className="rounded-2xl bg-amber-500/10 border border-amber-500/25 px-3 py-2 text-[11px] text-amber-100 flex items-center gap-2">
+          <div className="rounded-2xl bg-amber-500/10 border border-amber-500/25 px-3 py-2 text-xs text-amber-100 flex items-center gap-2">
             <MicOff className="w-3.5 h-3.5 text-amber-300 shrink-0" />
             <span>Voice commands are not available in this browser. You can still use read mode controls, timers, arrow keys, and the buttons below.</span>
           </div>
@@ -591,7 +591,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-white/70">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-white/70">
             <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-2">
               <span className="block text-white font-semibold">Move</span>
               Buttons, progress dots, or arrow keys
@@ -658,13 +658,13 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                 </div>
 
                 <div className="min-w-0">
-                  <div className="text-[10px] text-white/45 uppercase tracking-[0.22em] font-semibold">
+                  <div className="text-xs text-white/45 uppercase tracking-[0.22em] font-semibold">
                     {timerSecondsLeft === 0 ? 'Timer Done' : 'Step Timer'}
                   </div>
                   <div className="text-lg font-semibold text-amber-300 leading-snug">
                     {isTimerRunning ? 'Running in kitchen…' : timerSecondsLeft === 0 ? 'Ready to move to next step!' : 'Paused'}
                   </div>
-                  <div className="text-[11px] text-white/45 mt-0.5">
+                  <div className="text-xs text-white/45 mt-0.5">
                     {isTimerRunning ? 'You can keep cooking; this will alert you.' : 'Start when this step begins.'}
                   </div>
                 </div>
@@ -717,7 +717,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
           {/* Step Specific Ingredients Pill Rack */}
           {stepIngredientItems.length > 0 && (
             <div className="flex flex-col gap-2 pt-1">
-              <span className="text-[11px] uppercase tracking-wider text-white/50 font-medium">
+              <span className="text-xs uppercase tracking-wider text-white/50 font-medium">
                 Ingredients Needed for this step
               </span>
               <div className="flex flex-wrap gap-2">
@@ -763,19 +763,19 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-amber-400 text-[11px] uppercase tracking-wider">
+              <span className="font-semibold text-amber-400 text-xs uppercase tracking-wider">
                 Hands-Free Active:
               </span>
               {recognizedCommand ? (
-                <span className="px-2 py-0.5 rounded-lg bg-amber-400 text-stone-950 font-bold text-[11px] shadow-xs">
+                <span className="px-2 py-0.5 rounded-lg bg-amber-400 text-stone-950 font-bold text-xs shadow-xs">
                   Heard: "{recognizedCommand}"
                 </span>
               ) : isSpeaking ? (
-                <span className="text-[11px] text-amber-200 animate-pulse font-medium">
+                <span className="text-xs text-amber-200 animate-pulse font-medium">
                   Speaking instruction...
                 </span>
               ) : (
-                <span className="text-[11px] text-stone-300">
+                <span className="text-xs text-stone-300">
                   Listening for: <span className="text-white font-medium">"Next"</span>, <span className="text-white font-medium">"Back"</span>, <span className="text-white font-medium">"Repeat"</span>, <span className="text-white font-medium">"Ingredients"</span>, <span className="text-white font-medium">"Timer"</span>
                 </span>
               )}

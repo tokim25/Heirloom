@@ -92,7 +92,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
           <span className="text-sm font-semibold text-stone-900">
             {totalFilteredCount} {totalFilteredCount === 1 ? 'recipe' : 'recipes'}
           </span>
-          <span className="text-[11px] text-stone-500">
+          <span className="text-xs text-stone-500">
             {hasActiveFilters ? `Filtered from ${recipes.length}` : 'Your cookbook'}
           </span>
         </div>
@@ -112,7 +112,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
               <Layers className="w-3.5 h-3.5 text-amber-600" />
               <span>Ingredients</span>
               {selectedIngredientsCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-stone-900 text-white text-[10px] font-mono">
+                <span className="px-1.5 py-0.2 rounded-full bg-stone-900 text-white text-xs font-mono">
                   {selectedIngredientsCount}
                 </span>
               )}
@@ -138,7 +138,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
       {/* Active Filter Badges */}
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
             <Layers className="w-3.5 h-3.5 text-amber-600" />
             Active Filters:
           </span>
@@ -167,7 +167,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
           ))}
           <button
             onClick={handleResetFilters}
-            className="text-[11px] font-medium text-amber-800 hover:text-amber-950 underline underline-offset-2 ml-1"
+            className="text-xs font-medium text-amber-800 hover:text-amber-950 underline underline-offset-2 ml-1"
           >
             Clear filters
           </button>
@@ -179,7 +179,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
         <div className="p-4 bg-stone-50/80 border border-stone-200/80 rounded-2xl flex flex-col gap-4 transition-all">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">
+              <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">
                 Cuisine
               </span>
               <select
@@ -196,7 +196,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
             </label>
 
             <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">
+              <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">
                 Sort
               </span>
               <select
@@ -217,7 +217,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Dimension 1: Key Ingredient / Protein */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-1">
                 <Utensils className="w-3 h-3 text-stone-400" />
                 Hero Ingredient / Protein
               </span>
@@ -247,7 +247,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
                     }`}
                   >
                     <span>{opt.label}</span>
-                    <span className="ml-1 text-[10px] opacity-70">({opt.count})</span>
+                    <span className="ml-1 text-xs opacity-70">({opt.count})</span>
                   </button>
                 ))}
               </div>
@@ -255,7 +255,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
 
             {/* Dimension 2: Total Time Bracket */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-1">
                 <Clock className="w-3 h-3 text-stone-400" />
                 Total Cooking Time
               </span>
@@ -283,7 +283,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
                     }`}
                   >
                     <span>{opt.label}</span>
-                    <span className="ml-1 text-[10px] opacity-70">({opt.count})</span>
+                    <span className="ml-1 text-xs opacity-70">({opt.count})</span>
                   </button>
                 ))}
               </div>
@@ -291,7 +291,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
 
             {/* Dimension 3: Prep Time (Hands-On Active Time) */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-1">
                 <Flame className="w-3 h-3 text-stone-400" />
                 Hands-On Prep Time
               </span>
@@ -318,7 +318,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
                     }`}
                   >
                     <span>{opt.label}</span>
-                    <span className="ml-1 text-[10px] opacity-70">({opt.count})</span>
+                    <span className="ml-1 text-xs opacity-70">({opt.count})</span>
                   </button>
                 ))}
               </div>
@@ -335,7 +335,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
             {hasActiveFilters && (
               <button
                 onClick={handleResetFilters}
-                className="flex items-center gap-1 text-[11px] text-amber-800 hover:text-amber-950 font-medium transition-colors"
+                className="flex items-center gap-1 text-xs text-amber-800 hover:text-amber-950 font-medium transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset all filters</span>
