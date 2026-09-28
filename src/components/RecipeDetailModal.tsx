@@ -42,6 +42,7 @@ interface RecipeDetailModalProps {
   onViewGroceryList?: () => void;
   onDeleteRecipe?: (id: string) => void;
   onEditRecipe?: (recipe: Recipe) => void;
+  onShareRecipe?: (recipe: Recipe) => void;
 }
 
 export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
@@ -55,6 +56,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   onViewGroceryList,
   onDeleteRecipe,
   onEditRecipe,
+  onShareRecipe,
 }) => {
   const [servings, setServings] = useState(recipe.defaultServings || 2);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('imperial');
@@ -98,6 +100,17 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     <Sheet open onClose={onClose} title={recipe.title} variant="bare" size="4xl" fullOnMobile>
       {/* Floating Edit and Close buttons, clear of the iPhone notch */}
       <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-30 flex items-center gap-2">
+        {onShareRecipe && (
+          <button
+            type="button"
+            onClick={() => onShareRecipe(recipe)}
+            aria-label="Share recipe"
+            title="Share recipe"
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-ink/70 hover:bg-ink text-white backdrop-blur-md transition-all shadow-md"
+          >
+            <Share2 className="w-4 h-4" aria-hidden="true" />
+          </button>
+        )}
         {onEditRecipe && (
           <button
             type="button"
@@ -141,6 +154,12 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               <span className="font-semibold">{recipe.cuisine}</span>
               <span aria-hidden="true" className="text-white/40">·</span>
               <span>{recipe.difficulty}</span>
+              {recipe.source.sharedBy && (
+                <>
+                  <span aria-hidden="true" className="text-white/40">·</span>
+                  <span>Shared by {recipe.source.sharedBy}</span>
+                </>
+              )}
               {recipe.source.url && (
                 <>
                   <span aria-hidden="true" className="text-white/40">·</span>

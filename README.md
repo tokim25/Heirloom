@@ -45,6 +45,9 @@ Add the following DNS record in your domain registrar / DNS provider (e.g. Cloud
 - **Shared Household**:
   - Invite a partner or family member with one code. Everyone in the household shares the cookbook and grocery lists.
   - Grocery lists update live on every device; checking an item off plays a chime for everyone else.
+- **Share a recipe with anyone on Heirloom**:
+  - **Share** on a recipe creates a private link. A signed-in Heirloom user who opens it sees a preview and can save their own copy. Nothing is shared until you create the link, and you can stop sharing at any time.
+  - The copy is a snapshot: later edits are not shared unless you choose **Update the shared copy**. Saved recipes remember who shared them.
 - **Sync & Google Drive Copy**:
   - Firestore is the single source of truth. Recipes and lists sync across devices and stay readable offline.
   - Optional Google Drive copy: one `Heirloom Recipes.json` file in your Drive, kept up to date while you use the app.
