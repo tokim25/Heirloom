@@ -4,7 +4,6 @@ import {
   Plus,
   BookOpen,
   ShoppingBag,
-  Sparkles,
   Play,
   Calculator,
   Bug,
@@ -461,15 +460,6 @@ export default function App() {
                 >
                   <span>Organize by Ingredient</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setIsImportOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold shadow-xs transition-all active:scale-95"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Import Recipe</span>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300 hidden sm:inline" />
-                </button>
               </div>
             </div>
 
@@ -582,20 +572,6 @@ export default function App() {
           />
         )}
       </main>
-
-      {/* Ambient Quick Action: Ask Chef AI (Desktop only, mobile accesses via bottom nav) */}
-      {user && (
-      <div className="hidden lg:block fixed bottom-6 right-6 z-40">
-        <button
-          onClick={() => setIsChatOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-stone-900/90 hover:bg-stone-900 text-white text-xs font-medium shadow-xl hover:shadow-2xl backdrop-blur-md transition-all active:scale-95 border border-white/10 group"
-          title="Chat with Chef AI (Find recipes, fix formatting, grocery help)"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
-          <span>Ask Chef AI</span>
-        </button>
-      </div>
-      )}
 
       {/* Ergonomic Mobile Bottom Navigation for Thumb Reachability */}
       {user && (
