@@ -380,14 +380,14 @@ export default function App() {
         );
       }
       setCurrentListId(listId);
-      const combinedNote =
-        plan.combined > 0 ? ` ${plan.combined} ${plan.combined === 1 ? 'was' : 'were'} combined with items already on it.` : '';
-      return {
-        success: true,
-        listId,
-        listTitle,
-        message: `Added ${itemsToAdd.length} ingredients to ${listTitle}.${combinedNote}`,
-      };
+      const fresh = plan.toAdd.length;
+      const message =
+        plan.combined === 0
+          ? `Added ${itemsToAdd.length} ingredients to ${listTitle}.`
+          : fresh === 0
+          ? `Everything was already on ${listTitle}, so the quantities were combined.`
+          : `Added ${fresh} new ${fresh === 1 ? 'ingredient' : 'ingredients'} to ${listTitle} and combined ${plan.combined} with items already on it.`;
+      return { success: true, listId, listTitle, message };
     } catch (err) {
       console.error('Failed to add recipe to grocery list:', err);
       return { success: false, message: 'Could not create a grocery list. Check your connection and try again.' };
