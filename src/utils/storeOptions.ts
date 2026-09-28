@@ -111,3 +111,17 @@ export function resolveStore(storeNameOrId?: string): StoreOption {
     isCustom: true,
   };
 }
+
+/** Instacart's own search page for one item in one store (opens the app on phones that have it). */
+export function instacartSearchUrl(store: StoreOption, query: string): string {
+  const q = encodeURIComponent(query.trim());
+  return store.slug
+    ? `https://www.instacart.com/store/${store.slug}/s?k=${q}`
+    : `https://www.instacart.com/store/s?k=${q}`;
+}
+
+export function instacartStoreUrl(store: StoreOption): string {
+  return store.slug
+    ? `https://www.instacart.com/store/${store.slug}/storefront`
+    : `https://www.instacart.com/store/s?k=${encodeURIComponent(store.name)}`;
+}

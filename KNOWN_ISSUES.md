@@ -44,8 +44,8 @@ This document tracks known issues, root causes, and available solutions or worka
 
 ---
 
-### 5. Instacart
+### 5. Instacart cannot be filled in one step
 
-- **Current behavior:** Heirloom opens Instacart store and item search links. It does not yet create an Instacart shopping list in one step.
-- **Planned:** Instacart Developer Platform integration (`POST /idp/v1/products/products_link`), which returns one Instacart page with every item ready to add to the cart at your preferred store.
-- **Security note:** Heirloom never requests or stores payment information; checkout always happens on Instacart.
+- **Why:** Adding a whole list to an Instacart cart needs a partner API key from the Instacart Developer Platform. Instacart has closed that program to new applicants with no waitlist, so this is not possible right now.
+- **What Heirloom does instead:** the shopping screen gives you a one-tap Instacart search for each item at your store, and ticking an item off there checks it off the shared list. Repeats are combined when you add recipes, and the list can be copied or shared grouped by aisle.
+- **If the program reopens:** the plan is `POST /idp/v1/products/products_link` from the server, which returns one Instacart page with every item ready to add. Heirloom never requests or stores payment information; checkout always happens on Instacart.

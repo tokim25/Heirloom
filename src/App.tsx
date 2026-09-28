@@ -24,7 +24,7 @@ import { RecipeDetailModal, AddToGroceryListResult } from './components/RecipeDe
 import { InstagramCookingMode } from './components/InstagramCookingMode.tsx';
 import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { RecipeEditModal } from './components/RecipeEditModal.tsx';
-import { InstacartModal } from './components/InstacartModal.tsx';
+import { ShoppingMode } from './components/ShoppingMode.tsx';
 import { GroceryListView } from './components/GroceryListView.tsx';
 import { UnitConverterModal } from './components/UnitConverterModal.tsx';
 import { UserProfileModal } from './components/UserProfileModal.tsx';
@@ -39,6 +39,7 @@ import { promptPwaInstall } from './utils/pwa.ts';
 import { useAuth } from './context/AuthContext.tsx';
 import { UnitSystem, scaleQuantity } from './utils/units.ts';
 import { firestoreService, formatInviteCode } from './utils/firestoreService.ts';
+import { planGroceryMerge } from './utils/groceryMerge.ts';
 import { closeOverlay, getPath, navigate, recipeIdFromPath, recipePath, usePath } from './utils/router.ts';
 import { sounds } from './utils/sound.ts';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
@@ -68,6 +69,7 @@ export default function App() {
     household,
     signInWithGoogle,
     authErrorMessage,
+    updateProfile,
   } = useAuth();
   // Screens follow the address bar: / (recipes), /groceries, /add, /profile, /r/:id
   const path = usePath();
@@ -119,11 +121,7 @@ export default function App() {
     servings: number;
     unitSystem: UnitSystem;
   } | null>(null);
-  const [instacartModalState, setInstacartModalState] = useState<{
-    recipe: Recipe;
-    servings: number;
-    initialStore?: string;
-  } | null>(null);
+  const [shoppingListId, setShoppingListId] = useState<string | null>(null);
   const [isConverterOpen, setIsConverterOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isPantryOpen, setIsPantryOpen] = useState(false);
@@ -222,6 +220,9 @@ export default function App() {
     const inviteCode = household?.inviteCode ? formatInviteCode(household.inviteCode) : '';
     return groceryLists.map((list) => ({ ...list, inviteCode, collaborators }));
   }, [groceryLists, household]);
+
+  // The list open in the shopping screen, kept live so ticks from a partner show up too.
+  const shoppingList = shoppingListId ? householdLists.find((l) => l.id === shoppingListId) ?? null : null;
 
   // Current active grocery list
   const currentGroceryList = useMemo(() => {
@@ -332,14 +333,6 @@ export default function App() {
     });
   };
 
-  const handleOpenInstacart = (recipe: Recipe, servings?: number, store?: string) => {
-    setInstacartModalState({
-      recipe,
-      servings: servings || recipe.defaultServings,
-      initialStore: store,
-    });
-  };
-
   // Add all recipe ingredients to a shared grocery list (creating one if needed)
   const handleAddRecipeToGroceryList = async (
     recipe: Recipe,
@@ -369,20 +362,43 @@ export default function App() {
         assignedTo: 'Anyone',
         addedBy: user?.name || 'Collaborator',
       }));
-      runWrite(
-        firestoreService.addGroceryItems(householdId, listId, itemsToAdd),
-        `Could not add ingredients to ${listTitle}. Try again.`
+      // Fold repeats into what is already on the list (1 lb + 2 lb beef = 3 lb) instead of duplicating lines.
+      const plan = planGroceryMerge(targetList?.items ?? [], itemsToAdd);
+      plan.toUpdate.forEach((change) =>
+        runWrite(
+          firestoreService.updateGroceryItem(householdId, listId as string, change.id, {
+            amount: change.amount,
+            recipeTitle: change.recipeTitle,
+          }),
+          `Could not update ${listTitle}. Try again.`
+        )
       );
+      if (plan.toAdd.length > 0) {
+        runWrite(
+          firestoreService.addGroceryItems(householdId, listId, plan.toAdd),
+          `Could not add ingredients to ${listTitle}. Try again.`
+        );
+      }
       setCurrentListId(listId);
+      const combinedNote =
+        plan.combined > 0 ? ` ${plan.combined} ${plan.combined === 1 ? 'was' : 'were'} combined with items already on it.` : '';
       return {
         success: true,
+        listId,
         listTitle,
-        message: `Added ${itemsToAdd.length} ingredients to ${listTitle}.`,
+        message: `Added ${itemsToAdd.length} ingredients to ${listTitle}.${combinedNote}`,
       };
     } catch (err) {
       console.error('Failed to add recipe to grocery list:', err);
       return { success: false, message: 'Could not create a grocery list. Check your connection and try again.' };
     }
+  };
+
+  // "Shop" from a recipe: put its ingredients on the list (combining repeats), then open the shopping screen.
+  const handleShopRecipe = async (recipe: Recipe, servings: number) => {
+    const result = await handleAddRecipeToGroceryList(recipe, servings);
+    if (result.success && result.listId) setShoppingListId(result.listId);
+    else showNotice('error', result.message);
   };
 
   // Grocery item actions
@@ -599,36 +615,7 @@ export default function App() {
             onCreateList={handleCreateNewList}
             onDeleteList={handleDeleteGroceryList}
             onJoinList={handleJoinHousehold}
-            onOpenInstacartForList={(list) => {
-              // Convert grocery list items into a temporary recipe format for Instacart shopping links
-              const fakeRecipe: Recipe = {
-                id: list.id,
-                title: list.title,
-                description: `Grocery order for ${list.title}`,
-                defaultServings: 2,
-                prepTimeMinutes: 0,
-                cookTimeMinutes: 0,
-                totalTimeMinutes: 0,
-                cuisine: 'Pantry',
-                difficulty: 'Easy',
-                tags: ['Groceries'],
-                heroImage: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
-                ingredients: list.items.map((i) => ({
-                  id: i.id,
-                  name: i.name,
-                  amount: i.amount,
-                  unit: i.unit,
-                  category: i.category,
-                  instacartQuery: i.name,
-                  estimatedPrice: i.estimatedPrice,
-                })),
-                steps: [],
-                source: { type: 'manual' },
-                createdAt: list.createdAt,
-                updatedAt: list.updatedAt,
-              };
-              handleOpenInstacart(fakeRecipe, 2, list.store);
-            }}
+            onOpenInstacartForList={(list) => setShoppingListId(list.id)}
             partnerNotification={partnerNotification}
             actionMessage={null}
             onDismissActionMessage={() => setNotice(null)}
@@ -662,7 +649,7 @@ export default function App() {
           onEditRecipe={(r) => setEditingRecipe(r)}
           onClose={closeRecipe}
           onStartCooking={(r, s, u) => handleStartCooking(r, s, u)}
-          onOpenInstacart={(r, s) => handleOpenInstacart(r, s)}
+          onOpenInstacart={(r, s) => handleShopRecipe(r, s)}
           onAddAllToGroceryList={(r, s) => handleAddRecipeToGroceryList(r, s)}
           groceryLists={groceryLists}
           currentListId={currentListId}
@@ -685,13 +672,18 @@ export default function App() {
         />
       )}
 
-      {instacartModalState && (
-        <InstacartModal
-          recipe={instacartModalState.recipe}
-          servings={instacartModalState.servings}
-          initialStore={instacartModalState.initialStore}
-          onClose={() => setInstacartModalState(null)}
+      {shoppingList && (
+        <ShoppingMode
+          list={shoppingList}
+          defaultStore={user?.preferredStore}
           pantryItems={pantryItems}
+          onToggleItem={(item) => handleUpdateGroceryItem(shoppingList.id, item.id, { checked: !item.checked })}
+          onRenameItem={(item, name) => handleUpdateGroceryItem(shoppingList.id, item.id, { name })}
+          onStoreChange={(storeName) => {
+            localStorage.setItem('heirloom_preferred_store', storeName);
+            updateProfile({ preferredStore: storeName }).catch(() => {});
+          }}
+          onClose={() => setShoppingListId(null)}
         />
       )}
 

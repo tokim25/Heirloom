@@ -5,6 +5,8 @@ import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, Recip
 import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully, sourceFromPastedUrl } from '../src/utils/pageExtract.ts';
 import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
 import { recipeIdFromPath, recipePath } from '../src/utils/router.ts';
+import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils/groceryMerge.ts';
+import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode } from '../src/utils/invite.ts';
 
 interface TestResult {
@@ -300,7 +302,50 @@ try {
   results.push({ suite: 'Routes', name: 'Exception in suite', passed: false, error: e.message });
 }
 
-// 8. Output Summary
+// 8. Grocery list quality
+try {
+  const item = (id: string, name: string, amount: number | null, unit: string, extra: Record<string, unknown> = {}) => ({
+    id, listId: 'l', name, amount, unit, category: 'Produce' as const, assignedTo: 'Anyone', checked: false, addedBy: 'me', createdAt: '', ...extra,
+  });
+  assert(normalizeItemName('Eggs') === normalizeItemName('egg'), 'Groceries', 'Plurals match (eggs / egg)');
+  assert(normalizeItemName('Tomatoes') === normalizeItemName('tomato'), 'Groceries', 'Plurals match (tomatoes / tomato)');
+  assert(normalizeItemName('Ground beef (80/20)') === normalizeItemName('ground beef'), 'Groceries', 'Notes in brackets are ignored');
+  assert(normalizeItemName('hummus') === 'hummus' && normalizeItemName('asparagus') === 'asparagus', 'Groceries', 'Words ending in ss/us are left alone');
+  assert(normalizeUnit('Tablespoons') === 'tbsp' && normalizeUnit('lbs.') === 'lb' && normalizeUnit('Cups') === 'cup', 'Groceries', 'Unit aliases normalize');
+
+  const existing = [item('a', 'ground beef', 1, 'lb', { recipeTitle: 'Burgers' }), item('b', 'salt', 0.5, 'tsp'), item('c', 'milk', 1, 'cup', { checked: true })];
+  const plan = planGroceryMerge(existing, [
+    { name: 'Ground Beef', amount: 2, unit: 'pounds', recipeTitle: 'Chili' },
+    { name: 'salt', amount: 1, unit: 'cup' },
+    { name: 'milk', amount: 1, unit: 'cup' },
+    { name: 'onion', amount: 1, unit: '' },
+  ]);
+  assert(plan.toUpdate.length === 1 && plan.toUpdate[0].id === 'a' && plan.toUpdate[0].amount === 3, 'Groceries', '1 lb + 2 lb of beef combine into 3 lb');
+  assert(plan.toUpdate[0].recipeTitle === 'Burgers, Chili', 'Groceries', 'Combined lines remember both recipes');
+  assert(plan.toAdd.some((i) => i.name === 'salt') && plan.toAdd.some((i) => i.name === 'onion'), 'Groceries', 'Different units stay separate lines');
+  assert(plan.toAdd.some((i) => i.name === 'milk'), 'Groceries', 'A checked (already bought) item is never merged into');
+  assert(plan.combined === 1, 'Groceries', 'Counts how many ingredients were combined');
+
+  const twice = planGroceryMerge([], [{ name: 'Salt', amount: 1, unit: 'tsp' }, { name: 'salt', amount: 0.5, unit: 'tsp' }, { name: 'pepper', amount: null, unit: '' }]);
+  assert(twice.toAdd.length === 2 && twice.toAdd[0].amount === 1.5, 'Groceries', 'Repeats inside one recipe combine too');
+
+  const noQty = planGroceryMerge([item('x', 'salt', null, '')], [{ name: 'salt', amount: null, unit: '' }]);
+  assert(noQty.toAdd.length === 0 && noQty.toUpdate.length === 0, 'Groceries', 'To-taste items are not duplicated');
+  const fillQty = planGroceryMerge([item('x', 'salt', null, '')], [{ name: 'salt', amount: 2, unit: '' }]);
+  assert(fillQty.toUpdate[0]?.amount === 2, 'Groceries', 'A quantity fills in a blank one');
+
+  const list = [item('1', 'Tomatoes', 2, 'lb'), item('2', 'Ground beef', 1, 'lb', { category: 'Meat & Seafood' }), item('3', 'Milk', 1, '', { category: 'Dairy & Refrigerated', checked: true })];
+  const text = formatGroceryList('Groceries', 'Sprouts', list);
+  assert(text.startsWith('Groceries (Sprouts)') && text.includes('Produce\n• 2 lb Tomatoes'), 'Groceries', 'Shared text is grouped by aisle');
+  assert(text.indexOf('Produce') < text.indexOf('Meat & Seafood'), 'Groceries', 'Aisles follow store-walk order');
+  assert(!text.includes('Milk'), 'Groceries', 'Checked items are left out of the shared list');
+  assert(groupByAisle(list).length === 3, 'Groceries', 'Groups only aisles that have items');
+  assert(formatGroceryList('Groceries', undefined, [item('9', 'x', 1, '', { checked: true })]).includes('Nothing left to buy'), 'Groceries', 'An empty list says so');
+} catch (e: any) {
+  results.push({ suite: 'Groceries', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// 9. Output Summary
 const passedCount = results.filter(r => r.passed).length;
 const failedCount = results.filter(r => !r.passed).length;
 
