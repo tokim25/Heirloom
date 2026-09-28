@@ -11,11 +11,14 @@ import {
   onSnapshot,
   writeBatch,
   arrayUnion,
+  query,
+  where,
   FieldPath,
   Unsubscribe,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { Recipe, GroceryList, GroceryItem, Household, User } from '../types/recipe.ts';
+import { Recipe, GroceryList, GroceryItem, Household, SharedRecipe, User } from '../types/recipe.ts';
+import { generateShareId, sanitizeRecipeForShare } from './shareLink.ts';
 import { generateInviteCode, normalizeInviteCode } from './invite.ts';
 
 export { formatInviteCode, normalizeInviteCode } from './invite.ts';
@@ -44,6 +47,7 @@ const householdRef = (hid: string) => doc(db, 'households', hid);
 const recipesCol = (hid: string) => collection(db, 'households', hid, 'recipes');
 const listsCol = (hid: string) => collection(db, 'households', hid, 'lists');
 const inviteRef = (code: string) => doc(db, 'invites', code);
+const shareRef = (id: string) => doc(db, 'shares', id);
 
 const memberFromUser = (user: Pick<User, 'id' | 'name' | 'email' | 'avatarUrl'>) => ({
   id: user.id,
@@ -202,6 +206,44 @@ export const firestoreService = {
 
   async deleteRecipe(hid: string, id: string) {
     await deleteDoc(doc(recipesCol(hid), id));
+  },
+
+  // ---- Sharing a recipe by link ----
+
+  /** The share this person already made for one of their recipes, if any. */
+  async findOwnShare(uid: string, recipeId: string): Promise<SharedRecipe | null> {
+    const snap = await getDocs(query(collection(db, 'shares'), where('fromUid', '==', uid), where('recipeId', '==', recipeId)));
+    return snap.empty ? null : (snap.docs[0].data() as SharedRecipe);
+  },
+
+  async createShare(user: Pick<User, 'id' | 'name'>, recipe: Recipe): Promise<SharedRecipe> {
+    const share: SharedRecipe = {
+      id: generateShareId(),
+      fromUid: user.id,
+      fromName: user.name,
+      recipeId: recipe.id,
+      recipe: sanitizeRecipeForShare(recipe),
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    await setDoc(shareRef(share.id), share);
+    return share;
+  },
+
+  /** Replaces the shared snapshot with the recipe as it is now. The link stays the same. */
+  async refreshShare(share: SharedRecipe, recipe: Recipe): Promise<SharedRecipe> {
+    const next: SharedRecipe = { ...share, recipe: sanitizeRecipeForShare(recipe), updatedAt: now() };
+    await setDoc(shareRef(share.id), next);
+    return next;
+  },
+
+  async getShare(id: string): Promise<SharedRecipe | null> {
+    const snap = await getDoc(shareRef(id));
+    return snap.exists() ? (snap.data() as SharedRecipe) : null;
+  },
+
+  async deleteShare(id: string) {
+    await deleteDoc(shareRef(id));
   },
 
   // ---- Grocery lists ----
