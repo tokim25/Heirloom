@@ -678,6 +678,8 @@ export default function App() {
           defaultStore={user?.preferredStore}
           pantryItems={pantryItems}
           customStores={user?.customStores}
+          hiddenStores={user?.hiddenStores}
+          onSetHiddenStores={(names) => updateProfile({ hiddenStores: names }).catch(() => showNotice('error', 'Could not save your stores. Try again.'))}
           onAddCustomStore={(name) => {
             const stores = Array.from(new Set([...(user?.customStores ?? []), name]));
             localStorage.setItem('heirloom_preferred_store', name);

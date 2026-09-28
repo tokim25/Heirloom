@@ -8,6 +8,7 @@ import { isIngredientInPantry } from '../utils/pantryDefaults.ts';
 import {
   INSTACART_STORES_NEAR_YOU_URL,
   STORE_NAMES,
+  visibleStoreNames,
   instacartSearchUrl,
   instacartStoreUrl,
   resolveStore,
@@ -20,7 +21,9 @@ interface ShoppingModeProps {
   pantryItems?: PantryItem[];
   /** Stores the person added because Instacart shows them in their area. */
   customStores?: string[];
+  hiddenStores?: string[];
   onAddCustomStore: (name: string) => void;
+  onSetHiddenStores: (names: string[]) => void;
   onToggleItem: (item: GroceryItem) => void;
   onRenameItem: (item: GroceryItem, name: string) => void;
   onStoreChange: (storeName: string) => void;
@@ -43,7 +46,9 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
   defaultStore,
   pantryItems = [],
   customStores = [],
+  hiddenStores = [],
   onAddCustomStore,
+  onSetHiddenStores,
   onToggleItem,
   onRenameItem,
   onStoreChange,
@@ -54,6 +59,7 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
   const [copied, setCopied] = useState(false);
   const [showPantry, setShowPantry] = useState(false);
   const [addingStore, setAddingStore] = useState(false);
+  const [managingStores, setManagingStores] = useState(false);
   const [newStoreName, setNewStoreName] = useState('');
   const [suggestions, setSuggestions] = useState<Record<string, Suggestion | 'loading' | 'none'>>({});
 
@@ -64,10 +70,7 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
   const toBuy = remaining.filter((item) => !inPantry.includes(item));
   const doneItems = list.items.filter((item) => item.checked);
 
-  const storeOptions = useMemo(() => {
-    const all = [...STORE_NAMES, ...customStores.filter((name) => !STORE_NAMES.includes(name))];
-    return all.includes(storeName) ? all : [storeName, ...all];
-  }, [customStores, storeName]);
+  const storeOptions = useMemo(() => visibleStoreNames(customStores, hiddenStores, storeName), [customStores, hiddenStores, storeName]);
   const notice = storeNotice(storeName);
 
   const submitNewStore = () => {
@@ -290,6 +293,14 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
             See stores near you on Instacart
             <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
           </a>
+          <button
+            type="button"
+            onClick={() => setManagingStores((v) => !v)}
+            aria-expanded={managingStores}
+            className="min-h-11 inline-flex items-center gap-1.5 font-semibold text-stone-800 underline underline-offset-2"
+          >
+            Choose my stores
+          </button>
           {!addingStore && (
             <button
               type="button"
@@ -301,6 +312,30 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
             </button>
           )}
         </div>
+        {managingStores && (
+          <fieldset className="rounded-xl border border-stone-200 p-3">
+            <legend className="px-1 text-sm font-semibold text-stone-800">Stores I can shop on Instacart</legend>
+            <p className="text-sm text-stone-600 mb-1">Untick the ones that do not deliver to you and they will be hidden from the picker.</p>
+            <ul>
+              {[...STORE_NAMES, ...customStores.filter((n) => !STORE_NAMES.includes(n))].map((name) => {
+                const shown = !hiddenStores.includes(name);
+                return (
+                  <li key={name}>
+                    <label className="min-h-11 flex items-center gap-3 text-base text-stone-900">
+                      <input
+                        type="checkbox"
+                        checked={shown}
+                        onChange={() => onSetHiddenStores(shown ? [...hiddenStores, name] : hiddenStores.filter((n) => n !== name))}
+                        className="w-5 h-5 accent-emerald-600"
+                      />
+                      {name}
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </fieldset>
+        )}
         {addingStore && (
           <form
             className="flex items-center gap-2"
