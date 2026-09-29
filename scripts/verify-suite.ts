@@ -2,7 +2,7 @@ import { scaleQuantity, formatFraction, convertUnit, fahrenheitToCelsius, celsiu
 import { getIngredientFacets, normalizeIngredientName, matchRecipeFilters, INITIAL_ORGANIZATION_FILTER, deriveProteinCategory } from '../src/utils/recipeTaxonomy.ts';
 import { Recipe } from '../src/types/recipe.ts';
 import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, RecipeParseError } from '../src/utils/recipeSchema.ts';
-import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully, sourceFromPastedUrl } from '../src/utils/pageExtract.ts';
+import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully, sourceFromPastedUrl, socialVideoSite } from '../src/utils/pageExtract.ts';
 import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
 import { recipeIdFromPath, recipePath, shareIdFromPath, sharePath, joinCodeFromPath, joinPath } from '../src/utils/router.ts';
 import { generateShareId, shareUrl, sanitizeRecipeForShare, recipeFromShare, SHARE_ID_LENGTH } from '../src/utils/shareLink.ts';
@@ -419,6 +419,16 @@ try {
   assert(comma.length === 1 && comma[0].label === 'Salt, Fat, Acid', 'Planner', 'A recipe title with a comma stays one meal');
 } catch (e: any) {
   results.push({ suite: 'Planner', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// Social video links
+try {
+  assert(socialVideoSite('https://www.instagram.com/reel/C8abc123/') === 'Instagram' && socialVideoSite('https://instagr.am/p/x') === 'Instagram', 'Social', 'Instagram links are recognised');
+  assert(socialVideoSite('https://vm.tiktok.com/ZM123/') === 'TikTok' && socialVideoSite('https://www.tiktok.com/@a/video/1') === 'TikTok', 'Social', 'TikTok links are recognised');
+  assert(socialVideoSite('https://fb.watch/abc') === 'Facebook', 'Social', 'Facebook video links are recognised');
+  assert(socialVideoSite('https://www.youtube.com/watch?v=dQw4w9WgXcQ') === null && socialVideoSite('https://cooking.nytimes.com/x') === null && socialVideoSite('https://notinstagram.com/x') === null && socialVideoSite('nonsense') === null, 'Social', 'Other sites are left alone');
+} catch (e: any) {
+  results.push({ suite: 'Social', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // 11. Output Summary

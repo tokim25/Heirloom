@@ -77,6 +77,23 @@ export function extractPageData(html: string, pageUrl: string): PageData {
 
 export const YOUTUBE_ID = /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/i;
 
+/**
+ * Social video sites keep their videos behind a login and block automated readers, so a link to one can never be
+ * imported. Returns the site's name so the message can say so instead of failing after a long wait.
+ */
+export function socialVideoSite(link: string): 'Instagram' | 'TikTok' | 'Facebook' | null {
+  let host: string;
+  try {
+    host = new URL(link).hostname.toLowerCase().replace(/^(www|m|vm|web)\./, '');
+  } catch {
+    return null;
+  }
+  if (host === 'instagram.com' || host === 'instagr.am') return 'Instagram';
+  if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) return 'TikTok';
+  if (host === 'facebook.com' || host === 'fb.watch' || host === 'fb.com') return 'Facebook';
+  return null;
+}
+
 /** Creators often put the full recipe in the video description; pull it from the watch page. */
 export function extractYouTubeDescription(html: string): string {
   const match = html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/);
