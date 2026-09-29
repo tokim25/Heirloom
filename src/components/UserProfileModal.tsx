@@ -1,20 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import {
-  X,
-  User as UserIcon,
-  Store,
-  Users,
-  Copy,
-  Save,
-  Check,
-  ExternalLink,
-  Plus,
-  Tag,
-  AlertCircle,
-  LogOut,
-  RefreshCw,
-  ShieldCheck,
-} from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Check, ChevronRight, Copy, LogOut, Plus, Loader2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { GroceryList, Recipe } from '../types/recipe.ts';
 import { formatInviteCode } from '../utils/firestoreService.ts';
@@ -40,12 +25,35 @@ const BASE_DIETARY_TAGS = [
   'Organic Preferred',
 ];
 
-export const UserProfileModal: React.FC<UserProfileModalProps> = ({
-  onClose,
-  recipes = [],
-  groceryLists = [],
-  onOpenDriveBackup,
-}) => {
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+/** A titled group of rows, like a settings screen. */
+const Group: React.FC<{ title?: string; note?: string; children: React.ReactNode }> = ({ title, note, children }) => (
+  <section className="flex flex-col gap-2">
+    {title && <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-stone-600">{title}</h3>}
+    <div className="rounded-2xl bg-surface border border-stone-200/80 divide-y divide-stone-100 overflow-hidden">{children}</div>
+    {note && <p className="px-1 text-sm text-stone-600">{note}</p>}
+  </section>
+);
+
+const Row: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
+  <div className={`min-h-14 px-4 py-2.5 flex items-center gap-3 ${className}`}>{children}</div>
+);
+
+const Avatar: React.FC<{ name: string; url?: string; size?: number }> = ({ name, url, size = 40 }) =>
+  url ? (
+    <img src={url} alt="" referrerPolicy="no-referrer" style={{ width: size, height: size }} className="rounded-full object-cover shrink-0" />
+  ) : (
+    <span
+      style={{ width: size, height: size }}
+      className="rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 flex items-center justify-center font-serif font-semibold shrink-0"
+      aria-hidden="true"
+    >
+      {(name || '?').charAt(0).toUpperCase()}
+    </span>
+  );
+
+export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, recipes = [], onOpenDriveBackup }) => {
   const {
     user,
     updateProfile,
@@ -60,44 +68,41 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   } = useAuth();
 
   const [preferredStore, setPreferredStore] = useState(() => {
-    const savedLocal =
-      typeof window !== 'undefined' ? localStorage.getItem('heirloom_preferred_store') : null;
+    const savedLocal = typeof window !== 'undefined' ? localStorage.getItem('heirloom_preferred_store') : null;
     return savedLocal || user?.preferredStore || 'Whole Foods Market';
   });
-  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>(user?.dietaryPreferences || ['High-Protein']);
+  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>(user?.dietaryPreferences || []);
   const [customTagInput, setCustomTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>('idle');
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [authError, setAuthError] = useState<{ message: string; isDomainError?: boolean } | null>(null);
+  const [signInError, setSignInError] = useState<string | null>(null);
   const [copiedInvite, setCopiedInvite] = useState(false);
 
-  // Dynamically extract every unique tag present in the user's cookbook
-  const dynamicCookbookTags = useMemo(() => {
+  // Every change saves on its own, so there is no Save button to forget.
+  const save = async (updates: Parameters<typeof updateProfile>[0]) => {
+    setSaveState('saving');
+    try {
+      await updateProfile(updates);
+      setSaveState('saved');
+      window.setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 2000);
+    } catch {
+      setSaveState('error');
+    }
+  };
+
+  const cookbookTags = useMemo(() => {
     const set = new Set<string>();
-    recipes.forEach((r) => {
-      if (Array.isArray(r.tags)) {
-        r.tags.forEach((t) => {
-          if (t && typeof t === 'string' && t.trim().length > 0) {
-            set.add(t.trim());
-          }
-        });
-      }
-    });
+    recipes.forEach((r) => Array.isArray(r.tags) && r.tags.forEach((t) => typeof t === 'string' && t.trim() && set.add(t.trim())));
     return Array.from(set);
   }, [recipes]);
 
-  // Combine baseline dietary tags, tags from existing recipes, and any custom user tags
-  const allAvailableTags = useMemo(() => {
-    const combined = new Set<string>([
-      ...BASE_DIETARY_TAGS,
-      ...dynamicCookbookTags,
-      ...dietaryPreferences,
-    ]);
-    return Array.from(combined);
-  }, [dynamicCookbookTags, dietaryPreferences]);
+  const allTags = useMemo(
+    () => Array.from(new Set([...BASE_DIETARY_TAGS, ...cookbookTags, ...dietaryPreferences])),
+    [cookbookTags, dietaryPreferences]
+  );
 
-  const householdMembers = useMemo(
+  const members = useMemo(
     () =>
       Object.values(household?.members || {}).sort((a, b) => {
         if (a.id === user?.id) return -1;
@@ -108,29 +113,37 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   );
   const inviteCode = household?.inviteCode ? formatInviteCode(household.inviteCode) : '';
 
-  const toggleDiet = (item: string) => {
-    setDietaryPreferences((prev) =>
-      prev.includes(item) ? prev.filter((d) => d !== item) : [...prev, item]
-    );
+  const toggleTag = (tag: string) => {
+    const next = dietaryPreferences.includes(tag) ? dietaryPreferences.filter((t) => t !== tag) : [...dietaryPreferences, tag];
+    setDietaryPreferences(next);
+    void save({ dietaryPreferences: next });
   };
 
-  const handleAddCustomTag = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const addCustomTag = (e?: React.FormEvent) => {
+    e?.preventDefault();
     const clean = customTagInput.trim();
     if (clean && !dietaryPreferences.includes(clean)) {
-      setDietaryPreferences((prev) => [...prev, clean]);
-      setCustomTagInput('');
-      setIsAddingTag(false);
+      const next = [...dietaryPreferences, clean];
+      setDietaryPreferences(next);
+      void save({ dietaryPreferences: next });
     }
+    setCustomTagInput('');
+    setIsAddingTag(false);
   };
 
-  const handleCopyInvite = async () => {
+  const changeStore = (name: string) => {
+    setPreferredStore(name);
+    localStorage.setItem('heirloom_preferred_store', name);
+    void save({ preferredStore: name });
+  };
+
+  const copyInvite = async () => {
     if (!inviteCode) return;
-    const inviteText = `Join my kitchen on Heirloom to share recipes and grocery lists.\nInvite code: ${inviteCode}\nOpen https://heirloom.tonykim.io, then Groceries > + > Join with code.`;
+    const text = `Join my kitchen on Heirloom to share recipes and grocery lists.\nInvite code: ${inviteCode}\nOpen https://heirloom.tonykim.io, then Groceries > + > Join with code.`;
     try {
-      await navigator.clipboard.writeText(inviteText);
+      await navigator.clipboard.writeText(text);
       setCopiedInvite(true);
-      setTimeout(() => setCopiedInvite(false), 1800);
+      window.setTimeout(() => setCopiedInvite(false), 1800);
     } catch {
       setCopiedInvite(false);
     }
@@ -138,465 +151,205 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
-    setAuthError(null);
+    setSignInError(null);
     clearAuthError();
     try {
       await signInWithGoogle();
     } catch (err: any) {
-      console.error('Sign-in error:', err);
-      const isDomainError =
-        err?.code === 'auth/unauthorized-domain' ||
-        err?.message?.includes('auth/unauthorized-domain');
-
-      if (isDomainError) {
-        setAuthError({
-          message:
-            'Firebase requires your custom domain (heirloom.tonykim.io) to be added to Authorized Domains in your Firebase Console.',
-          isDomainError: true,
-        });
-      } else {
-        setAuthError({
-          message: err?.message || 'Failed to sign in with Google. Please try again.',
-        });
-      }
+      setSignInError(err?.message || 'Could not sign in with Google. Please try again.');
     } finally {
       setIsSigningIn(false);
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('heirloom_preferred_store', preferredStore);
-    }
-    setAuthError(null);
-    try {
-      await updateProfile({
-        preferredStore,
-        dietaryPreferences,
-      });
-      setIsSaved(true);
-      setTimeout(() => {
-        setIsSaved(false);
-        onClose();
-      }, 1000);
-    } catch (err: any) {
-      setAuthError({
-        message: err?.message || 'Could not save your kitchen preferences. Please try again.',
-      });
-    }
-  };
+  const driveStatus = isGoogleConnected ? 'On' : isDriveCopyEnabled ? 'Paused' : 'Off';
+  const notice = storeNotice(preferredStore);
+  const statusText =
+    saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Could not save. Check your connection.' : 'Changes save automatically.';
 
   return (
-    <Sheet open onClose={onClose} title="Account and kitchen profile" variant="bare" size="lg">
-        {/* Header */}
-        <div className="p-6 pb-4 border-b border-stone-200/80 flex items-center justify-between bg-surface/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-700 dark:text-amber-300">
-              <UserIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                Profile
+    <Sheet open onClose={onClose} title="Profile" description={isGoogleSignedIn && user ? statusText : undefined} size="lg" fullOnMobile>
+      {!isGoogleSignedIn || !user ? (
+        <Group>
+          <div className="p-5 flex flex-col gap-3">
+            <p className="font-serif text-xl text-stone-900">Sign in to sync your cookbook</p>
+            <p className="text-sm text-stone-600">Your recipes and grocery lists follow you to every device you sign in on.</p>
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isSigningIn}
+              className="min-h-12 rounded-xl bg-ink hover:bg-ink-hover disabled:opacity-60 text-white text-base font-semibold inline-flex items-center justify-center gap-2"
+            >
+              {isSigningIn && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+              Continue with Google
+            </button>
+            {(signInError || authErrorMessage) && (
+              <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">
+                {signInError || authErrorMessage}
+              </p>
+            )}
+          </div>
+        </Group>
+      ) : (
+        <>
+          <Group>
+            <Row className="py-4">
+              <Avatar name={user.name} url={user.avatarUrl} size={56} />
+              <div className="min-w-0 flex-1">
+                <p className="font-serif text-xl text-stone-900 truncate">{user.name}</p>
+                <p className="text-sm text-stone-600 truncate">{user.email}</p>
+              </div>
+            </Row>
+          </Group>
+
+          <Group title="Sync">
+            <Row>
+              <span className="flex-1 text-base text-stone-900">Cookbook and lists</span>
+              <span className="text-sm text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5">
+                <Check className="w-4 h-4" aria-hidden="true" />
+                Synced
               </span>
-              <h2 className="font-serif text-2xl text-stone-900 leading-tight">
-                Account & Kitchen Profile
-              </h2>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-stone-200 text-stone-500 hover:text-stone-900 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Scrollable Content */}
-        <div className="overflow-y-auto p-6 flex flex-col gap-6">
-          {/* SECTION 1: Standard Google Sign-In / Account Surface */}
-          <div className="bg-surface rounded-2xl border border-stone-200/90 p-4 sm:p-5 shadow-xs">
-            {isGoogleSignedIn && user ? (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {user.avatarUrl ? (
-                      <img
-                        src={user.avatarUrl}
-                        alt={user.name}
-                        className="w-12 h-12 rounded-full object-cover ring-2 ring-emerald-500/30"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 font-serif text-lg font-bold dark:bg-amber-900/40 dark:text-amber-200">
-                        {user.name.charAt(0)}
-                      </div>
-                    )}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-stone-900 text-base">{user.name}</h3>
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50">
-                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                          Google Verified
-                        </span>
-                      </div>
-                      <p className="text-xs text-stone-500">{user.email}</p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={logout}
-                    className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 px-3 py-1.5 rounded-lg hover:bg-stone-100 transition-colors"
-                    title="Sign out of account"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
-
-                <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-600">
-                  <span className="flex items-center gap-1.5 text-emerald-700 font-medium dark:text-emerald-300">
-                    <ShieldCheck className={`w-4 h-4 ${isGoogleConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}`} />
-                    {isGoogleConnected
-                      ? 'Google Drive copy is on'
-                      : isDriveCopyEnabled
-                      ? 'Google Drive copy is paused'
-                      : 'Synced across your devices'}
-                  </span>
-                  {onOpenDriveBackup && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        onOpenDriveBackup();
-                      }}
-                      className="text-amber-700 hover:text-amber-800 font-medium underline flex items-center gap-1 dark:text-amber-300 dark:hover:text-amber-200"
-                    >
-                      <span>{isGoogleConnected ? 'Drive settings' : isDriveCopyEnabled ? 'Reconnect Drive' : 'Copy to Google Drive'}</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3.5">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 dark:bg-blue-950/40 dark:border-blue-900/40">
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-stone-900 text-sm sm:text-base">
-                      Sign in to sync your cookbook
-                    </h3>
-                    <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">
-                      Your recipes and grocery lists follow you to every device you sign in on.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={isSigningIn}
-                  className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-ink hover:bg-ink-hover disabled:bg-stone-400 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all"
-                >
-                  {isSigningIn ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin text-stone-300" />
-                      <span>Connecting with Google...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 bg-surface rounded-full p-0.5" viewBox="0 0 24 24">
-                        <path
-                          fill="#4285F4"
-                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                        />
-                      </svg>
-                      <span>Continue with Google</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Error Banner with 1-Click Domain Authorization Link */}
-                {(authError || authErrorMessage) && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex flex-col gap-2 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800/50">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
-                      <div className="flex-1">
-                        <p className="font-semibold">{authError?.message || authErrorMessage}</p>
-                        {authError?.isDomainError && (
-                          <p className="text-rose-700 text-xs mt-1 dark:text-rose-300">
-                            Firebase requires listing custom domains under Authorized Domains to prevent unauthorized OAuth redirects.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {authError?.isDomainError && (
-                      <a
-                        href="https://console.firebase.google.com/project/nth-imagery-298121/authentication/settings"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium text-xs transition-colors self-start"
-                      >
-                        <span>Add heirloom.tonykim.io to Firebase Settings</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
+            </Row>
+            {onOpenDriveBackup && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenDriveBackup();
+                }}
+                className="w-full min-h-14 px-4 py-2.5 flex items-center gap-3 text-left hover:bg-stone-50 active:bg-stone-100"
+              >
+                <span className="flex-1 text-base text-stone-900">Google Drive copy</span>
+                <span className={`text-sm ${driveStatus === 'On' ? 'text-emerald-700 dark:text-emerald-300' : 'text-stone-600'}`}>{driveStatus}</span>
+                <ChevronRight className="w-5 h-5 text-stone-400" aria-hidden="true" />
+              </button>
             )}
-          </div>
+          </Group>
 
-          {/* SECTION 2: Culinary Focus & Dynamic Recipe Tags */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                  <span>Dietary Preferences & Culinary Tags</span>
-                </label>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  Automatically extracts tags from your {recipes.length} recipes + custom tags you add.
-                </p>
-              </div>
-
-              {!isAddingTag && (
-                <button
-                  type="button"
-                  onClick={() => setIsAddingTag(true)}
-                  className="text-xs font-medium text-amber-700 hover:text-amber-800 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-amber-50 transition-colors dark:hover:bg-amber-950/40 dark:text-amber-300 dark:hover:text-amber-200"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Custom Tag</span>
-                </button>
-              )}
-            </div>
-
-            {/* Custom Tag Input Form */}
-            {isAddingTag && (
-              <div className="mb-3 p-2.5 bg-stone-100 rounded-xl border border-stone-200 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={customTagInput}
-                  onChange={(e) => setCustomTagInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddCustomTag();
-                    }
-                  }}
-                  placeholder="e.g. Pescatarian, Low-Sodium, Sous-Vide..."
-                  className="flex-1 px-3 py-2 text-base sm:text-xs bg-surface border border-stone-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddCustomTag()}
-                  className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shrink-0"
-                >
-                  Add
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddingTag(false);
-                    setCustomTagInput('');
-                  }}
-                  className="p-1.5 text-stone-400 hover:text-stone-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            {/* Dynamic Tag Pills */}
-            <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1 bg-stone-100/50 rounded-2xl border border-stone-200/60">
-              {allAvailableTags.map((item) => {
-                const active = dietaryPreferences.includes(item);
-                const isFromCookbook = dynamicCookbookTags.includes(item);
-
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => toggleDiet(item)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
-                      active
-                        ? 'bg-amber-500 text-on-accent font-semibold shadow-xs'
-                        : 'bg-surface text-stone-700 hover:bg-stone-200/70 border border-stone-200/70'
-                    }`}
-                  >
-                    <span>{item}</span>
-                    {isFromCookbook && (
-                      <span
-                        className={`text-xs px-1 py-0.2 rounded-full ${
-                          active ? 'bg-amber-600/30 text-stone-950' : 'bg-stone-100 text-stone-500'
-                        }`}
-                        title="Found in your recipes"
-                      >
-                        recipe
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* SECTION 3: Household & Supermarket Preferences */}
-          <form onSubmit={handleSave} className="flex flex-col gap-4">
-            <div className="bg-surface rounded-2xl border border-stone-200/90 p-4 flex flex-col gap-3 shadow-xs">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                    <span>Household</span>
-                  </label>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    Everyone here shares the cookbook and grocery lists.
+          <Group title="Household" note="Everyone here shares the cookbook and grocery lists.">
+            {members.map((member) => (
+              <Row key={member.id}>
+                <Avatar name={member.name} url={member.avatarUrl} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-base text-stone-900 truncate">
+                    {member.name}
+                    {member.id === user.id && <span className="text-stone-500"> (you)</span>}
                   </p>
+                  <p className="text-sm text-stone-600 truncate">{member.email}</p>
                 </div>
-                <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-semibold dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/40">
-                  {householdMembers.length} {householdMembers.length === 1 ? 'member' : 'members'}
-                </span>
-              </div>
-
-              <div className="flex flex-col divide-y divide-stone-100 border border-stone-100 rounded-2xl overflow-hidden">
-                {householdMembers.length > 0 ? (
-                  householdMembers.map((member) => (
-                    <div key={member.id} className="flex items-center gap-3 p-3 bg-stone-50/60">
-                      {member.avatarUrl ? (
-                        <img src={member.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-stone-700 flex items-center justify-center text-white text-sm font-bold">
-                          {(member.name || member.email).charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-stone-900 truncate">
-                          {member.id === user?.id ? `${member.name} (you)` : member.name}
-                        </p>
-                        <p className="text-xs text-stone-500 truncate">{member.email}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-3 bg-stone-50/60 text-sm text-stone-500">Sign in to start your household.</div>
-                )}
-              </div>
-
-              {inviteCode && (
-                <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-stone-100/70 border border-stone-200/80">
-                  <div className="min-w-0">
-                    <p className="text-xs text-stone-600">Invite code for your partner or family</p>
-                    <p className="text-sm text-stone-900 font-mono font-semibold tracking-wide">{inviteCode}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyInvite}
-                    className="inline-flex items-center gap-1.5 h-11 px-3 rounded-lg bg-surface border border-stone-200 text-sm font-semibold text-stone-700 hover:text-stone-950 hover:bg-stone-50 shrink-0"
-                  >
-                    {copiedInvite ? (
-                      <>
-                        <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                        <span>Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 text-stone-500" />
-                        <span>Copy invite</span>
-                      </>
-                    )}
-                  </button>
+              </Row>
+            ))}
+            {inviteCode && (
+              <Row>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-stone-600">Invite code for a partner or family</p>
+                  <p className="font-mono text-base font-semibold tracking-wide text-stone-900">{inviteCode}</p>
                 </div>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={copyInvite}
+                  className="min-h-11 px-4 rounded-xl border border-stone-300 bg-surface hover:bg-stone-50 text-sm font-semibold text-stone-800 inline-flex items-center gap-1.5 shrink-0"
+                >
+                  {copiedInvite ? <Check className="w-4 h-4 text-emerald-600" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
+                  {copiedInvite ? 'Copied' : 'Copy'}
+                </button>
+              </Row>
+            )}
+          </Group>
 
-            <div>
-              <label className="text-xs font-semibold text-stone-800 flex items-center gap-1.5 mb-1">
-                <Store className="w-3.5 h-3.5 text-stone-600" />
-                <span>Default Supermarket</span>
+          <Group title="Groceries" note={notice ?? undefined}>
+            <Row>
+              <label htmlFor="default-store" className="text-base text-stone-900 shrink-0">
+                Default store
               </label>
               <select
+                id="default-store"
                 value={preferredStore}
-                onChange={(e) => setPreferredStore(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-surface border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 font-medium text-stone-800"
+                onChange={(e) => changeStore(e.target.value)}
+                className="flex-1 min-w-0 min-h-11 px-3 rounded-xl bg-surface border border-stone-300 text-base text-stone-900 text-right"
               >
-                {visibleStoreNames(user?.customStores, user?.hiddenStores, preferredStore).map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                {visibleStoreNames(user.customStores, user.hiddenStores, preferredStore).map((name) => (
+                  <option key={name} value={name}>
+                    {name}
                   </option>
                 ))}
               </select>
-              {storeNotice(preferredStore) && (
-                <p role="alert" className="mt-1.5 text-sm text-rose-700 dark:text-rose-300">
-                  {storeNotice(preferredStore)}
-                </p>
+            </Row>
+          </Group>
+
+          <Group title="Food preferences" note="Tags are collected from your recipes. Tap the ones that matter to you.">
+            <div className="p-3 flex flex-wrap gap-2">
+              {allTags.map((tag) => {
+                const active = dietaryPreferences.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    aria-pressed={active}
+                    className={`min-h-10 px-3.5 rounded-full text-sm font-medium border transition-colors ${
+                      active
+                        ? 'bg-amber-500 border-amber-500 text-on-accent font-semibold'
+                        : 'bg-surface border-stone-300 text-stone-800 hover:bg-stone-50'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+              {isAddingTag ? (
+                <form onSubmit={addCustomTag} className="flex items-center gap-1.5">
+                  <label className="sr-only" htmlFor="new-tag">
+                    New tag
+                  </label>
+                  <input
+                    id="new-tag"
+                    autoFocus
+                    value={customTagInput}
+                    onChange={(e) => setCustomTagInput(e.target.value)}
+                    placeholder="New tag"
+                    className="min-h-10 w-36 px-3 rounded-full bg-surface border border-stone-300 text-base text-stone-900"
+                  />
+                  <button type="submit" className="min-h-10 px-3 rounded-full bg-ink text-white text-sm font-semibold">
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingTag(false);
+                      setCustomTagInput('');
+                    }}
+                    aria-label="Cancel"
+                    className="min-h-10 min-w-10 inline-flex items-center justify-center text-stone-600"
+                  >
+                    <X className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingTag(true)}
+                  className="min-h-10 px-3.5 rounded-full border border-dashed border-stone-400 text-sm font-medium text-stone-700 hover:bg-stone-50 inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" aria-hidden="true" />
+                  Add tag
+                </button>
               )}
             </div>
+          </Group>
 
-            {/* Save Button */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-200">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-xs text-stone-600 hover:text-stone-900"
-              >
-                Close
-              </button>
-
-              <button
-                type="submit"
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-ink hover:bg-ink-hover text-white text-xs font-semibold shadow-sm transition-all"
-              >
-                {isSaved ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Saved!</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save Kitchen Preferences</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
+          <Group>
+            <button
+              type="button"
+              onClick={logout}
+              className="w-full min-h-14 px-4 flex items-center justify-center gap-2 text-base font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+            >
+              <LogOut className="w-4 h-4" aria-hidden="true" />
+              Sign out
+            </button>
+          </Group>
+        </>
+      )}
     </Sheet>
   );
 };
