@@ -1,77 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Heirloom</title>
   <defs>
-    <!-- Background Gradient: Velvety Warm Slate & Charcoal -->
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1E1B18"/>
-      <stop offset="50%" stop-color="#171513"/>
-      <stop offset="100%" stop-color="#0F0E0C"/>
-    </linearGradient>
-
-    <!-- Inner Border Glow -->
-    <linearGradient id="borderGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#44403C" stop-opacity="0.6"/>
-      <stop offset="100%" stop-color="#292524" stop-opacity="0.3"/>
-    </linearGradient>
-
-    <!-- Heirloom Amber-Terracotta Warm Glow -->
-    <linearGradient id="heirloomGold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FBBF24"/>
-      <stop offset="40%" stop-color="#F59E0B"/>
-      <stop offset="100%" stop-color="#D97706"/>
-    </linearGradient>
-
-    <!-- Botanical Fresh Herb Greens -->
-    <linearGradient id="botanicalGreen" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#34D399"/>
-      <stop offset="50%" stop-color="#10B981"/>
-      <stop offset="100%" stop-color="#059669"/>
-    </linearGradient>
-
-    <!-- Soft Radial Backlight -->
-    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#D97706" stop-opacity="0.18"/>
-      <stop offset="100%" stop-color="#D97706" stop-opacity="0"/>
-    </radialGradient>
+    <!-- Slight hand-inked wobble on the strokes -->
+    <filter id="brush" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
   </defs>
-
-  <!-- Base Squircle -->
-  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
-  <rect x="4" y="4" width="504" height="504" rx="112" fill="none" stroke="url(#borderGlow)" stroke-width="2"/>
-
-  <!-- Warm Backlight Glow -->
-  <circle cx="256" cy="270" r="180" fill="url(#glow)"/>
-
-  <!-- Heirloom Culinary Emblem: Ribbed Heritage Tomato & Botanical Calyx -->
-  <!-- Left Outer Lobe -->
-  <ellipse cx="196" cy="286" rx="66" ry="86" transform="rotate(-14 196 286)" fill="url(#heirloomGold)" opacity="0.95"/>
-  <!-- Right Outer Lobe -->
-  <ellipse cx="316" cy="286" rx="66" ry="86" transform="rotate(14 316 286)" fill="url(#heirloomGold)" opacity="0.95"/>
-  <!-- Central Main Lobe -->
-  <ellipse cx="256" cy="292" rx="74" ry="92" fill="url(#heirloomGold)"/>
-
-  <!-- Subtle Shading Curve for Rich Handcrafted Depth -->
-  <path d="M190 354 C216 374 296 374 322 354 C304 366 268 372 256 372 C244 372 208 366 190 354 Z" fill="#92400E" opacity="0.45"/>
-
-  <!-- Subtle Center Highlight -->
-  <ellipse cx="236" cy="254" rx="18" ry="32" transform="rotate(-20 236 254)" fill="#FEF3C7" opacity="0.32"/>
-
-  <!-- Botanical Calyx & Heirloom Vine Stem -->
-  <!-- Stem -->
-  <path d="M256 205 C256 165 240 145 224 135 C222 133 226 128 230 130 C252 142 270 166 266 205 Z" fill="url(#botanicalGreen)"/>
-
-  <!-- 5-Point Heirloom Botanical Calyx Leaves -->
-  <!-- Center Leaf -->
-  <path d="M256 205 Q256 226 256 242 Q264 228 266 205 Z" fill="url(#botanicalGreen)"/>
-  <!-- Left Leaf 1 -->
-  <path d="M252 204 Q216 210 188 226 Q214 220 248 210 Z" fill="url(#botanicalGreen)"/>
-  <!-- Right Leaf 1 -->
-  <path d="M260 204 Q296 210 324 226 Q298 220 264 210 Z" fill="url(#botanicalGreen)"/>
-  <!-- Left Leaf 2 (Upper) -->
-  <path d="M250 200 Q220 186 196 172 Q224 186 248 198 Z" fill="url(#botanicalGreen)"/>
-  <!-- Right Leaf 2 (Upper) -->
-  <path d="M262 200 Q292 186 316 172 Q288 186 264 198 Z" fill="url(#botanicalGreen)"/>
-
-  <!-- Calyx Core Knot -->
-  <circle cx="256" cy="204" r="9" fill="#047857"/>
-  <circle cx="256" cy="204" r="5" fill="#34D399"/>
+  <!-- Full-bleed square: iOS and Android round or mask the corners themselves -->
+  <rect width="512" height="512" fill="#fdfbf7"/>
+  <g transform="translate(66.0 100.2) scale(1.9)">
+    <g stroke-linecap="round" stroke-linejoin="round" fill="none" filter="url(#brush)">
+      <path stroke="#2b353e" stroke-width="7" d="M 100,145 Q 60,130 20,140 Q 22,90 20,45 Q 60,35 100,50 Z"/>
+      <path stroke="#2b353e" stroke-width="7" d="M 100,145 Q 140,130 180,140 Q 178,90 180,45 Q 140,35 100,50 Z"/>
+      <path stroke="#2b353e" stroke-width="6" d="M 100,50 L 100,148"/>
+      <path stroke="#2b353e" stroke-width="6" d="M 100,120 C 70,100 50,70 70,55 C 85,44 98,58 100,68"/>
+      <path stroke="#2b353e" stroke-width="6" d="M 100,120 C 130,100 150,70 130,55 C 115,44 102,58 100,68"/>
+      <path stroke="#55755e" stroke-width="5" d="M 100,65 Q 90,45 80,30 Q 95,30 100,45"/>
+      <path stroke="#55755e" stroke-width="5" d="M 100,55 Q 110,35 120,20 Q 105,20 100,38"/>
+      <circle cx="100" cy="18" r="3.5" fill="#55755e" stroke="none"/>
+    </g>
+  </g>
 </svg>
