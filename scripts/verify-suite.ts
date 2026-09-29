@@ -5,6 +5,7 @@ import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, Recip
 import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully, sourceFromPastedUrl, socialVideoSite } from '../src/utils/pageExtract.ts';
 import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
 import { recipeIdFromPath, recipePath, shareIdFromPath, sharePath, joinCodeFromPath, joinPath } from '../src/utils/router.ts';
+import { normalizeEmail, timeAgo } from '../src/utils/inbox.ts';
 import { generateShareId, shareUrl, sanitizeRecipeForShare, recipeFromShare, SHARE_ID_LENGTH } from '../src/utils/shareLink.ts';
 import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils/groceryMerge.ts';
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
@@ -431,7 +432,25 @@ try {
   results.push({ suite: 'Social', name: 'Exception in suite', passed: false, error: e.message });
 }
 
-// 11. Output Summary
+
+// 11. Inbox helpers
+try {
+  assert(normalizeEmail('  Alex@Example.COM ') === 'alex@example.com', 'Inbox', 'Emails are trimmed and lowercased');
+  assert(normalizeEmail('not an email') === null && normalizeEmail('a@b') === null && normalizeEmail('') === null && normalizeEmail('a b@c.com') === null, 'Inbox', 'Things that are not emails are rejected');
+  const now = Date.parse('2026-09-29T12:00:00Z');
+  const ago = (ms: number) => new Date(now - ms).toISOString();
+  assert(timeAgo(ago(20_000), now) === 'just now', 'Inbox', 'Under a minute reads "just now"');
+  assert(timeAgo(ago(60_000), now) === '1 minute ago' && timeAgo(ago(5 * 60_000), now) === '5 minutes ago', 'Inbox', 'Minutes are singular and plural');
+  assert(timeAgo(ago(3 * 3_600_000), now) === '3 hours ago', 'Inbox', 'Hours');
+  assert(timeAgo(ago(30 * 3_600_000), now) === 'yesterday' && timeAgo(ago(4 * 86_400_000), now) === '4 days ago', 'Inbox', 'Yesterday and days');
+  assert(/\d/.test(timeAgo(ago(20 * 86_400_000), now)), 'Inbox', 'Older than a week shows a date');
+  assert(timeAgo('garbage', now) === '' && timeAgo(ago(-5000), now) === 'just now', 'Inbox', 'Bad or future times do not break');
+} catch (e: any) {
+  results.push({ suite: 'Inbox', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+
+// Output Summary
 const passedCount = results.filter(r => r.passed).length;
 const failedCount = results.filter(r => !r.passed).length;
 
