@@ -19,7 +19,8 @@ export const MAX_SHARED_RECIPE_CHARS = 700_000;
  * are dropped so the snapshot serializes cleanly.
  */
 export function sanitizeRecipeForShare(recipe: Recipe): SharedRecipe['recipe'] {
-  const { id: _id, userId: _userId, householdId: _householdId, ...rest } = recipe;
+  // Your own use history stays with you.
+  const { id: _id, userId: _userId, householdId: _householdId, useCount: _useCount, lastUsedAt: _lastUsedAt, ...rest } = recipe;
   const snapshot = JSON.parse(JSON.stringify(rest)) as SharedRecipe['recipe'];
   if (JSON.stringify(snapshot).length > MAX_SHARED_RECIPE_CHARS) {
     throw new Error('This recipe is too large to share.');

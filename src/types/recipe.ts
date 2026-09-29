@@ -77,6 +77,10 @@ export interface RecipeStep {
 
 export interface Recipe {
   id: string;
+  /** How many times this recipe was planned or cooked. Counts up when it joins the meal plan or you start cooking. */
+  useCount?: number;
+  /** When it was last planned or cooked (ISO). */
+  lastUsedAt?: string;
   userId?: string;
   householdId?: string;
   title: string;
