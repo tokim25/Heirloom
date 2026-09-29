@@ -4,12 +4,12 @@ import { Recipe } from '../src/types/recipe.ts';
 import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, RecipeParseError } from '../src/utils/recipeSchema.ts';
 import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully, sourceFromPastedUrl } from '../src/utils/pageExtract.ts';
 import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
-import { recipeIdFromPath, recipePath, shareIdFromPath, sharePath } from '../src/utils/router.ts';
+import { recipeIdFromPath, recipePath, shareIdFromPath, sharePath, joinCodeFromPath, joinPath } from '../src/utils/router.ts';
 import { generateShareId, shareUrl, sanitizeRecipeForShare, recipeFromShare, SHARE_ID_LENGTH } from '../src/utils/shareLink.ts';
 import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils/groceryMerge.ts';
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
 import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl, visibleStoreNames } from '../src/utils/storeOptions.ts';
-import { generateInviteCode, normalizeInviteCode, formatInviteCode } from '../src/utils/invite.ts';
+import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 
 interface TestResult {
   suite: string;
@@ -372,6 +372,9 @@ try {
   assert(new Set(Array.from({ length: 200 }, generateShareId)).size === 200, 'Sharing', 'Share ids do not repeat');
   assert(shareUrl('https://heirloom.tonykim.io/', 'abc') === 'https://heirloom.tonykim.io/s/abc', 'Sharing', 'Builds the share link');
   assert(shareIdFromPath(sharePath('abc123')) === 'abc123' && shareIdFromPath('/r/abc') === null && shareIdFromPath('/s/') === null && shareIdFromPath('/s/a/b') === null, 'Sharing', 'Only /s/:id is a share link');
+  assert(joinCodeFromPath(joinPath('ABCD2345')) === 'ABCD2345' && joinCodeFromPath('/join') === null && joinCodeFromPath('/s/x') === null && joinCodeFromPath('/join/a/b') === null, 'Sharing', 'Only /join/:code is an invite link');
+  assert(inviteLink('HEIR-ABCD-2345', 'https://heirloom.tonykim.io') === 'https://heirloom.tonykim.io/join/ABCD2345', 'Sharing', 'An invite link carries the bare code');
+  assert(normalizeInviteCode(joinCodeFromPath(inviteLink('ABCD2345', 'https://x.test').replace('https://x.test', ''))!) === 'ABCD2345', 'Sharing', 'A code from an invite link joins');
 
   const recipe = { id: 'r1', userId: 'u1', householdId: 'h1', title: 'Burger', description: '', source: { type: 'link' as const, url: 'https://x.test', sourceName: 'x.test', youtubeId: undefined }, heroImage: '', prepTimeMinutes: 5, cookTimeMinutes: 15, totalTimeMinutes: 20, defaultServings: 4, cuisine: 'American', difficulty: 'Easy' as const, ingredients: [], steps: [], createdAt: 'a', updatedAt: 'b' };
   const snap = sanitizeRecipeForShare(recipe);

@@ -3,6 +3,7 @@ import { Check, ChevronRight, Copy, LogOut, Plus, Loader2, X } from 'lucide-reac
 import { useAuth } from '../context/AuthContext.tsx';
 import { GroceryList, Recipe } from '../types/recipe.ts';
 import { formatInviteCode } from '../utils/firestoreService.ts';
+import { inviteLink } from '../utils/invite.ts';
 import { storeNotice, visibleStoreNames } from '../utils/storeOptions.ts';
 import { Sheet } from './ui/Sheet.tsx';
 
@@ -138,13 +139,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, rec
   };
 
   const copyInvite = async () => {
-    if (!inviteCode) return;
-    const text = `Join my kitchen on Heirloom to share recipes and grocery lists.\nInvite code: ${inviteCode}\nOpen https://heirloom.tonykim.io, then Groceries > + > Join with code.`;
+    if (!household?.inviteCode) return;
+    const url = inviteLink(household.inviteCode, window.location.origin);
+    const message = 'Join my kitchen on Heirloom to share recipes and grocery lists.';
     try {
-      await navigator.clipboard.writeText(text);
+      if (typeof navigator.share === 'function' && window.matchMedia('(pointer: coarse)').matches) {
+        await navigator.share({ text: message, url });
+        return;
+      }
+      await navigator.clipboard.writeText(`${message}\n${url}`);
       setCopiedInvite(true);
       window.setTimeout(() => setCopiedInvite(false), 1800);
     } catch {
+      // Sharing was cancelled or the clipboard is blocked; nothing to undo.
       setCopiedInvite(false);
     }
   };
@@ -242,7 +249,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, rec
             {inviteCode && (
               <Row>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-stone-600">Invite code for a partner or family</p>
+                  <p className="text-sm text-stone-600">Invite a partner or family</p>
                   <p className="font-mono text-base font-semibold tracking-wide text-stone-900">{inviteCode}</p>
                 </div>
                 <button
@@ -251,7 +258,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, rec
                   className="min-h-11 px-4 rounded-xl border border-stone-300 bg-surface hover:bg-stone-50 text-sm font-semibold text-stone-800 inline-flex items-center gap-1.5 shrink-0"
                 >
                   {copiedInvite ? <Check className="w-4 h-4 text-emerald-600" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
-                  {copiedInvite ? 'Copied' : 'Copy'}
+                  {copiedInvite ? 'Link copied' : 'Invite link'}
                 </button>
               </Row>
             )}
