@@ -29,6 +29,7 @@ import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { RecipeEditModal } from './components/RecipeEditModal.tsx';
 import { MealPlannerSheet, PlanDaySheet } from './components/MealPlanner.tsx';
 import { planToList } from './utils/mealPlan.ts';
+import { OfflineBanner } from './components/OfflineBanner.tsx';
 import { ShareRecipeSheet } from './components/ShareRecipeSheet.tsx';
 import { SharedRecipeSheet } from './components/SharedRecipeSheet.tsx';
 import { ConfirmSheet } from './components/ui/Sheet.tsx';
@@ -563,6 +564,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-canvas text-stone-900 flex flex-col selection:bg-stone-200 w-full max-w-full overflow-x-hidden">
+      <OfflineBanner />
+
       {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
