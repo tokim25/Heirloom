@@ -22,6 +22,18 @@ export interface HouseholdMember {
   joinedAt: string;
 }
 
+/** One recipe planned for one day. Lives on the household so everyone sees the same plan. */
+export interface PlannedMeal {
+  id: string;
+  recipeId: string;
+  recipeTitle: string;
+  heroImage?: string;
+  /** Local calendar day, YYYY-MM-DD. */
+  date: string;
+  servings: number;
+  addedBy: string;
+}
+
 // Everyone in a household shares its recipes and grocery lists.
 export interface Household {
   id: string;
@@ -29,6 +41,7 @@ export interface Household {
   memberIds: string[];
   members: Record<string, HouseholdMember>;
   inviteCode: string;
+  mealPlan?: Record<string, PlannedMeal>;
   createdAt: string;
   updatedAt: string;
 }

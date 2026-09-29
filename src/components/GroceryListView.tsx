@@ -16,12 +16,13 @@ import {
   RefreshCw,
   Filter,
 } from 'lucide-react';
-import { GroceryList, GroceryItem, Recipe } from '../types/recipe.ts';
+import { GroceryList, GroceryItem, PlannedMeal, Recipe } from '../types/recipe.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { formatFraction } from '../utils/units.ts';
 import { sounds } from '../utils/sound.ts';
 import { predictGroceryItem, PredictiveGroceryItem } from '../utils/searchEngine.ts';
 import { inviteLink } from '../utils/invite.ts';
+import { dayLabel, groupItemsByMeal, toDateKey } from '../utils/mealPlan.ts';
 import { STORE_NAMES } from '../utils/storeOptions.ts';
 import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
 
@@ -41,6 +42,7 @@ interface GroceryListViewProps {
   actionMessage?: { type: 'error' | 'success'; text: string } | null;
   onDismissActionMessage?: () => void;
   recipes?: Recipe[];
+  plannedMeals?: PlannedMeal[];
 }
 
 const AISLE_CATEGORIES = [
@@ -69,8 +71,24 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   actionMessage,
   onDismissActionMessage,
   recipes = [],
+  plannedMeals = [],
 }) => {
   const { user } = useAuth();
+  const [groupMode, setGroupModeState] = useState<'aisle' | 'meal'>(() => {
+    try {
+      return localStorage.getItem('heirloom_grocery_group') === 'meal' ? 'meal' : 'aisle';
+    } catch {
+      return 'aisle';
+    }
+  });
+  const setGroupMode = (mode: 'aisle' | 'meal') => {
+    setGroupModeState(mode);
+    try {
+      localStorage.setItem('heirloom_grocery_group', mode);
+    } catch {
+      // Storage unavailable: the choice just lasts for this visit.
+    }
+  };
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [newItemName, setNewItemName] = useState('');
@@ -346,6 +364,16 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     acc[cat].push(item);
     return acc;
   }, {});
+
+  const todayKey = toDateKey(new Date());
+  const sections: { key: string; label: string; items: GroceryItem[] }[] =
+    groupMode === 'meal'
+      ? groupItemsByMeal(pendingItems, plannedMeals, todayKey).map((g) => ({
+          key: g.key,
+          label: g.date ? `${dayLabel(g.date, todayKey)} · ${g.label}` : g.label,
+          items: g.items,
+        }))
+      : Object.entries(groupedPending).map(([key, items]) => ({ key, label: key, items }));
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
@@ -672,6 +700,22 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             ))}
         </div>
 
+        <div role="group" aria-label="Group the list by" className="flex items-center gap-1 rounded-xl bg-stone-100 p-1 shrink-0 self-start sm:self-auto">
+          {(['aisle', 'meal'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={groupMode === mode}
+              onClick={() => setGroupMode(mode)}
+              className={`min-h-9 px-3 rounded-lg text-xs font-semibold transition-colors ${
+                groupMode === mode ? 'bg-ink text-white' : 'text-stone-700 hover:text-stone-950'
+              }`}
+            >
+              {mode === 'aisle' ? 'By aisle' : 'By meal'}
+            </button>
+          ))}
+        </div>
+
         {completedItems.length > 0 && (
           <button
             onClick={() => onClearCompleted(currentList.id)}
@@ -685,7 +729,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
       {/* Main Items Display Organized by Supermarket Aisle */}
       <div className="flex flex-col gap-6">
-        {Object.keys(groupedPending).length === 0 && completedItems.length === 0 ? (
+        {sections.length === 0 && completedItems.length === 0 ? (
           <div className="p-12 text-center bg-surface rounded-3xl border border-stone-200">
             <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
             <h3 className="font-serif text-xl text-stone-900">Your shopping list is all set!</h3>
@@ -694,11 +738,11 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             </p>
           </div>
         ) : (
-          Object.entries(groupedPending).map(([category, items]) => (
+          sections.map(({ key: category, label, items }) => (
             <div key={category} className="flex flex-col gap-2">
               <div className="flex items-center justify-between px-1">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-                  {category} ({items.length})
+                  {label} ({items.length})
                 </h3>
               </div>
 

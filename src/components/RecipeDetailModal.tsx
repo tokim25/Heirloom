@@ -19,6 +19,7 @@ import {
   Sparkles,
   AlertCircle,
   ChefHat,
+  CalendarPlus,
 } from 'lucide-react';
 import { Recipe, Ingredient, GroceryList } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, UnitSystem, formatStepTemperatures } from '../utils/units.ts';
@@ -43,6 +44,7 @@ interface RecipeDetailModalProps {
   onDeleteRecipe?: (id: string) => void;
   onEditRecipe?: (recipe: Recipe) => void;
   onShareRecipe?: (recipe: Recipe) => void;
+  onPlanRecipe?: (recipe: Recipe) => void;
 }
 
 export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
@@ -57,6 +59,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   onDeleteRecipe,
   onEditRecipe,
   onShareRecipe,
+  onPlanRecipe,
 }) => {
   const [servings, setServings] = useState(recipe.defaultServings || 2);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('imperial');
@@ -100,6 +103,17 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     <Sheet open onClose={onClose} title={recipe.title} variant="bare" size="4xl" fullOnMobile>
       {/* Floating Edit and Close buttons, clear of the iPhone notch */}
       <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-30 flex items-center gap-2">
+        {onPlanRecipe && (
+          <button
+            type="button"
+            onClick={() => onPlanRecipe(recipe)}
+            aria-label="Plan this recipe for a day"
+            title="Plan for a day"
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-ink/70 hover:bg-ink text-white backdrop-blur-md transition-all shadow-md"
+          >
+            <CalendarPlus className="w-4 h-4" aria-hidden="true" />
+          </button>
+        )}
         {onShareRecipe && (
           <button
             type="button"

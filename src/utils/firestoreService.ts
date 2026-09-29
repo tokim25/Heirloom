@@ -17,7 +17,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { Recipe, GroceryList, GroceryItem, Household, SharedRecipe, User } from '../types/recipe.ts';
+import { Recipe, GroceryList, GroceryItem, Household, PlannedMeal, SharedRecipe, User } from '../types/recipe.ts';
 import { generateShareId, sanitizeRecipeForShare } from './shareLink.ts';
 import { generateInviteCode, normalizeInviteCode } from './invite.ts';
 
@@ -244,6 +244,24 @@ export const firestoreService = {
 
   async deleteShare(id: string) {
     await deleteDoc(shareRef(id));
+  },
+
+  // ---- Meal plan (a map on the household document, so partners see it live) ----
+
+  async planMeal(hid: string, meal: PlannedMeal) {
+    await updateDoc(householdRef(hid), new FieldPath('mealPlan', meal.id), meal, 'updatedAt', now());
+  },
+
+  async moveMeal(hid: string, mealId: string, updates: Partial<Pick<PlannedMeal, 'date' | 'servings'>>) {
+    const args: unknown[] = [];
+    (Object.keys(updates) as (keyof typeof updates)[]).forEach((key) => args.push(new FieldPath('mealPlan', mealId, key), updates[key]));
+    args.push('updatedAt', now());
+    const [first, firstValue, ...rest] = args;
+    await updateDoc(householdRef(hid), first as FieldPath, firstValue, ...rest);
+  },
+
+  async unplanMeal(hid: string, mealId: string) {
+    await updateDoc(householdRef(hid), new FieldPath('mealPlan', mealId), deleteField(), 'updatedAt', now());
   },
 
   // ---- Grocery lists ----

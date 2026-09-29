@@ -9,6 +9,7 @@ import { generateShareId, shareUrl, sanitizeRecipeForShare, recipeFromShare, SHA
 import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils/groceryMerge.ts';
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
 import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl, visibleStoreNames } from '../src/utils/storeOptions.ts';
+import { toDateKey, fromDateKey, addDays, weekStart, weekDays, isValidDateKey, dayLabel, planToList, mealsInRange, groupItemsByMeal, SHARED_GROUP, OTHER_GROUP } from '../src/utils/mealPlan.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 
 interface TestResult {
@@ -391,6 +392,33 @@ try {
   assert(copy.source.sharedBy === 'Alex' && copy.source.sharedFromShareId === 'sh1' && copy.source.url === 'https://x.test', 'Sharing', 'A saved copy remembers who shared it and keeps the original source');
 } catch (e: any) {
   results.push({ suite: 'Sharing', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// Meal planner
+try {
+  assert(toDateKey(fromDateKey('2026-09-30')) === '2026-09-30', 'Planner', 'Date keys round-trip in local time');
+  assert(addDays('2026-09-30', 1) === '2026-10-01' && addDays('2026-01-01', -1) === '2025-12-31', 'Planner', 'Adding days crosses month and year ends');
+  assert(weekStart('2026-09-28') === '2026-09-28' && weekStart('2026-10-04') === '2026-09-28' && weekStart('2026-10-05') === '2026-10-05', 'Planner', 'Weeks run Monday to Sunday');
+  assert(weekDays('2026-09-28').length === 7 && weekDays('2026-09-28')[6] === '2026-10-04', 'Planner', 'A week has seven days');
+  assert(isValidDateKey('2026-02-28') && !isValidDateKey('2026-02-30') && !isValidDateKey('tomorrow'), 'Planner', 'Bad dates are rejected');
+  assert(dayLabel('2026-09-28', '2026-09-28') === 'Today' && dayLabel('2026-09-29', '2026-09-28') === 'Tomorrow', 'Planner', 'Today and tomorrow read naturally');
+
+  const meal = (id: string, title: string, date: string) => ({ id, recipeId: 'r-' + title, recipeTitle: title, date, servings: 4, addedBy: 'Tony' });
+  const plan = { a: meal('a', 'Tacos', '2026-09-30'), b: meal('b', 'Soup', '2026-09-29'), c: meal('c', 'Pasta', '2026-10-09') };
+  assert(planToList(plan).map((m) => m.id).join('') === 'bac', 'Planner', 'The plan sorts by day');
+  assert(mealsInRange(planToList(plan), '2026-09-28', '2026-10-04').length === 2, 'Planner', 'A week only includes its own days');
+
+  const items = [
+    { recipeTitle: 'Tacos' }, { recipeTitle: 'Soup' }, { recipeTitle: 'Tacos, Soup' },
+    { recipeTitle: 'Burgers' }, { recipeTitle: undefined }, { recipeTitle: 'Pasta' },
+  ];
+  const groups = groupItemsByMeal(items, planToList(plan), '2026-09-28');
+  assert(groups.map((g) => g.label).join('|') === `Soup|Tacos|Pasta|Burgers|${SHARED_GROUP}|${OTHER_GROUP}`, 'Planner', 'Grocery lines group by planned day, then unplanned recipes, shared, and other');
+  assert(groups.reduce((n, g) => n + g.items.length, 0) === items.length, 'Planner', 'Grouping never drops a grocery line');
+  const comma = groupItemsByMeal([{ recipeTitle: 'Salt, Fat, Acid' }], [meal('z', 'Salt, Fat, Acid', '2026-09-30')], '2026-09-28');
+  assert(comma.length === 1 && comma[0].label === 'Salt, Fat, Acid', 'Planner', 'A recipe title with a comma stays one meal');
+} catch (e: any) {
+  results.push({ suite: 'Planner', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // 11. Output Summary

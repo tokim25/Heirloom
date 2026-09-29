@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Cloud,
   Layers,
+  CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 
@@ -23,6 +24,7 @@ interface NavbarProps {
   onOpenChat: () => void;
   onOpenPantry: () => void;
   onOpenDriveBackup?: () => void;
+  onOpenPlan?: () => void;
   onOpenIngredientOrganizer?: () => void;
   canInstallPwa?: boolean;
   onInstallPwa?: () => void;
@@ -38,6 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenChat,
   onOpenPantry,
   onOpenDriveBackup,
+  onOpenPlan,
   onOpenIngredientOrganizer,
   canInstallPwa,
   onInstallPwa,
@@ -162,6 +165,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Plus className="w-4 h-4 stroke-[2.5] shrink-0 text-white" />
             <span>Import Recipe</span>
           </button>
+
+          {/* Meal plan (phones use the bottom bar) */}
+          {user && onOpenPlan && (
+            <button
+              type="button"
+              onClick={onOpenPlan}
+              className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-stone-800 bg-surface hover:bg-stone-50 border border-stone-200/80 rounded-xl transition-all active:scale-[0.98] shadow-xs"
+            >
+              <CalendarDays className="w-4 h-4 text-stone-600 shrink-0" aria-hidden="true" />
+              <span>Meal plan</span>
+            </button>
+          )}
 
           {/* More menu */}
           <div className="relative" ref={toolsMenuRef}>
