@@ -22,12 +22,17 @@ interface PlanDaySheetProps {
   initialDate?: string;
   initialServings: number;
   meals: PlannedMeal[];
+  /** A meal being moved, so it does not count as already planned on its own day. */
+  ignoreMealId?: string;
   showServings?: boolean;
   onConfirm: (date: string, servings: number) => void;
   onClose: () => void;
 }
 
-/** Pick a day (today through two weeks out) and how many people you are cooking for. */
+const WEEKDAY_INITIAL = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const MAX_WEEKS_AHEAD = 12;
+
+/** Pick a day from a week strip, see what is already planned on it, and choose how many people you are cooking for. */
 export const PlanDaySheet: React.FC<PlanDaySheetProps> = ({
   title,
   description,
@@ -35,14 +40,26 @@ export const PlanDaySheet: React.FC<PlanDaySheetProps> = ({
   initialDate,
   initialServings,
   meals,
+  ignoreMealId,
   showServings = true,
   onConfirm,
   onClose,
 }) => {
   const today = toDateKey(new Date());
-  const days = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(today, i)), [today]);
-  const [date, setDate] = useState(initialDate && days.includes(initialDate) ? initialDate : today);
+  const thisWeek = weekStart(today);
+  const startDate = initialDate && initialDate >= today ? initialDate : today;
+  const [date, setDate] = useState(startDate);
+  const [start, setStart] = useState(weekStart(startDate));
   const [servings, setServings] = useState(Math.max(1, initialServings));
+
+  const others = meals.filter((m) => m.id !== ignoreMealId);
+  const days = weekDays(start);
+  const selectedMeals = others.filter((m) => m.date === date);
+  const pick = (day: string) => {
+    setDate(day);
+    setStart(weekStart(day));
+  };
+  const longDay = fromDateKey(date).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 
   return (
     <Sheet
@@ -66,28 +83,97 @@ export const PlanDaySheet: React.FC<PlanDaySheetProps> = ({
         </>
       }
     >
-      <div role="radiogroup" aria-label="Day" className="grid grid-cols-2 gap-2">
-        {days.map((day) => {
-          const count = meals.filter((m) => m.date === day).length;
+      <div className="flex items-center gap-2">
+        {[
+          { label: 'Tonight', day: today },
+          { label: 'Tomorrow', day: addDays(today, 1) },
+        ].map((shortcut) => (
+          <button
+            key={shortcut.label}
+            type="button"
+            onClick={() => pick(shortcut.day)}
+            className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${
+              date === shortcut.day ? 'bg-ink text-white border-ink' : 'bg-surface border-stone-300 text-stone-800 hover:bg-stone-50'
+            }`}
+          >
+            {shortcut.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          aria-label="Previous week"
+          disabled={start <= thisWeek}
+          onClick={() => setStart(addDays(start, -7))}
+          className="min-h-11 min-w-11 rounded-full flex items-center justify-center text-stone-800 hover:bg-stone-100 disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <ChevronLeft className="w-5 h-5" aria-hidden="true" />
+        </button>
+        <p className="text-sm font-semibold text-stone-900" aria-live="polite">
+          {weekLabel(start)}
+        </p>
+        <button
+          type="button"
+          aria-label="Next week"
+          disabled={start >= addDays(thisWeek, MAX_WEEKS_AHEAD * 7)}
+          onClick={() => setStart(addDays(start, 7))}
+          className="min-h-11 min-w-11 rounded-full flex items-center justify-center text-stone-800 hover:bg-stone-100 disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <ChevronRight className="w-5 h-5" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div role="radiogroup" aria-label="Day" className="grid grid-cols-7 gap-1.5 -mt-2">
+        {days.map((day, i) => {
+          const count = others.filter((m) => m.date === day).length;
           const selected = day === date;
+          const past = day < today;
+          const dayNumber = fromDateKey(day).getDate();
           return (
             <button
               key={day}
               type="button"
               role="radio"
               aria-checked={selected}
-              onClick={() => setDate(day)}
-              className={`min-h-14 px-3 rounded-xl border text-left transition-colors ${
-                selected ? 'bg-ink text-white border-ink' : 'bg-surface border-stone-300 text-stone-900 hover:bg-stone-50'
+              disabled={past}
+              aria-label={`${fromDateKey(day).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${
+                count ? `, ${count} planned` : ''
+              }`}
+              onClick={() => pick(day)}
+              className={`min-h-16 rounded-2xl border flex flex-col items-center justify-center gap-0.5 transition-colors disabled:opacity-35 ${
+                selected
+                  ? 'bg-ink text-white border-ink'
+                  : day === today
+                  ? 'bg-surface border-amber-500/70 text-stone-900'
+                  : 'bg-surface border-stone-300 text-stone-900 hover:bg-stone-50'
               }`}
             >
-              <span className="block text-sm font-semibold">{dayLabel(day, today)}</span>
-              <span className={`block text-xs ${selected ? 'text-white/80' : 'text-stone-600'}`}>
-                {count === 0 ? 'Nothing planned' : `${count} planned`}
-              </span>
+              <span className={`text-xs font-medium ${selected ? 'text-white/80' : 'text-stone-600'}`}>{WEEKDAY_INITIAL[i]}</span>
+              <span className="text-lg font-semibold tabular-nums leading-none">{dayNumber}</span>
+              <span
+                aria-hidden="true"
+                className={`w-1.5 h-1.5 rounded-full ${count ? (selected ? 'bg-white' : 'bg-amber-500') : 'bg-transparent'}`}
+              />
             </button>
           );
         })}
+      </div>
+
+      <div className="rounded-2xl bg-stone-100/70 px-4 py-3" aria-live="polite">
+        <p className="text-sm font-semibold text-stone-900">{longDay}</p>
+        {selectedMeals.length === 0 ? (
+          <p className="text-sm text-stone-600">Nothing planned yet.</p>
+        ) : (
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {selectedMeals.map((m) => (
+              <li key={m.id} className="text-sm text-stone-700 truncate">
+                {m.recipeTitle} · {m.servings} {m.servings === 1 ? 'person' : 'people'}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {showServings && (
@@ -102,7 +188,7 @@ export const PlanDaySheet: React.FC<PlanDaySheetProps> = ({
             >
               <Minus className="w-4 h-4" aria-hidden="true" />
             </button>
-            <span className="min-w-16 text-center text-base font-semibold text-stone-900" aria-live="polite">
+            <span className="min-w-20 text-center text-base font-semibold text-stone-900" aria-live="polite">
               {servings} {servings === 1 ? 'person' : 'people'}
             </span>
             <button
@@ -372,6 +458,7 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
           initialDate={moving.date}
           initialServings={moving.servings}
           meals={meals}
+          ignoreMealId={moving.id}
           onConfirm={(date, servings) => {
             onMove(moving, date, servings);
             setStart(weekStart(date));
