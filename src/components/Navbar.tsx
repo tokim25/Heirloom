@@ -13,6 +13,7 @@ import {
   Cloud,
   Layers,
   CalendarDays,
+  Inbox,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 
@@ -25,6 +26,8 @@ interface NavbarProps {
   onOpenPantry: () => void;
   onOpenDriveBackup?: () => void;
   onOpenPlan?: () => void;
+  inboxCount?: number;
+  onOpenInbox?: () => void;
   onOpenIngredientOrganizer?: () => void;
   canInstallPwa?: boolean;
   onInstallPwa?: () => void;
@@ -41,6 +44,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenPantry,
   onOpenDriveBackup,
   onOpenPlan,
+  inboxCount = 0,
+  onOpenInbox,
   onOpenIngredientOrganizer,
   canInstallPwa,
   onInstallPwa,
@@ -175,6 +180,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <CalendarDays className="w-4 h-4 text-stone-600 shrink-0" aria-hidden="true" />
               <span>Meal plan</span>
+            </button>
+          )}
+
+          {/* Inbox: recipes other Heirloom users sent to this account */}
+          {user && onOpenInbox && (
+            <button
+              type="button"
+              onClick={onOpenInbox}
+              className="relative p-2 rounded-xl border shadow-xs bg-surface text-stone-700 border-stone-200/80 hover:bg-stone-50 active:scale-[0.97] transition-all"
+              title="Inbox"
+              aria-label={inboxCount > 0 ? `Inbox, ${inboxCount} new` : 'Inbox'}
+            >
+              <Inbox className="w-4 h-4 shrink-0 text-stone-600" aria-hidden="true" />
+              {inboxCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center">
+                  {inboxCount}
+                </span>
+              )}
             </button>
           )}
 

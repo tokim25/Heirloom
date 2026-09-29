@@ -19,7 +19,7 @@ import {
   List,
   X,
 } from 'lucide-react';
-import { Recipe, GroceryList, GroceryItem, PlannedMeal } from './types/recipe.ts';
+import { Recipe, GroceryList, GroceryItem, PlannedMeal, ShareInvite } from './types/recipe.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { RecipeCard } from './components/RecipeCard.tsx';
 import { RecipeRow } from './components/RecipeRow.tsx';
@@ -30,6 +30,7 @@ import { RecipeEditModal } from './components/RecipeEditModal.tsx';
 import { MealPlannerSheet, PlanDaySheet } from './components/MealPlanner.tsx';
 import { planToList } from './utils/mealPlan.ts';
 import { OfflineBanner } from './components/OfflineBanner.tsx';
+import { InboxSheet } from './components/InboxSheet.tsx';
 import { ShareRecipeSheet } from './components/ShareRecipeSheet.tsx';
 import { SharedRecipeSheet } from './components/SharedRecipeSheet.tsx';
 import { ConfirmSheet } from './components/ui/Sheet.tsx';
@@ -50,7 +51,7 @@ import { useAuth } from './context/AuthContext.tsx';
 import { UnitSystem, scaleQuantity } from './utils/units.ts';
 import { firestoreService, formatInviteCode } from './utils/firestoreService.ts';
 import { planGroceryMerge } from './utils/groceryMerge.ts';
-import { closeOverlay, getPath, joinCodeFromPath, navigate, recipeIdFromPath, recipePath, shareIdFromPath, usePath } from './utils/router.ts';
+import { closeOverlay, getPath, joinCodeFromPath, navigate, recipeIdFromPath, recipePath, shareIdFromPath, sharePath, usePath } from './utils/router.ts';
 import { sounds } from './utils/sound.ts';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { PredictiveSearchBar } from './components/PredictiveSearchBar.tsx';
@@ -143,6 +144,7 @@ export default function App() {
   };
   const [sharingRecipe, setSharingRecipe] = useState<Recipe | null>(null);
   const shareId = shareIdFromPath(path);
+  const [inbox, setInbox] = useState<ShareInvite[]>([]);
   const [planningRecipe, setPlanningRecipe] = useState<Recipe | null>(null);
   const joinCode = joinCodeFromPath(path);
   const [joining, setJoining] = useState(false);
@@ -203,6 +205,16 @@ export default function App() {
       previousListsRef.current = [];
     };
   }, [user?.householdId]);
+
+  // Recipes other people sent to this account's email.
+  useEffect(() => {
+    const email = user?.email?.toLowerCase();
+    if (!email) {
+      setInbox([]);
+      return;
+    }
+    return firestoreService.subscribeInbox(email, setInbox, (err) => console.error('Inbox listener error:', err));
+  }, [user?.email]);
 
   // Chime when someone else in the household checks an item off.
   const previousListsRef = useRef<GroceryList[]>([]);
@@ -576,6 +588,8 @@ export default function App() {
         onOpenPantry={() => setIsPantryOpen(true)}
         onOpenDriveBackup={() => setIsDriveBackupOpen(true)}
         onOpenPlan={() => navigate('/plan')}
+        inboxCount={inbox.length}
+        onOpenInbox={() => navigate('/inbox')}
         onOpenIngredientOrganizer={() => setIsIngredientOrganizerOpen(true)}
         canInstallPwa={canInstallPwa}
         onInstallPwa={() => promptPwaInstall()}
@@ -840,6 +854,9 @@ export default function App() {
           create={() => firestoreService.createShare({ id: user.id, name: user.name }, sharingRecipe)}
           refresh={(share) => firestoreService.refreshShare(share, sharingRecipe)}
           stop={(share) => firestoreService.deleteShare(share.id)}
+          listInvites={(share) => firestoreService.listInvitesForShare(user.id, share.id)}
+          sendInvite={(share, to) => firestoreService.sendShareInvite(share, to)}
+          removeInvite={(invite) => firestoreService.removeInvite(invite.id)}
           onClose={() => setSharingRecipe(null)}
         />
       )}
@@ -891,6 +908,17 @@ export default function App() {
         />
       )}
 
+      {user && path === '/inbox' && (
+        <InboxSheet
+          invites={inbox}
+          onView={(invite) => navigate(sharePath(invite.shareId))}
+          onDismiss={(invite) =>
+            firestoreService.removeInvite(invite.id).catch(() => showNotice('error', 'Could not dismiss that. Try again.'))
+          }
+          onClose={() => closeOverlay('/inbox')}
+        />
+      )}
+
       {user && shareId && (
         <SharedRecipeSheet
           shareId={shareId}
@@ -910,6 +938,7 @@ export default function App() {
               now: new Date().toISOString(),
             });
             await firestoreService.saveRecipe(householdId, copy, user.id);
+            if (user.email) firestoreService.dismissInvitesForShare(user.email.toLowerCase(), shared.id).catch(() => {});
             setRecipeFallback(copy);
             navigate(recipePath(copy.id), { replace: true });
             showNotice('success', `Saved "${copy.title}" to your cookbook.`);

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Check, ClipboardCopy, Link2, Loader2, RefreshCw, Share2 } from 'lucide-react';
-import { Recipe, SharedRecipe } from '../types/recipe.ts';
+import { Check, ClipboardCopy, Link2, Loader2, RefreshCw, Send, Share2, X } from 'lucide-react';
+import { Recipe, ShareInvite, SharedRecipe } from '../types/recipe.ts';
+import { normalizeEmail } from '../utils/inbox.ts';
 import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
 import { shareUrl } from '../utils/shareLink.ts';
 
@@ -10,22 +11,43 @@ interface ShareRecipeSheetProps {
   create: () => Promise<SharedRecipe>;
   refresh: (share: SharedRecipe) => Promise<SharedRecipe>;
   stop: (share: SharedRecipe) => Promise<void>;
+  listInvites: (share: SharedRecipe) => Promise<ShareInvite[]>;
+  sendInvite: (share: SharedRecipe, email: string) => Promise<ShareInvite>;
+  removeInvite: (invite: ShareInvite) => Promise<void>;
   onClose: () => void;
 }
 
-type Busy = 'create' | 'refresh' | 'stop' | null;
+type Busy = 'create' | 'refresh' | 'stop' | 'send' | null;
 
 /**
  * Share one recipe with someone outside your household. Nothing is shared until you create the link,
  * and you can stop at any time. The link gives a signed-in Heirloom user a preview and a Save button.
  */
-export const ShareRecipeSheet: React.FC<ShareRecipeSheetProps> = ({ recipe, load, create, refresh, stop, onClose }) => {
+export const ShareRecipeSheet: React.FC<ShareRecipeSheetProps> = ({ recipe, load, create, refresh, stop, listInvites, sendInvite, removeInvite, onClose }) => {
   const [share, setShare] = useState<SharedRecipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmingStop, setConfirmingStop] = useState(false);
+  const [invites, setInvites] = useState<ShareInvite[]>([]);
+  const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    if (!share) {
+      setInvites([]);
+      return;
+    }
+    let cancelled = false;
+    listInvites(share)
+      .then((list) => !cancelled && setInvites(list))
+      .catch(() => {
+        // The list is a convenience; sending still works without it.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [share?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +92,28 @@ export const ShareRecipeSheet: React.FC<ShareRecipeSheetProps> = ({ recipe, load
     } catch {
       // The person closed the share sheet.
     }
+  };
+
+  const send = () => {
+    const to = normalizeEmail(email);
+    if (!to) {
+      setError('Enter the email address they use to sign in to Heirloom.');
+      return;
+    }
+    if (invites.some((i) => i.toEmail === to)) {
+      setError('You already sent this to that address.');
+      return;
+    }
+    return run(
+      'send',
+      async () => {
+        if (!share) return;
+        const invite = await sendInvite(share, to);
+        setInvites((list) => [...list, invite]);
+        setEmail('');
+      },
+      'Could not send it. Check your connection and try again.'
+    );
   };
 
   return (
@@ -144,6 +188,65 @@ export const ShareRecipeSheet: React.FC<ShareRecipeSheetProps> = ({ recipe, load
               </button>
             )}
           </div>
+
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send();
+            }}
+          >
+            <label htmlFor="send-to" className="text-sm font-semibold text-stone-800">
+              Send to someone on Heirloom
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="send-to"
+                type="email"
+                inputMode="email"
+                autoComplete="off"
+                placeholder="their Google email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="min-h-12 min-w-0 flex-1 px-3 rounded-xl bg-surface border border-stone-300 text-base text-stone-900 placeholder:text-stone-500"
+              />
+              <button
+                type="submit"
+                disabled={busy !== null || !email.trim()}
+                className="min-h-12 px-4 rounded-xl bg-ink hover:bg-ink-hover disabled:opacity-50 text-white text-base font-semibold inline-flex items-center gap-2 shrink-0"
+              >
+                {busy === 'send' ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Send className="w-4 h-4" aria-hidden="true" />}
+                Send
+              </button>
+            </div>
+            <p className="text-xs text-stone-600">It lands in their Inbox in Heirloom. They need to sign in with that Google email.</p>
+            {invites.length > 0 && (
+              <ul className="flex flex-col">
+                {invites.map((invite) => (
+                  <li key={invite.id} className="flex items-center justify-between gap-2 text-sm text-stone-800 border-t border-stone-200 first:border-t-0">
+                    <span className="truncate py-2">Sent to {invite.toEmail}</span>
+                    <button
+                      type="button"
+                      aria-label={`Unsend to ${invite.toEmail}`}
+                      onClick={() =>
+                        run(
+                          'send',
+                          async () => {
+                            await removeInvite(invite);
+                            setInvites((list) => list.filter((i) => i.id !== invite.id));
+                          },
+                          'Could not unsend. Try again.'
+                        )
+                      }
+                      className="hit-area min-h-11 min-w-11 flex items-center justify-center text-stone-500 hover:text-stone-900"
+                    >
+                      <X className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </form>
 
           {editedSinceShared && (
             <div className="rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/50 p-3 text-sm text-amber-900 dark:text-amber-100 flex flex-col gap-2">

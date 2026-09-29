@@ -7,6 +7,7 @@ import { useSyncExternalStore } from 'react';
  *   /add            Add a recipe (sheet over the current tab)
  *   /profile        Profile (sheet over the current tab)
  *   /plan           Weekly meal plan (sheet over the current tab)
+ *   /inbox          Recipes sent to you (sheet over the current tab)
  *   /r/:recipeId    A recipe (sheet over Recipes)
  *   /s/:shareId     A recipe someone shared (sheet)
  *   /join/:code     An invite to join someone's household (sheet)
