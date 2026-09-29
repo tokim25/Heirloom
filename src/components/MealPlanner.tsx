@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { CalendarDays, ChefHat, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Search, ShoppingBag, X } from 'lucide-react';
 import { PlannedMeal, Recipe } from '../types/recipe.ts';
 import { addDays, dayLabel, fromDateKey, mealsInRange, toDateKey, weekDays, weekLabel, weekStart } from '../utils/mealPlan.ts';
+import { compareMostUsed, useLabel } from '../utils/recipeUsage.ts';
+import { createRecipeSearchIndex, searchRecipes } from '../utils/searchEngine.ts';
 import { Sheet } from './ui/Sheet.tsx';
 
 const Thumb: React.FC<{ url?: string }> = ({ url }) =>
@@ -128,11 +130,12 @@ interface RecipePickerSheetProps {
 /** Choose one of your recipes for a day. */
 export const RecipePickerSheet: React.FC<RecipePickerSheetProps> = ({ recipes, dateLabel, onPick, onClose }) => {
   const [query, setQuery] = useState('');
+  const index = useMemo(() => createRecipeSearchIndex(recipes), [recipes]);
+  // Typing finds the best match even with typos ("spageti"); with nothing typed, your most used recipes come first.
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = q ? recipes.filter((r) => r.title.toLowerCase().includes(q) || r.cuisine?.toLowerCase().includes(q)) : recipes;
-    return [...list].sort((a, b) => a.title.localeCompare(b.title));
-  }, [recipes, query]);
+    const q = query.trim();
+    return q ? searchRecipes(index, q) : [...recipes].sort(compareMostUsed);
+  }, [recipes, query, index]);
 
   return (
     <Sheet open onClose={onClose} title="Pick a recipe" description={dateLabel} size="md" fullOnMobile>
@@ -143,7 +146,7 @@ export const RecipePickerSheet: React.FC<RecipePickerSheetProps> = ({ recipes, d
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search your recipes"
+          placeholder="Search by name, ingredient or cuisine"
           className="w-full min-h-12 pl-9 pr-3 rounded-xl bg-surface border border-stone-300 text-base text-stone-900 placeholder:text-stone-500"
         />
       </label>
@@ -160,7 +163,7 @@ export const RecipePickerSheet: React.FC<RecipePickerSheetProps> = ({ recipes, d
                 <span className="min-w-0 flex-1">
                   <span className="block text-base font-semibold text-stone-900 truncate">{recipe.title}</span>
                   <span className="block text-sm text-stone-600 truncate">
-                    {[recipe.cuisine, recipe.totalTimeMinutes ? `${recipe.totalTimeMinutes} min` : ''].filter(Boolean).join(' · ')}
+                    {[recipe.cuisine, recipe.totalTimeMinutes ? `${recipe.totalTimeMinutes} min` : '', useLabel(recipe) ?? ''].filter(Boolean).join(' · ')}
                   </span>
                 </span>
               </button>

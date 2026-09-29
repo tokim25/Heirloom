@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLabel } from '../utils/recipeUsage.ts';
 import { Play, ShoppingBag, Youtube, ExternalLink, ChefHat } from 'lucide-react';
 import { Recipe } from '../types/recipe.ts';
 
@@ -101,6 +102,12 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
             <span>{recipe.ingredients.length} ingredients</span>
             <span aria-hidden="true" className="text-stone-300">·</span>
             <span>{recipe.defaultServings} servings</span>
+            {useLabel(recipe) && (
+              <>
+                <span aria-hidden="true" className="text-stone-300">·</span>
+                <span>{useLabel(recipe)}</span>
+              </>
+            )}
           </div>
 
           <button

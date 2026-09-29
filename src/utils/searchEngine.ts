@@ -76,6 +76,28 @@ export function createRecipeSearchIndex(recipes: Recipe[]): Fuse<Recipe> {
   return new Fuse(recipes, options);
 }
 
+/**
+ * Typo-tolerant search where every word must match something: "chicken lime" finds a recipe with chicken in
+ * the title and lime in the ingredients. Best matches come first.
+ */
+export function searchRecipes(fuse: Fuse<Recipe>, query: string): Recipe[] {
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  if (words.length === 1) return fuse.search(words[0]).map((r) => r.item);
+
+  const scores = new Map<Recipe, number>();
+  words.forEach((word, i) => {
+    const found = new Map(fuse.search(word).map((r) => [r.item, r.score ?? 0] as const));
+    if (i === 0) found.forEach((score, item) => scores.set(item, score));
+    else
+      for (const item of [...scores.keys()]) {
+        if (found.has(item)) scores.set(item, (scores.get(item) ?? 0) + (found.get(item) ?? 0));
+        else scores.delete(item);
+      }
+  });
+  return [...scores.entries()].sort((a, b) => a[1] - b[1]).map(([item]) => item);
+}
+
 export interface PredictiveSearchResult {
   matchingRecipes: Array<{
     recipe: Recipe;

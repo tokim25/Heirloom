@@ -12,7 +12,7 @@ export interface RecipeOrganizationFilter {
   proteinCategory: ProteinCategory;
   selectedIngredients: string[];
   ingredientFilterMode: 'all' | 'any';
-  sortBy: 'newest' | 'quickest' | 'alphabetical' | 'prepTime';
+  sortBy: 'newest' | 'quickest' | 'alphabetical' | 'prepTime' | 'mostUsed' | 'recentlyUsed';
 }
 
 export const INITIAL_ORGANIZATION_FILTER: RecipeOrganizationFilter = {

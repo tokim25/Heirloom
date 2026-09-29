@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLabel } from '../utils/recipeUsage.ts';
 import { ChefHat, ChevronRight, Play } from 'lucide-react';
 import { Recipe } from '../types/recipe.ts';
 
@@ -11,7 +12,7 @@ interface RecipeRowProps {
 /** One recipe as a compact row, for scanning a long cookbook quickly. */
 export const RecipeRow: React.FC<RecipeRowProps> = ({ recipe, onSelect, onStartCooking }) => {
   const [imageFailed, setImageFailed] = useState(false);
-  const facts = [recipe.cuisine, recipe.totalTimeMinutes ? `${recipe.totalTimeMinutes} min` : null, recipe.difficulty]
+  const facts = [recipe.cuisine, recipe.totalTimeMinutes ? `${recipe.totalTimeMinutes} min` : null, recipe.difficulty, useLabel(recipe)]
     .filter(Boolean)
     .join(' · ');
 

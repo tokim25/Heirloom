@@ -11,6 +11,7 @@ import {
   onSnapshot,
   writeBatch,
   arrayUnion,
+  increment,
   query,
   where,
   FieldPath,
@@ -203,6 +204,13 @@ export const firestoreService = {
     };
     await setDoc(doc(recipesCol(hid), recipe.id), saved);
     return saved;
+  },
+
+  /** Counts a use (+1) or takes one back (-1) without rewriting the rest of the recipe. */
+  async adjustRecipeUse(hid: string, recipeId: string, delta: 1 | -1, lastUsedAt?: string) {
+    const changes: Record<string, unknown> = { useCount: increment(delta) };
+    if (lastUsedAt) changes.lastUsedAt = lastUsedAt;
+    await updateDoc(doc(recipesCol(hid), recipeId), changes);
   },
 
   async deleteRecipe(hid: string, id: string) {

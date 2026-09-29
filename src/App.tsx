@@ -28,7 +28,8 @@ import { InstagramCookingMode } from './components/InstagramCookingMode.tsx';
 import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { RecipeEditModal } from './components/RecipeEditModal.tsx';
 import { MealPlannerSheet, PlanDaySheet } from './components/MealPlanner.tsx';
-import { planToList } from './utils/mealPlan.ts';
+import { planToList, toDateKey } from './utils/mealPlan.ts';
+import { compareMostUsed, compareRecentlyUsed, shouldCountCooking, useCountOf } from './utils/recipeUsage.ts';
 import { OfflineBanner } from './components/OfflineBanner.tsx';
 import { InboxSheet } from './components/InboxSheet.tsx';
 import { ShareRecipeSheet } from './components/ShareRecipeSheet.tsx';
@@ -63,7 +64,7 @@ import {
   INITIAL_ORGANIZATION_FILTER,
   matchRecipeFilters,
 } from './utils/recipeTaxonomy.ts';
-import { createRecipeSearchIndex } from './utils/searchEngine.ts';
+import { createRecipeSearchIndex, searchRecipes } from './utils/searchEngine.ts';
 
 export default function App() {
   const {
@@ -306,13 +307,17 @@ export default function App() {
 
     const query = organizationFilter.searchQuery.trim();
     if (query) {
-      const results = fuseIndex.search(query);
-      list = results.map((r) => r.item);
+      list = searchRecipes(fuseIndex, query);
     }
 
     list = list.filter((r) => matchRecipeFilters(r, organizationFilter));
 
+    // While searching, best match first, unless the person chose another order.
+    if (query && organizationFilter.sortBy === 'newest') return list;
+
     return [...list].sort((a, b) => {
+      if (organizationFilter.sortBy === 'mostUsed') return compareMostUsed(a, b);
+      if (organizationFilter.sortBy === 'recentlyUsed') return compareRecentlyUsed(a, b);
       if (organizationFilter.sortBy === 'quickest') return a.totalTimeMinutes - b.totalTimeMinutes;
       if (organizationFilter.sortBy === 'prepTime') return a.prepTimeMinutes - b.prepTimeMinutes;
       if (organizationFilter.sortBy === 'alphabetical') return a.title.localeCompare(b.title);
@@ -368,6 +373,11 @@ export default function App() {
   };
 
   const handleStartCooking = (recipe: Recipe, servings?: number, unitSystem?: UnitSystem) => {
+    const householdId = user?.householdId;
+    const live = recipes.find((r) => r.id === recipe.id) ?? recipe;
+    if (householdId && shouldCountCooking(live, Date.now())) {
+      runWrite(firestoreService.adjustRecipeUse(householdId, recipe.id, 1, new Date().toISOString()), 'Could not record that you cooked this.');
+    }
     closeRecipe();
     setCookingState({
       recipe,
@@ -468,6 +478,7 @@ export default function App() {
       addedBy: user?.name || 'Someone',
     };
     runWrite(firestoreService.planMeal(householdId, meal), 'Could not save your meal plan. Try again.');
+    runWrite(firestoreService.adjustRecipeUse(householdId, recipe.id, 1, new Date().toISOString()), 'Could not update how often you use this recipe.');
   };
 
   const handleMoveMeal = (meal: PlannedMeal, date: string, servings: number) => {
@@ -480,6 +491,11 @@ export default function App() {
     const householdId = requireHousehold();
     if (!householdId) return;
     runWrite(firestoreService.unplanMeal(householdId, meal.id), 'Could not remove that meal. Try again.');
+    // Taking a meal off the plan before its day means it was not cooked, so it stops counting.
+    const recipe = recipes.find((r) => r.id === meal.recipeId);
+    if (recipe && useCountOf(recipe) > 0 && meal.date >= toDateKey(new Date())) {
+      runWrite(firestoreService.adjustRecipeUse(householdId, recipe.id, -1), 'Could not update how often you use this recipe.');
+    }
   };
 
   // Every planned meal in the list goes onto the grocery list in one pass, so repeated ingredients combine.

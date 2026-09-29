@@ -207,6 +207,8 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
                 className="px-3 py-2 bg-surface border border-stone-200 text-stone-800 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-xs"
               >
                 <option value="newest">Recently Added</option>
+                <option value="mostUsed">Most Used</option>
+                <option value="recentlyUsed">Recently Used</option>
                 <option value="quickest">Shortest Cook Time</option>
                 <option value="prepTime">Fastest Prep Time</option>
                 <option value="alphabetical">Title A-Z</option>

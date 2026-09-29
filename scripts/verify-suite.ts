@@ -11,6 +11,8 @@ import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
 import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl, visibleStoreNames } from '../src/utils/storeOptions.ts';
 import { toDateKey, fromDateKey, addDays, weekStart, weekDays, isValidDateKey, dayLabel, planToList, mealsInRange, groupItemsByMeal, SHARED_GROUP, OTHER_GROUP } from '../src/utils/mealPlan.ts';
+import { useLabel, compareMostUsed, compareRecentlyUsed, shouldCountCooking, COOKING_DEDUPE_MS } from '../src/utils/recipeUsage.ts';
+import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngine.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 
 interface TestResult {
@@ -420,6 +422,32 @@ try {
   assert(comma.length === 1 && comma[0].label === 'Salt, Fat, Acid', 'Planner', 'A recipe title with a comma stays one meal');
 } catch (e: any) {
   results.push({ suite: 'Planner', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// Recipe usage and search
+try {
+  const r = (id: string, title: string, extra: Partial<Recipe> = {}, ings: string[] = []) => ({ id, title, description: '', cuisine: 'Other', tags: [], createdAt: '2026-01-0' + id, ingredients: ings.map((name, i) => ({ id: 'i' + i, name, amount: 1, unit: '', category: 'Other' })), ...extra } as unknown as Recipe);
+  const a = r('1', 'Tacos', { useCount: 3, lastUsedAt: '2026-09-01T00:00:00Z' });
+  const b = r('2', 'Soup', { useCount: 5, lastUsedAt: '2026-08-01T00:00:00Z' });
+  const c = r('3', 'Pasta');
+  const d = r('4', 'Ramen', { useCount: 3, lastUsedAt: '2026-09-20T00:00:00Z' });
+  assert([a, b, c, d].sort(compareMostUsed).map((x) => x.title).join() === 'Soup,Ramen,Tacos,Pasta', 'Usage', 'Most used first, ties go to the more recent use, unused last');
+  assert([a, b, c, d].sort(compareRecentlyUsed).map((x) => x.title).join() === 'Ramen,Tacos,Soup,Pasta', 'Usage', 'Recently used first, never used last');
+  assert(useLabel(c) === null && useLabel(r('5', 'X', { useCount: 1 })) === 'Used once' && useLabel(b) === 'Used 5 times' && useLabel(r('6', 'Y', { useCount: -2 })) === null, 'Usage', 'The label reads naturally and ignores bad counts');
+  const now = Date.parse('2026-09-29T12:00:00Z');
+  assert(shouldCountCooking({}, now) && !shouldCountCooking({ lastUsedAt: new Date(now - 60_000).toISOString() }, now) && shouldCountCooking({ lastUsedAt: new Date(now - COOKING_DEDUPE_MS - 1000).toISOString() }, now), 'Usage', 'Reopening cooking mode within 30 minutes does not count twice');
+
+  const book = [
+    r('7', 'Spaghetti Carbonara', {}, ['eggs', 'pecorino']),
+    r('8', 'Chicken Tacos', {}, ['chicken thighs', 'lime', 'tortillas']),
+    r('9', 'Lime Pie', {}, ['lime', 'condensed milk']),
+  ];
+  const index = createRecipeSearchIndex(book);
+  assert(searchRecipes(index, 'spageti')[0]?.title === 'Spaghetti Carbonara', 'Search', 'A typo still finds the recipe');
+  assert(searchRecipes(index, 'chiken lime').map((x) => x.title).join() === 'Chicken Tacos', 'Search', 'Every word has to match, typos allowed');
+  assert(searchRecipes(index, '   ').length === 0 && searchRecipes(index, 'zzzzqq').length === 0, 'Search', 'Nothing matches blanks or nonsense');
+} catch (e: any) {
+  results.push({ suite: 'Usage', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // Social video links
