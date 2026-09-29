@@ -29,6 +29,7 @@ import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { RecipeEditModal } from './components/RecipeEditModal.tsx';
 import { ShareRecipeSheet } from './components/ShareRecipeSheet.tsx';
 import { SharedRecipeSheet } from './components/SharedRecipeSheet.tsx';
+import { ConfirmSheet } from './components/ui/Sheet.tsx';
 import { recipeFromShare } from './utils/shareLink.ts';
 import { ShoppingMode } from './components/ShoppingMode.tsx';
 import { GroceryListView } from './components/GroceryListView.tsx';
@@ -46,7 +47,7 @@ import { useAuth } from './context/AuthContext.tsx';
 import { UnitSystem, scaleQuantity } from './utils/units.ts';
 import { firestoreService, formatInviteCode } from './utils/firestoreService.ts';
 import { planGroceryMerge } from './utils/groceryMerge.ts';
-import { closeOverlay, getPath, navigate, recipeIdFromPath, recipePath, shareIdFromPath, usePath } from './utils/router.ts';
+import { closeOverlay, getPath, joinCodeFromPath, navigate, recipeIdFromPath, recipePath, shareIdFromPath, usePath } from './utils/router.ts';
 import { sounds } from './utils/sound.ts';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { PredictiveSearchBar } from './components/PredictiveSearchBar.tsx';
@@ -139,6 +140,8 @@ export default function App() {
   };
   const [sharingRecipe, setSharingRecipe] = useState<Recipe | null>(null);
   const shareId = shareIdFromPath(path);
+  const joinCode = joinCodeFromPath(path);
+  const [joining, setJoining] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [cookingState, setCookingState] = useState<{
     recipe: Recipe;
@@ -490,14 +493,18 @@ export default function App() {
     }
   };
 
-  const handleJoinHousehold = async (code: string) => {
+  const handleJoinHousehold = async (code: string): Promise<boolean> => {
     try {
       await joinHousehold(code);
       showNotice('success', 'You joined the household. Recipes and lists are now shared.');
+      return true;
     } catch (err: any) {
       showNotice('error', err?.message || 'Could not join with that code. Check it and try again.');
+      return false;
     }
   };
+
+  const leaveJoinLink = () => navigate('/', { replace: true });
 
   return (
     <div className="min-h-screen bg-canvas text-stone-900 flex flex-col selection:bg-stone-200 w-full max-w-full overflow-x-hidden">
@@ -773,6 +780,23 @@ export default function App() {
           refresh={(share) => firestoreService.refreshShare(share, sharingRecipe)}
           stop={(share) => firestoreService.deleteShare(share.id)}
           onClose={() => setSharingRecipe(null)}
+        />
+      )}
+
+      {user && joinCode && (
+        <ConfirmSheet
+          open
+          title="Join this kitchen?"
+          message="You will share one cookbook and the grocery lists with everyone in it. Recipes you have saved so far are copied over, so nothing is lost."
+          confirmLabel={joining ? 'Joining…' : 'Join kitchen'}
+          busy={joining}
+          onCancel={leaveJoinLink}
+          onConfirm={async () => {
+            setJoining(true);
+            await handleJoinHousehold(joinCode);
+            setJoining(false);
+            leaveJoinLink();
+          }}
         />
       )}
 

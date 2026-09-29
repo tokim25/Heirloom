@@ -21,6 +21,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { formatFraction } from '../utils/units.ts';
 import { sounds } from '../utils/sound.ts';
 import { predictGroceryItem, PredictiveGroceryItem } from '../utils/searchEngine.ts';
+import { inviteLink } from '../utils/invite.ts';
 import { STORE_NAMES } from '../utils/storeOptions.ts';
 import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
 
@@ -293,7 +294,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(
-      `Join my kitchen on Heirloom to share recipes and grocery lists.\nInvite code: ${cleanInviteCode}\nOpen https://heirloom.tonykim.io, then Groceries > + > Join with code.`
+      `Join my kitchen on Heirloom to share recipes and grocery lists.\n${inviteLink(cleanInviteCode, window.location.origin)}`
     );
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2500);

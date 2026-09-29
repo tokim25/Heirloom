@@ -11,3 +11,6 @@ export const normalizeInviteCode = (input: string) =>
 
 export const formatInviteCode = (code: string) =>
   code.length === 8 ? `HEIR-${code.slice(0, 4)}-${code.slice(4)}` : code;
+
+/** A link that opens Heirloom straight to "Join this household?" for the given code. */
+export const inviteLink = (code: string, origin: string) => `${origin}/join/${normalizeInviteCode(code)}`;

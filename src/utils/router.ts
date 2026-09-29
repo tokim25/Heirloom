@@ -8,6 +8,7 @@ import { useSyncExternalStore } from 'react';
  *   /profile        Profile (sheet over the current tab)
  *   /r/:recipeId    A recipe (sheet over Recipes)
  *   /s/:shareId     A recipe someone shared (sheet)
+ *   /join/:code     An invite to join someone's household (sheet)
  * Vercel already serves index.html for every non-API path, so all of these work as links.
  */
 
@@ -72,6 +73,19 @@ export const sharePath = (id: string) => `/s/${encodeURIComponent(id)}`;
 /** The share id in `/s/:id`, or null. */
 export const shareIdFromPath = (path: string): string | null => {
   const match = path.match(/^\/s\/([^/]+)$/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+};
+
+export const joinPath = (code: string) => `/join/${encodeURIComponent(code)}`;
+
+/** The invite code in `/join/:code`, or null. */
+export const joinCodeFromPath = (path: string): string | null => {
+  const match = path.match(/^\/join\/([^/]+)$/);
   if (!match) return null;
   try {
     return decodeURIComponent(match[1]);
