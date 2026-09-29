@@ -515,7 +515,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   });
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} onClick={handleStoryTap} onTouchStart={handleStoryTouchStart} onTouchEnd={handleStoryTouchEnd} data-story-surface className="stone-original fixed inset-0 z-50 cursor-pointer bg-ink-deep/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} onClick={handleStoryTap} onTouchStart={handleStoryTouchStart} onTouchEnd={handleStoryTouchEnd} data-story-surface className="stone-original fixed inset-0 z-[60] cursor-pointer bg-ink-deep/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
       {/* Background Ambient Glow */}
       <div
         className="absolute inset-0 bg-cover bg-center opacity-15 filter blur-3xl scale-110 pointer-events-none"
