@@ -122,6 +122,22 @@ export interface SharedRecipe {
   updatedAt: string;
 }
 
+/**
+ * A recipe sent to one person's Heirloom inbox. Only the sender and that recipient can read it, and the
+ * recipe itself (SharedRecipe) never contains anyone's email. The title and picture are copied here so the
+ * inbox list needs no extra reads.
+ */
+export interface ShareInvite {
+  id: string;
+  shareId: string;
+  fromUid: string;
+  fromName: string;
+  toEmail: string;
+  recipeTitle: string;
+  heroImage: string;
+  createdAt: string;
+}
+
 export interface GroceryItem {
   id: string;
   listId: string;

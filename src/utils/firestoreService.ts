@@ -17,7 +17,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { Recipe, GroceryList, GroceryItem, Household, PlannedMeal, SharedRecipe, User } from '../types/recipe.ts';
+import { Recipe, GroceryList, GroceryItem, Household, PlannedMeal, ShareInvite, SharedRecipe, User } from '../types/recipe.ts';
 import { generateShareId, sanitizeRecipeForShare } from './shareLink.ts';
 import { generateInviteCode, normalizeInviteCode } from './invite.ts';
 
@@ -48,6 +48,7 @@ const recipesCol = (hid: string) => collection(db, 'households', hid, 'recipes')
 const listsCol = (hid: string) => collection(db, 'households', hid, 'lists');
 const inviteRef = (code: string) => doc(db, 'invites', code);
 const shareRef = (id: string) => doc(db, 'shares', id);
+const shareInviteRef = (id: string) => doc(db, 'shareInvites', id);
 
 const memberFromUser = (user: Pick<User, 'id' | 'name' | 'email' | 'avatarUrl'>) => ({
   id: user.id,
@@ -243,6 +244,9 @@ export const firestoreService = {
   },
 
   async deleteShare(id: string) {
+    // Remove the invites first so nobody's inbox keeps a row for a recipe that is no longer shared.
+    const invites = await getDocs(query(collection(db, 'shareInvites'), where('fromUid', '==', (await this.getShare(id))?.fromUid ?? ''), where('shareId', '==', id)));
+    await Promise.all(invites.docs.map((d) => deleteDoc(d.ref)));
     await deleteDoc(shareRef(id));
   },
 
@@ -262,6 +266,50 @@ export const firestoreService = {
 
   async unplanMeal(hid: string, mealId: string) {
     await updateDoc(householdRef(hid), new FieldPath('mealPlan', mealId), deleteField(), 'updatedAt', now());
+  },
+
+  // ---- Sending a shared recipe to someone's inbox ----
+
+  async sendShareInvite(share: SharedRecipe, toEmail: string): Promise<ShareInvite> {
+    const ref = doc(collection(db, 'shareInvites'));
+    const invite: ShareInvite = {
+      id: ref.id,
+      shareId: share.id,
+      fromUid: share.fromUid,
+      fromName: share.fromName,
+      toEmail,
+      recipeTitle: share.recipe.title,
+      heroImage: share.recipe.heroImage || '',
+      createdAt: now(),
+    };
+    await setDoc(ref, invite);
+    return invite;
+  },
+
+  /** Who the sender has sent a share to. */
+  async listInvitesForShare(uid: string, shareId: string): Promise<ShareInvite[]> {
+    const snap = await getDocs(query(collection(db, 'shareInvites'), where('fromUid', '==', uid), where('shareId', '==', shareId)));
+    return snap.docs.map((d) => d.data() as ShareInvite).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  },
+
+  /** Used by the sender to unsend, and by the recipient to dismiss. */
+  async removeInvite(id: string) {
+    await deleteDoc(shareInviteRef(id));
+  },
+
+  /** Live inbox for one email address. */
+  subscribeInbox(email: string, onUpdate: (invites: ShareInvite[]) => void, onError: (err: Error) => void): Unsubscribe {
+    return onSnapshot(
+      query(collection(db, 'shareInvites'), where('toEmail', '==', email)),
+      (snap) => onUpdate(snap.docs.map((d) => d.data() as ShareInvite).sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
+      onError
+    );
+  },
+
+  /** After saving a shared recipe, drop the matching inbox rows. */
+  async dismissInvitesForShare(email: string, shareId: string) {
+    const snap = await getDocs(query(collection(db, 'shareInvites'), where('toEmail', '==', email), where('shareId', '==', shareId)));
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
   },
 
   // ---- Grocery lists ----

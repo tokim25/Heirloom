@@ -64,6 +64,21 @@ service cloud.firestore {
     // A recipe shared by link. The id is a 20-character random string, so a link cannot be guessed; anyone
     // signed in who has the link can read that one share, but nobody can list shares they do not own.
     // Only the person who made a share can change or remove it.
+    // Sending a share to one person's inbox. Only the sender and that one recipient can read or delete it, and
+    // the recipe never contains anyone's email. The recipient is identified by their verified Google email.
+    match /shareInvites/{inviteId} {
+      function isRecipient() {
+        return request.auth.token.email_verified == true
+          && request.auth.token.email.lower() == resource.data.toEmail;
+      }
+      allow get, list: if signedIn() && (resource.data.fromUid == request.auth.uid || isRecipient());
+      allow create: if signedIn()
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toEmail == request.resource.data.toEmail.lower()
+        && get(/databases/$(database)/documents/shares/$(request.resource.data.shareId)).data.fromUid == request.auth.uid;
+      allow delete: if signedIn() && (resource.data.fromUid == request.auth.uid || isRecipient());
+    }
+
     match /shares/{shareId} {
       allow get: if signedIn();
       allow list: if signedIn() && resource.data.fromUid == request.auth.uid;
