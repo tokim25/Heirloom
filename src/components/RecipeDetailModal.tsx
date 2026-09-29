@@ -93,9 +93,9 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   }, {});
 
   const facts = [
-    { label: 'Prep', value: `${recipe.prepTimeMinutes} min` },
-    { label: 'Cook', value: `${recipe.cookTimeMinutes} min` },
-    { label: 'Total', value: `${recipe.totalTimeMinutes} min` },
+    ...(recipe.prepTimeMinutes > 0 ? [{ label: 'Prep', value: `${recipe.prepTimeMinutes} min` }] : []),
+    ...(recipe.cookTimeMinutes > 0 ? [{ label: 'Cook', value: `${recipe.cookTimeMinutes} min` }] : []),
+    ...(recipe.totalTimeMinutes > 0 ? [{ label: 'Total', value: `${recipe.totalTimeMinutes} min` }] : []),
     ...(recipe.nutrition?.calories ? [{ label: 'Calories', value: `${recipe.nutrition.calories} kcal` }] : []),
   ];
 
@@ -103,17 +103,6 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     <Sheet open onClose={onClose} title={recipe.title} variant="bare" size="4xl" fullOnMobile>
       {/* Floating Edit and Close buttons, clear of the iPhone notch */}
       <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-30 flex items-center gap-2">
-        {onPlanRecipe && (
-          <button
-            type="button"
-            onClick={() => onPlanRecipe(recipe)}
-            aria-label="Plan this recipe for a day"
-            title="Plan for a day"
-            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-ink/70 hover:bg-ink text-white backdrop-blur-md transition-all shadow-md"
-          >
-            <CalendarPlus className="w-4 h-4" aria-hidden="true" />
-          </button>
-        )}
         {onShareRecipe && (
           <button
             type="button"
@@ -199,6 +188,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
 
         <div className="px-5 sm:px-8 py-6 flex flex-col gap-8">
           {/* Quick facts */}
+          {facts.length > 0 && (
           <dl className="flex items-stretch divide-x divide-stone-200 border-y border-stone-200/80 py-3">
             {facts.map((fact) => (
               <div key={fact.label} className="flex-1 px-3 first:pl-0 last:pr-0 text-center sm:text-left">
@@ -207,6 +197,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               </div>
             ))}
           </dl>
+          )}
 
           {recipe.description && <p className="text-stone-700 text-base leading-relaxed">{recipe.description}</p>}
 
@@ -426,16 +417,18 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             <span className="hidden sm:inline">{isAddingToList ? 'Adding…' : addListStatus?.success ? 'Added' : 'Add to list'}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => onOpenInstacart(recipe, servings)}
-            aria-label="Add to list and shop on Instacart"
-            title="Add to list and shop on Instacart"
-            className="min-h-12 min-w-12 sm:px-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium active:scale-[0.98] transition-all"
-          >
-            <ShoppingBag className="w-5 h-5" aria-hidden="true" />
-            <span className="hidden sm:inline">Instacart</span>
-          </button>
+          {onPlanRecipe && (
+            <button
+              type="button"
+              onClick={() => onPlanRecipe(recipe)}
+              aria-label="Add to meal plan"
+              title="Add to meal plan"
+              className="min-h-12 min-w-12 sm:px-4 inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-surface hover:bg-stone-50 text-stone-800 text-sm font-medium active:scale-[0.98] transition-all"
+            >
+              <CalendarPlus className="w-5 h-5" aria-hidden="true" />
+              <span className="hidden sm:inline">Plan</span>
+            </button>
+          )}
         </div>
       </div>
 
