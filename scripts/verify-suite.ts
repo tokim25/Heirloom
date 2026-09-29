@@ -3,7 +3,7 @@ import { getIngredientFacets, normalizeIngredientName, matchRecipeFilters, INITI
 import { Recipe } from '../src/types/recipe.ts';
 import { normalizeParsedRecipe, validateRecipeForSave, cleanRecipeForSave, RecipeParseError } from '../src/utils/recipeSchema.ts';
 import { extractPageData, extractYouTubeDescription, isPrivateAddress, YOUTUBE_ID, urlRetrievedSuccessfully, sourceFromPastedUrl, socialVideoSite } from '../src/utils/pageExtract.ts';
-import { generateWithFallback, isTransientGeminiError } from '../src/utils/geminiRetry.ts';
+import { generateWithFallback, isTransientGeminiError, youtubeFailurePlan } from '../src/utils/geminiRetry.ts';
 import { recipeIdFromPath, recipePath, shareIdFromPath, sharePath, joinCodeFromPath, joinPath } from '../src/utils/router.ts';
 import { normalizeEmail, timeAgo } from '../src/utils/inbox.ts';
 import { generateShareId, shareUrl, sanitizeRecipeForShare, recipeFromShare, SHARE_ID_LENGTH } from '../src/utils/shareLink.ts';
@@ -422,6 +422,16 @@ try {
   assert(comma.length === 1 && comma[0].label === 'Salt, Fat, Acid', 'Planner', 'A recipe title with a comma stays one meal');
 } catch (e: any) {
   results.push({ suite: 'Planner', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// YouTube failure handling
+try {
+  assert(youtubeFailurePlan({ status: 500 }, true) === 'use_description' && youtubeFailurePlan({ status: 503 }, true) === 'use_description', 'YouTube', 'A description is used whenever the video fails');
+  assert(youtubeFailurePlan({ status: 500 }, false) === 'video_unreadable', 'YouTube', 'A 500 on a video with no description points to the paste path, not "busy"');
+  assert(youtubeFailurePlan({ status: 503 }, false) === 'busy' && youtubeFailurePlan({ status: 429 }, false) === 'busy', 'YouTube', 'Real overload still says busy');
+  assert(youtubeFailurePlan({ status: 400 }, false) === 'video_unreadable', 'YouTube', 'A rejected video points to the paste path');
+} catch (e: any) {
+  results.push({ suite: 'YouTube', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // Recipe usage and search

@@ -6,7 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Recipe } from './src/types/recipe.ts';
 import { RECIPE_JSON_SCHEMA, RecipeParseError, normalizeParsedRecipe } from './src/utils/recipeSchema.ts';
-import { generateWithFallback, isTransientGeminiError } from './src/utils/geminiRetry.ts';
+import { generateWithFallback, isTransientGeminiError, youtubeFailurePlan } from './src/utils/geminiRetry.ts';
 import {
   BLOCK_PAGE_MARKERS,
   YOUTUBE_ID,
@@ -320,10 +320,12 @@ app.post('/api/recipes/parse', async (req: Request, res: Response) => {
     } catch (err) {
       // Only blame the video when the AI actually rejected it. A busy or slow AI is not the
       // video's fault, so let the generic "try again" message handle that.
-      if (source.type !== 'youtube' || isTransientGeminiError(err)) throw err;
-      if (!youtubeFallbackText) {
+      if (source.type !== 'youtube') throw err;
+      const plan = youtubeFailurePlan(err, !!youtubeFallbackText);
+      if (plan === 'busy') throw err;
+      if (plan === 'video_unreadable') {
         throw new ImportError(
-          'Heirloom could not watch that video (it may be private, age-restricted or very long). Paste the recipe from the description on the Text tab.',
+          'Google\'s AI could not process that video (it may be long, private or age-restricted, and retrying rarely helps). Paste the recipe from the description on the Text tab.',
           'video_unreadable'
         );
       }
