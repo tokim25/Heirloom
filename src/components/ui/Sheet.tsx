@@ -116,6 +116,96 @@ export const Sheet: React.FC<SheetProps> = ({
     };
   }, [open, id]);
 
+  // Swipe down to dismiss on phones, like an iOS sheet. It only starts when the content is scrolled to the top,
+  // so scrolling a long recipe never closes it by accident.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!open || !panel || placement === 'right') return;
+
+    const isPhone = () => window.matchMedia('(max-width: 639px)').matches;
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+    let eligible = false;
+    let dragging = false;
+    let offset = 0;
+
+    const scrolledAway = (from: EventTarget | null) => {
+      let el = from instanceof HTMLElement ? from : null;
+      while (el && el !== panel) {
+        if (el.scrollHeight > el.clientHeight && /(auto|scroll)/.test(getComputedStyle(el).overflowY) && el.scrollTop > 0) return true;
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.hasAttribute('data-no-swipe')) return true;
+        el = el.parentElement;
+      }
+      return false;
+    };
+
+    const onStart = (e: TouchEvent) => {
+      if (!dismissibleRef.current || !isPhone() || e.touches.length !== 1 || openSheets[openSheets.length - 1] !== id) {
+        eligible = false;
+        return;
+      }
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+      offset = 0;
+      dragging = false;
+      eligible = !scrolledAway(e.target);
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (!eligible) return;
+      const dy = e.touches[0].clientY - startY;
+      const dx = e.touches[0].clientX - startX;
+      if (!dragging) {
+        if (dy < -6 || Math.abs(dx) > Math.abs(dy)) {
+          eligible = false; // scrolling up or sideways: not ours
+          return;
+        }
+        if (dy < 10) return;
+        dragging = true;
+        panel.style.transition = 'none';
+      }
+      offset = Math.max(0, dy);
+      panel.style.transform = `translateY(${offset}px)`;
+      e.preventDefault(); // keep the page from pull-to-refreshing under the drag
+    };
+
+    const onEnd = () => {
+      if (!dragging) {
+        eligible = false;
+        return;
+      }
+      const elapsed = Math.max(1, Date.now() - startTime);
+      const flick = offset / elapsed > 0.5 && offset > 50;
+      dragging = false;
+      eligible = false;
+      panel.style.transition = 'transform 200ms ease-out';
+      if (offset > 120 || flick) {
+        panel.style.transform = 'translateY(100%)';
+        window.setTimeout(() => onCloseRef.current(), 180);
+        // If the parent keeps the sheet open, bring it back.
+        window.setTimeout(() => {
+          panel.style.transition = '';
+          panel.style.transform = '';
+        }, 700);
+      } else {
+        panel.style.transform = '';
+      }
+    };
+
+    panel.addEventListener('touchstart', onStart, { passive: true });
+    panel.addEventListener('touchmove', onMove, { passive: false });
+    panel.addEventListener('touchend', onEnd);
+    panel.addEventListener('touchcancel', onEnd);
+    return () => {
+      panel.removeEventListener('touchstart', onStart);
+      panel.removeEventListener('touchmove', onMove);
+      panel.removeEventListener('touchend', onEnd);
+      panel.removeEventListener('touchcancel', onEnd);
+    };
+  }, [open, placement, id]);
+
   if (!open) return null;
 
   const isDrawer = placement === 'right';
