@@ -10,6 +10,19 @@ export const isTransientGeminiError = (err: any): boolean => {
   );
 };
 
+/**
+ * What to do when Gemini could not read a YouTube video. The description is plain text, which is far more
+ * reliable than video, so use it whenever there is one, busy or not. With no description, a 500 ("Internal
+ * error") on a video is Gemini failing to process that video, which retrying will not fix; other transient
+ * errors (503, 429) really are overload.
+ */
+export const youtubeFailurePlan = (err: any, hasDescription: boolean): 'use_description' | 'video_unreadable' | 'busy' => {
+  if (hasDescription) return 'use_description';
+  const status = Number(err?.status ?? err?.code);
+  if (status === 500 || !isTransientGeminiError(err)) return 'video_unreadable';
+  return 'busy';
+};
+
 export interface RetryOptions {
   models: string[];
   attemptTimeoutMs: number;
