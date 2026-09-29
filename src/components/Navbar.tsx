@@ -77,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="cursor-pointer flex items-center gap-2.5 group select-none shrink-0 text-left"
           >
             <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs border border-stone-200/80 bg-ink-deep flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <img src="/icons/icon.svg" alt="Heirloom" className="w-full h-full object-cover" />
+              <img src="/icons/favicon.svg" alt="Heirloom" className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col">
               <div className="flex items-baseline gap-2">
