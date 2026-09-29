@@ -19,7 +19,7 @@ import {
   List,
   X,
 } from 'lucide-react';
-import { Recipe, GroceryList, GroceryItem } from './types/recipe.ts';
+import { Recipe, GroceryList, GroceryItem, PlannedMeal } from './types/recipe.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { RecipeCard } from './components/RecipeCard.tsx';
 import { RecipeRow } from './components/RecipeRow.tsx';
@@ -27,6 +27,8 @@ import { RecipeDetailModal, AddToGroceryListResult } from './components/RecipeDe
 import { InstagramCookingMode } from './components/InstagramCookingMode.tsx';
 import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { RecipeEditModal } from './components/RecipeEditModal.tsx';
+import { MealPlannerSheet, PlanDaySheet } from './components/MealPlanner.tsx';
+import { planToList } from './utils/mealPlan.ts';
 import { ShareRecipeSheet } from './components/ShareRecipeSheet.tsx';
 import { SharedRecipeSheet } from './components/SharedRecipeSheet.tsx';
 import { ConfirmSheet } from './components/ui/Sheet.tsx';
@@ -140,6 +142,7 @@ export default function App() {
   };
   const [sharingRecipe, setSharingRecipe] = useState<Recipe | null>(null);
   const shareId = shareIdFromPath(path);
+  const [planningRecipe, setPlanningRecipe] = useState<Recipe | null>(null);
   const joinCode = joinCodeFromPath(path);
   const [joining, setJoining] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
@@ -361,9 +364,9 @@ export default function App() {
   };
 
   // Add all recipe ingredients to a shared grocery list (creating one if needed)
-  const handleAddRecipeToGroceryList = async (
-    recipe: Recipe,
-    servings: number = recipe.defaultServings,
+  // One or several recipes at once (a planned week). Everything is merged in a single pass so repeats combine.
+  const addRecipesToGroceryList = async (
+    entries: { recipe: Recipe; servings: number }[],
     targetListId: string = currentListId
   ): Promise<AddToGroceryListResult> => {
     const householdId = requireHousehold();
@@ -379,16 +382,18 @@ export default function App() {
         listId = await firestoreService.createGroceryList(householdId, 'Groceries', user?.preferredStore || '');
       }
 
-      const itemsToAdd = recipe.ingredients.map((ing) => ({
-        name: ing.name,
-        amount: scaleQuantity(ing.amount, recipe.defaultServings, servings),
-        unit: ing.unit,
-        category: ing.category || 'Other',
-        recipeId: recipe.id,
-        recipeTitle: recipe.title,
-        assignedTo: 'Anyone',
-        addedBy: user?.name || 'Collaborator',
-      }));
+      const itemsToAdd = entries.flatMap(({ recipe, servings }) =>
+        recipe.ingredients.map((ing) => ({
+          name: ing.name,
+          amount: scaleQuantity(ing.amount, recipe.defaultServings, servings),
+          unit: ing.unit,
+          category: ing.category || 'Other',
+          recipeId: recipe.id,
+          recipeTitle: recipe.title,
+          assignedTo: 'Anyone',
+          addedBy: user?.name || 'Collaborator',
+        }))
+      );
       // Fold repeats into what is already on the list (1 lb + 2 lb beef = 3 lb) instead of duplicating lines.
       const plan = planGroceryMerge(targetList?.items ?? [], itemsToAdd);
       plan.toUpdate.forEach((change) =>
@@ -421,11 +426,61 @@ export default function App() {
     }
   };
 
+  const handleAddRecipeToGroceryList = (
+    recipe: Recipe,
+    servings: number = recipe.defaultServings,
+    targetListId: string = currentListId
+  ): Promise<AddToGroceryListResult> => addRecipesToGroceryList([{ recipe, servings }], targetListId);
+
   // "Shop" from a recipe: put its ingredients on the list (combining repeats), then open the shopping screen.
   const handleShopRecipe = async (recipe: Recipe, servings: number) => {
     const result = await handleAddRecipeToGroceryList(recipe, servings);
     if (result.success && result.listId) setShoppingListId(result.listId);
     else showNotice('error', result.message);
+  };
+
+  // ---- Meal plan ----
+  const plannedMeals = useMemo(() => planToList(household?.mealPlan), [household?.mealPlan]);
+
+  const handlePlanMeal = (recipe: Recipe, date: string, servings: number) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    const meal: PlannedMeal = {
+      id: `meal-${crypto.randomUUID()}`,
+      recipeId: recipe.id,
+      recipeTitle: recipe.title,
+      ...(recipe.heroImage ? { heroImage: recipe.heroImage } : {}),
+      date,
+      servings,
+      addedBy: user?.name || 'Someone',
+    };
+    runWrite(firestoreService.planMeal(householdId, meal), 'Could not save your meal plan. Try again.');
+  };
+
+  const handleMoveMeal = (meal: PlannedMeal, date: string, servings: number) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    runWrite(firestoreService.moveMeal(householdId, meal.id, { date, servings }), 'Could not move that meal. Try again.');
+  };
+
+  const handleUnplanMeal = (meal: PlannedMeal) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    runWrite(firestoreService.unplanMeal(householdId, meal.id), 'Could not remove that meal. Try again.');
+  };
+
+  // Every planned meal in the list goes onto the grocery list in one pass, so repeated ingredients combine.
+  const handleAddMealsToGroceryList = async (meals: PlannedMeal[]) => {
+    const entries = meals.flatMap((meal) => {
+      const recipe = recipes.find((r) => r.id === meal.recipeId);
+      return recipe ? [{ recipe, servings: meal.servings }] : [];
+    });
+    if (entries.length === 0) {
+      showNotice('error', 'Those recipes are no longer in your cookbook.');
+      return;
+    }
+    const result = await addRecipesToGroceryList(entries);
+    showNotice(result.success ? 'success' : 'error', result.message);
   };
 
   // Grocery item actions
@@ -517,6 +572,7 @@ export default function App() {
         onOpenChat={() => setIsChatOpen(true)}
         onOpenPantry={() => setIsPantryOpen(true)}
         onOpenDriveBackup={() => setIsDriveBackupOpen(true)}
+        onOpenPlan={() => navigate('/plan')}
         onOpenIngredientOrganizer={() => setIsIngredientOrganizerOpen(true)}
         canInstallPwa={canInstallPwa}
         onInstallPwa={() => promptPwaInstall()}
@@ -661,6 +717,7 @@ export default function App() {
           <GroceryListView
             groceryLists={householdLists}
             currentList={currentGroceryList}
+            plannedMeals={plannedMeals}
             setCurrentList={(l) => setCurrentListId(l.id)}
             onUpdateItem={handleUpdateGroceryItem}
             onDeleteItem={handleDeleteGroceryItem}
@@ -702,6 +759,7 @@ export default function App() {
           recipe={recipes.find((r) => r.id === selectedRecipeDetail.id) ?? selectedRecipeDetail}
           onEditRecipe={(r) => setEditingRecipe(r)}
           onShareRecipe={(r) => setSharingRecipe(r)}
+          onPlanRecipe={(r) => setPlanningRecipe(r)}
           onClose={closeRecipe}
           onStartCooking={(r, s, u) => handleStartCooking(r, s, u)}
           onOpenInstacart={(r, s) => handleShopRecipe(r, s)}
@@ -797,6 +855,36 @@ export default function App() {
             setJoining(false);
             leaveJoinLink();
           }}
+        />
+      )}
+
+      {user && path === '/plan' && (
+        <MealPlannerSheet
+          meals={plannedMeals}
+          recipes={recipes}
+          onPlan={handlePlanMeal}
+          onMove={handleMoveMeal}
+          onRemove={handleUnplanMeal}
+          onAddToGroceries={handleAddMealsToGroceryList}
+          onOpenRecipe={(id) => navigate(recipePath(id))}
+          onViewGroceries={() => navigate('/groceries', { replace: true })}
+          onClose={() => closeOverlay('/plan')}
+        />
+      )}
+
+      {planningRecipe && (
+        <PlanDaySheet
+          title="Plan this recipe"
+          description={planningRecipe.title}
+          confirmLabel="Add to plan"
+          initialServings={planningRecipe.defaultServings}
+          meals={plannedMeals}
+          onConfirm={(date, servings) => {
+            handlePlanMeal(planningRecipe, date, servings);
+            setPlanningRecipe(null);
+            showNotice('success', `Planned "${planningRecipe.title}" in your meal plan.`);
+          }}
+          onClose={() => setPlanningRecipe(null)}
         />
       )}
 

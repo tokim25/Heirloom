@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, ShoppingBag, Plus, User as UserIcon } from 'lucide-react';
+import { BookOpen, CalendarDays, ShoppingBag, Plus, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { navigate, usePath } from '../utils/router.ts';
 
@@ -8,17 +8,18 @@ interface MobileBottomNavProps {
   groceryPendingCount: number;
 }
 
-type TabId = 'recipes' | 'add' | 'groceries' | 'profile';
+type TabId = 'recipes' | 'plan' | 'add' | 'groceries' | 'profile';
 
 /** Which tab the current address belongs to. Overlays (Add, Profile) highlight their own tab. */
 const tabForPath = (path: string): TabId => {
   if (path === '/add') return 'add';
+  if (path === '/plan') return 'plan';
   if (path === '/profile') return 'profile';
   if (path === '/groceries') return 'groceries';
   return 'recipes';
 };
 
-const TAB_PATHS: Record<TabId, string> = { recipes: '/', add: '/add', groceries: '/groceries', profile: '/profile' };
+const TAB_PATHS: Record<TabId, string> = { recipes: '/', plan: '/plan', add: '/add', groceries: '/groceries', profile: '/profile' };
 
 /** Bottom tab bar for phones and tablets; the wider top bar takes over on large screens. */
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ recipeCount, groceryPendingCount }) => {
@@ -28,6 +29,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ recipeCount, g
 
   const tabs: { id: TabId; label: string; badge?: number; icon: React.ReactNode }[] = [
     { id: 'recipes', label: 'Recipes', badge: recipeCount, icon: <BookOpen className="w-6 h-6" aria-hidden="true" /> },
+    { id: 'plan', label: 'Plan', icon: <CalendarDays className="w-6 h-6" aria-hidden="true" /> },
     { id: 'add', label: 'Add', icon: <Plus className="w-6 h-6" aria-hidden="true" /> },
     { id: 'groceries', label: 'Groceries', badge: groceryPendingCount, icon: <ShoppingBag className="w-6 h-6" aria-hidden="true" /> },
     {
