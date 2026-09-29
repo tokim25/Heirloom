@@ -31,7 +31,6 @@ interface NavbarProps {
   onOpenIngredientOrganizer?: () => void;
   canInstallPwa?: boolean;
   onInstallPwa?: () => void;
-  recipeCount: number;
   groceryPendingCount: number;
 }
 
@@ -49,7 +48,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenIngredientOrganizer,
   canInstallPwa,
   onInstallPwa,
-  recipeCount,
   groceryPendingCount,
 }) => {
   const { user, setIsProfileOpen, isGoogleConnected, isGoogleSignedIn } = useAuth();
@@ -108,15 +106,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               />
               <span>Cookbook</span>
-              <span
-                className={`text-xs font-mono transition-colors ${
-                  activeTab === 'cookbook'
-                    ? 'text-amber-900 font-bold dark:text-amber-100'
-                    : 'text-stone-400'
-                }`}
-              >
-                ({recipeCount})
-              </span>
             </button>
 
             <button

@@ -609,7 +609,6 @@ export default function App() {
         onOpenIngredientOrganizer={() => setIsIngredientOrganizerOpen(true)}
         canInstallPwa={canInstallPwa}
         onInstallPwa={() => promptPwaInstall()}
-        recipeCount={recipes.length}
         groceryPendingCount={groceryPendingCount}
       />
 
@@ -770,7 +769,7 @@ export default function App() {
 
       {/* Ergonomic Mobile Bottom Navigation for Thumb Reachability */}
       {user && (
-      <MobileBottomNav recipeCount={recipes.length} groceryPendingCount={groceryPendingCount} />
+      <MobileBottomNav groceryPendingCount={groceryPendingCount} />
       )}
 
       {/* Modals */}

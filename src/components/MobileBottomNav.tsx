@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { navigate, usePath } from '../utils/router.ts';
 
 interface MobileBottomNavProps {
-  recipeCount: number;
   groceryPendingCount: number;
 }
 
@@ -22,13 +21,13 @@ const tabForPath = (path: string): TabId => {
 const TAB_PATHS: Record<TabId, string> = { recipes: '/', plan: '/plan', add: '/add', groceries: '/groceries', profile: '/profile' };
 
 /** Bottom tab bar for phones and tablets; the wider top bar takes over on large screens. */
-export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ recipeCount, groceryPendingCount }) => {
+export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ groceryPendingCount }) => {
   const path = usePath();
   const { user } = useAuth();
   const active = tabForPath(path);
 
   const tabs: { id: TabId; label: string; badge?: number; icon: React.ReactNode }[] = [
-    { id: 'recipes', label: 'Recipes', badge: recipeCount, icon: <BookOpen className="w-6 h-6" aria-hidden="true" /> },
+    { id: 'recipes', label: 'Recipes', icon: <BookOpen className="w-6 h-6" aria-hidden="true" /> },
     { id: 'plan', label: 'Plan', icon: <CalendarDays className="w-6 h-6" aria-hidden="true" /> },
     { id: 'add', label: 'Add', icon: <Plus className="w-6 h-6" aria-hidden="true" /> },
     { id: 'groceries', label: 'Groceries', badge: groceryPendingCount, icon: <ShoppingBag className="w-6 h-6" aria-hidden="true" /> },
