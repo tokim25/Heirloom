@@ -5,6 +5,7 @@ import { apiFetch } from '../utils/api.ts';
 import { prepareUpload, PreparedUpload } from '../utils/imageUpload.ts';
 import { cleanRecipeForSave, validateRecipeForSave } from '../utils/recipeSchema.ts';
 import { RecipeEditor, getRecipeReviewWarnings } from './RecipeEditor.tsx';
+import { socialVideoSite } from '../utils/pageExtract.ts';
 import { Sheet } from './ui/Sheet.tsx';
 
 interface RecipeImportModalProps {
@@ -111,6 +112,14 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
   };
 
   const runImport = async (payload: Record<string, unknown>, tab: TabType) => {
+    const social = tab === 'link' && typeof payload.url === 'string' ? socialVideoSite(payload.url) : null;
+    if (social) {
+      setProblem({
+        message: `${social} does not let apps read its videos, so Heirloom cannot open this link. Copy the recipe from the caption and paste it, or screenshot the recipe and use the Photo tab.`,
+        offerPasteText: true,
+      });
+      return;
+    }
     setIsProcessing(true);
     importAbortRef.current?.abort();
     const controller = new AbortController();
