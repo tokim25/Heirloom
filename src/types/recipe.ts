@@ -10,6 +10,8 @@ export interface User {
   customStores?: string[];
   /** Built-in stores the person does not have on Instacart and wants hidden from the pickers. */
   hiddenStores?: string[];
+  /** The person turned the Google Drive copy on. Kept on the account so it survives a new browser or cleared site data. */
+  driveCopyEnabled?: boolean;
   householdId: string;
   createdAt: string;
 }
