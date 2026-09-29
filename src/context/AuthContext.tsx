@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [household, setHousehold] = useState<Household | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(() => readDriveToken());
-  const [isDriveCopyEnabled, setIsDriveCopyEnabled] = useState(() => localStorage.getItem(DRIVE_ENABLED_KEY) === 'true');
+  const [localDriveEnabled, setLocalDriveEnabled] = useState(() => localStorage.getItem(DRIVE_ENABLED_KEY) === 'true');
   // Profile is a route (/profile) so the Back button closes it and it can be linked to.
   const isProfileOpen = usePath() === '/profile';
   const setIsProfileOpen = useCallback((open: boolean) => {
@@ -98,6 +98,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
+  // The account remembers the choice (so it follows you to other browsers); this browser's copy covers the moments before the profile loads.
+  const isDriveCopyEnabled = user?.driveCopyEnabled ?? localDriveEnabled;
 
   // Finish a redirect sign-in (PWA / popup-blocked path). onAuthStateChanged does the rest.
   useEffect(() => {
@@ -178,6 +180,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Move a choice made before this was saved on the account (this browser's flag) up to the account.
+  useEffect(() => {
+    if (user && user.driveCopyEnabled === undefined && localDriveEnabled) saveDriveChoice(true);
+  }, [user?.id, user?.driveCopyEnabled]);
+
+  const saveDriveChoice = (enabled: boolean) => {
+    if (!auth.currentUser) return;
+    firestoreService.updateProfile(auth.currentUser.uid, { driveCopyEnabled: enabled }).catch((err) => console.error('Could not save the Drive copy choice:', err));
+  };
+
   const connectGoogleDrive = async (): Promise<string | null> => {
     const current = auth.currentUser;
     if (!current) throw new Error('Sign in before turning on the Google Drive copy.');
@@ -185,6 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isStandalonePwa()) {
         sessionStorage.setItem('heirloom_drive_redirect', 'true');
         localStorage.setItem(DRIVE_ENABLED_KEY, 'true');
+        saveDriveChoice(true);
         await signInWithRedirect(auth, googleDriveProvider);
         return null;
       }
@@ -197,7 +210,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       writeDriveToken(token);
       setGoogleAccessToken(token);
       localStorage.setItem(DRIVE_ENABLED_KEY, 'true');
-      setIsDriveCopyEnabled(true);
+      setLocalDriveEnabled(true);
+      saveDriveChoice(true);
       return token;
     } catch (err: any) {
       throw new Error(describeAuthError(err));
@@ -208,7 +222,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     writeDriveToken(null);
     setGoogleAccessToken(null);
     localStorage.removeItem(DRIVE_ENABLED_KEY);
-    setIsDriveCopyEnabled(false);
+    setLocalDriveEnabled(false);
+    saveDriveChoice(false);
   };
 
   const markDriveTokenExpired = useCallback(() => {
@@ -235,7 +250,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     await firebaseSignOut(auth).catch((err) => console.error('Sign out error:', err));
-    disconnectGoogleDrive();
+    // Signing out drops the Drive token but keeps the choice, so signing back in shows "Paused", not "Off".
+    writeDriveToken(null);
+    setGoogleAccessToken(null);
     setUser(null);
     setHousehold(null);
   };
