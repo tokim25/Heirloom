@@ -19,7 +19,7 @@ import {
   List,
   X,
 } from 'lucide-react';
-import { Recipe, GroceryList, GroceryItem, MealKind, MealSlot, PlannedMeal, ShareInvite } from './types/recipe.ts';
+import { Recipe, GroceryList, GroceryItem, MealKind, MealSlot, PlannedMeal, ShareInvite, StockItem } from './types/recipe.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { RecipeCard } from './components/RecipeCard.tsx';
 import { RecipeRow } from './components/RecipeRow.tsx';
@@ -29,6 +29,8 @@ import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { RecipeEditModal } from './components/RecipeEditModal.tsx';
 import { MealPlannerSheet, PlanDaySheet } from './components/MealPlanner.tsx';
 import { addDays, planToList, toDateKey } from './utils/mealPlan.ts';
+import { stockToList } from './utils/stock.ts';
+import type { StockDraft } from './components/FridgeFreezerSheet.tsx';
 import { compareMostUsed, compareRecentlyUsed, shouldCountCooking, useCountOf } from './utils/recipeUsage.ts';
 import { OfflineBanner } from './components/OfflineBanner.tsx';
 import { InboxSheet } from './components/InboxSheet.tsx';
@@ -498,6 +500,33 @@ export default function App() {
     );
   };
 
+  const stockItems = useMemo(() => stockToList(household?.stockItems), [household?.stockItems]);
+
+  const handleAddStock = (draft: StockDraft) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    const item: StockItem = {
+      id: `stock-${crypto.randomUUID()}`,
+      name: draft.name,
+      place: draft.place,
+      ...(draft.mealId ? { mealId: draft.mealId } : {}),
+      addedBy: user?.name || 'Someone',
+    };
+    runWrite(firestoreService.addStockItem(householdId, item), 'Could not save that item. Try again.');
+  };
+
+  const handleUpdateStock = (item: StockItem, draft: StockDraft) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    runWrite(firestoreService.updateStockItem(householdId, item.id, draft), 'Could not save that item. Try again.');
+  };
+
+  const handleUsedStock = (item: StockItem) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    runWrite(firestoreService.removeStockItem(householdId, item.id), 'Could not remove that item. Try again.');
+  };
+
   const handleUnplanMeal = (meal: PlannedMeal) => {
     const householdId = requireHousehold();
     if (!householdId) return;
@@ -911,6 +940,10 @@ export default function App() {
           onPlan={handlePlanMeal}
           onMove={handleMoveMeal}
           onPushBack={handlePushBackMeals}
+          stockItems={stockItems}
+          onAddStock={handleAddStock}
+          onUpdateStock={handleUpdateStock}
+          onUsedStock={handleUsedStock}
           onRemove={handleUnplanMeal}
           onAddToGroceries={handleAddMealsToGroceryList}
           onOpenRecipe={(id) => navigate(recipePath(id))}

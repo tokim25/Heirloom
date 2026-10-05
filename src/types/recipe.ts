@@ -45,6 +45,18 @@ export interface PlannedMeal {
 }
 
 // Everyone in a household shares its recipes and grocery lists.
+export type StockPlace = 'fridge' | 'freezer';
+
+/** Something in the fridge or freezer. Lives on the household so everyone sees the same shelves. */
+export interface StockItem {
+  id: string;
+  name: string;
+  place: StockPlace;
+  /** The planned meal this is for, if any. Powers the "thaw tonight" hint. */
+  mealId?: string;
+  addedBy: string;
+}
+
 export interface Household {
   id: string;
   ownerId: string;
@@ -52,6 +64,7 @@ export interface Household {
   members: Record<string, HouseholdMember>;
   inviteCode: string;
   mealPlan?: Record<string, PlannedMeal>;
+  stockItems?: Record<string, StockItem>;
   createdAt: string;
   updatedAt: string;
 }
