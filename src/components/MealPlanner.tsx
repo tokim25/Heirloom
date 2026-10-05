@@ -291,11 +291,93 @@ export const RecipePickerSheet: React.FC<RecipePickerSheetProps> = ({ recipes, d
   );
 };
 
+interface PushBackSheetProps {
+  /** Meals planned for today or later, in plan order. */
+  meals: PlannedMeal[];
+  today: string;
+  onConfirm: (meals: PlannedMeal[], days: number) => void;
+  onClose: () => void;
+}
+
+/** Slide part of the plan later: pick how many days and which meals move. Everything is ticked to start. */
+export const PushBackSheet: React.FC<PushBackSheetProps> = ({ meals, today, onConfirm, onClose }) => {
+  const [days, setDays] = useState(1);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(meals.map((m) => m.id)));
+  const toggle = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const chosen = meals.filter((m) => picked.has(m.id));
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title="Push the plan back"
+      description="Pick how far to slide, and which meals go with it."
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="min-h-11 px-4 text-sm font-semibold text-stone-700 hover:text-stone-950 rounded-xl">
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={chosen.length === 0}
+            onClick={() => onConfirm(chosen, days)}
+            className="min-h-12 px-6 rounded-xl bg-ink hover:bg-ink-hover disabled:opacity-50 text-white text-base font-semibold"
+          >
+            {chosen.length === 0 ? 'Pick a meal to push back' : `Push back ${chosen.length} ${chosen.length === 1 ? 'meal' : 'meals'}`}
+          </button>
+        </>
+      }
+    >
+      <div role="radiogroup" aria-label="Days to push back" className="flex items-center gap-2">
+        {[1, 2, 3].map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={days === n}
+            onClick={() => setDays(n)}
+            className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${
+              days === n ? 'bg-ink text-white border-ink' : 'bg-surface border-stone-300 text-stone-800 hover:bg-stone-50'
+            }`}
+          >
+            {n === 1 ? '1 day' : `${n} days`}
+          </button>
+        ))}
+      </div>
+      <ul className="flex flex-col divide-y divide-stone-200">
+        {meals.map((meal) => (
+          <li key={meal.id}>
+            <label className="min-h-14 py-2 flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" checked={picked.has(meal.id)} onChange={() => toggle(meal.id)} className="w-5 h-5 shrink-0 accent-stone-900" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-base font-semibold text-stone-900 truncate">{meal.recipeTitle}</span>
+                <span className="block text-sm text-stone-600">
+                  {slotLabel(slotOf(meal))} · {dayLabel(meal.date, today)}
+                  {picked.has(meal.id) && ` → ${dayLabel(addDays(meal.date, days), today)}`}
+                </span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </Sheet>
+  );
+};
+
 interface MealPlannerSheetProps {
   meals: PlannedMeal[];
   recipes: Recipe[];
   onPlan: (recipe: Recipe, date: string, servings: number, slot: MealSlot, kind: MealKind) => void;
   onMove: (meal: PlannedMeal, date: string, servings: number, slot: MealSlot, kind: MealKind) => void;
+  /** Slides the given meals later by this many days. */
+  onPushBack: (meals: PlannedMeal[], days: number) => void;
   onRemove: (meal: PlannedMeal) => void;
   /** Adds every meal in the given list to the grocery list, combining repeats. */
   onAddToGroceries: (meals: PlannedMeal[]) => Promise<void>;
@@ -310,6 +392,7 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
   recipes,
   onPlan,
   onMove,
+  onPushBack,
   onRemove,
   onAddToGroceries,
   onOpenRecipe,
@@ -321,6 +404,7 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
   const [picking, setPicking] = useState<{ date: string } | { recipe: Recipe; date: string } | null>(null);
   const [moving, setMoving] = useState<PlannedMeal | null>(null);
   const [adding, setAdding] = useState(false);
+  const [pushingBack, setPushingBack] = useState(false);
 
   const days = weekDays(start);
   const weekMeals = mealsInRange(meals, days[0], days[6]);
@@ -407,6 +491,18 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
                   Add
                 </button>
               </div>
+              {isToday && dayMeals.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap pb-1">
+                  <span className="text-sm text-stone-700">Not cooking today?</span>
+                  <button
+                    type="button"
+                    onClick={() => setPushingBack(true)}
+                    className="min-h-11 px-4 rounded-full bg-ink text-white text-sm font-semibold"
+                  >
+                    Push back…
+                  </button>
+                </div>
+              )}
               {dayMeals.length === 0 ? (
                 <p className="text-sm text-stone-500 pb-1">Nothing planned</p>
               ) : (
@@ -479,6 +575,17 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
             setPicking(null);
           }}
           onClose={() => setPicking(null)}
+        />
+      )}
+      {pushingBack && (
+        <PushBackSheet
+          meals={meals.filter((m) => m.date >= today)}
+          today={today}
+          onConfirm={(chosen, days) => {
+            onPushBack(chosen, days);
+            setPushingBack(false);
+          }}
+          onClose={() => setPushingBack(false)}
         />
       )}
       {moving && (
