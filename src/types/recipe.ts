@@ -24,6 +24,10 @@ export interface HouseholdMember {
   joinedAt: string;
 }
 
+export type MealSlot = 'breakfast' | 'lunch' | 'dinner';
+/** Cook = a night you cook, leftovers = eating what is already made, flexible = can slide to another day. */
+export type MealKind = 'cook' | 'leftovers' | 'flexible';
+
 /** One recipe planned for one day. Lives on the household so everyone sees the same plan. */
 export interface PlannedMeal {
   id: string;
@@ -33,6 +37,10 @@ export interface PlannedMeal {
   /** Local calendar day, YYYY-MM-DD. */
   date: string;
   servings: number;
+  /** Missing on older meals, which read as dinner. */
+  slot?: MealSlot;
+  /** Missing on older meals, which read as cook. */
+  kind?: MealKind;
   addedBy: string;
 }
 

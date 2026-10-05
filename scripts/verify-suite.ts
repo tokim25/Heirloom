@@ -10,7 +10,7 @@ import { generateShareId, shareUrl, sanitizeRecipeForShare, recipeFromShare, SHA
 import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils/groceryMerge.ts';
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
 import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl, visibleStoreNames } from '../src/utils/storeOptions.ts';
-import { toDateKey, fromDateKey, addDays, weekStart, weekDays, isValidDateKey, dayLabel, planToList, mealsInRange, groupItemsByMeal, SHARED_GROUP, OTHER_GROUP } from '../src/utils/mealPlan.ts';
+import { toDateKey, fromDateKey, addDays, weekStart, weekDays, isValidDateKey, dayLabel, planToList, slotOf, kindOf, mealsInRange, groupItemsByMeal, SHARED_GROUP, OTHER_GROUP } from '../src/utils/mealPlan.ts';
 import { useLabel, compareMostUsed, compareRecentlyUsed, shouldCountCooking, COOKING_DEDUPE_MS } from '../src/utils/recipeUsage.ts';
 import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngine.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
@@ -410,6 +410,10 @@ try {
   const plan = { a: meal('a', 'Tacos', '2026-09-30'), b: meal('b', 'Soup', '2026-09-29'), c: meal('c', 'Pasta', '2026-10-09') };
   assert(planToList(plan).map((m) => m.id).join('') === 'bac', 'Planner', 'The plan sorts by day');
   assert(mealsInRange(planToList(plan), '2026-09-28', '2026-10-04').length === 2, 'Planner', 'A week only includes its own days');
+
+  const slotted = { d: { ...meal('d', 'Eggs', '2026-09-30'), slot: 'breakfast' as const }, e: meal('e', 'Chicken', '2026-09-30'), f: { ...meal('f', 'Salad', '2026-09-30'), slot: 'lunch' as const, kind: 'flexible' as const } };
+  assert(planToList(slotted).map((m) => m.id).join('') === 'dfe', 'Planner', 'A day sorts breakfast, lunch, then dinner');
+  assert(slotOf({ slot: undefined }) === 'dinner' && kindOf({ kind: undefined }) === 'cook', 'Planner', 'Older meals with no slot or type read as dinner and cook');
 
   const items = [
     { recipeTitle: 'Tacos' }, { recipeTitle: 'Soup' }, { recipeTitle: 'Tacos, Soup' },

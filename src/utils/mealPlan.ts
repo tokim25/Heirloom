@@ -1,4 +1,24 @@
-import { GroceryItem, PlannedMeal } from '../types/recipe.ts';
+import { GroceryItem, MealKind, MealSlot, PlannedMeal } from '../types/recipe.ts';
+
+export const MEAL_SLOTS: { value: MealSlot; label: string }[] = [
+  { value: 'breakfast', label: 'Breakfast' },
+  { value: 'lunch', label: 'Lunch' },
+  { value: 'dinner', label: 'Dinner' },
+];
+
+export const MEAL_KINDS: { value: MealKind; label: string }[] = [
+  { value: 'cook', label: 'Cook' },
+  { value: 'leftovers', label: 'Leftovers' },
+  { value: 'flexible', label: 'Flexible' },
+];
+
+export const slotOf = (meal: Pick<PlannedMeal, 'slot'>): MealSlot => meal.slot ?? 'dinner';
+export const kindOf = (meal: Pick<PlannedMeal, 'kind'>): MealKind => meal.kind ?? 'cook';
+export const slotLabel = (slot: MealSlot): string => MEAL_SLOTS.find((s) => s.value === slot)!.label;
+export const kindLabel = (kind: MealKind): string => MEAL_KINDS.find((k) => k.value === kind)!.label;
+
+/** The plan sorts by day, then breakfast before lunch before dinner. */
+const SLOT_ORDER: Record<MealSlot, number> = { breakfast: 0, lunch: 1, dinner: 2 };
 
 /** Local calendar day as YYYY-MM-DD (never UTC, so "today" is the day on the person's clock). */
 export const toDateKey = (date: Date): string =>
@@ -39,7 +59,7 @@ export function weekLabel(startKey: string): string {
 }
 
 export const planToList = (plan?: Record<string, PlannedMeal>): PlannedMeal[] =>
-  Object.values(plan ?? {}).sort((a, b) => a.date.localeCompare(b.date) || a.recipeTitle.localeCompare(b.recipeTitle) || a.id.localeCompare(b.id));
+  Object.values(plan ?? {}).sort((a, b) => a.date.localeCompare(b.date) || SLOT_ORDER[slotOf(a)] - SLOT_ORDER[slotOf(b)] || a.recipeTitle.localeCompare(b.recipeTitle) || a.id.localeCompare(b.id));
 
 export const mealsInRange = (meals: PlannedMeal[], fromKey: string, toKey: string) =>
   meals.filter((m) => m.date >= fromKey && m.date <= toKey);
