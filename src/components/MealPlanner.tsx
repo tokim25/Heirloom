@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { CalendarDays, ChefHat, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Search, ShoppingBag, X } from 'lucide-react';
-import { MealKind, MealSlot, PlannedMeal, Recipe } from '../types/recipe.ts';
+import { MealKind, MealSlot, PlannedMeal, Recipe, StockItem } from '../types/recipe.ts';
 import { addDays, dayLabel, fromDateKey, kindLabel, kindOf, MEAL_KINDS, MEAL_SLOTS, mealsInRange, slotLabel, slotOf, toDateKey, weekDays, weekLabel, weekStart } from '../utils/mealPlan.ts';
 import { compareMostUsed, useLabel } from '../utils/recipeUsage.ts';
 import { createRecipeSearchIndex, searchRecipes } from '../utils/searchEngine.ts';
+import { thawTonight } from '../utils/stock.ts';
+import { FridgeFreezerSheet, StockDraft } from './FridgeFreezerSheet.tsx';
 import { Sheet } from './ui/Sheet.tsx';
 
 const Thumb: React.FC<{ url?: string }> = ({ url }) =>
@@ -378,6 +380,10 @@ interface MealPlannerSheetProps {
   onMove: (meal: PlannedMeal, date: string, servings: number, slot: MealSlot, kind: MealKind) => void;
   /** Slides the given meals later by this many days. */
   onPushBack: (meals: PlannedMeal[], days: number) => void;
+  stockItems: StockItem[];
+  onAddStock: (draft: StockDraft) => void;
+  onUpdateStock: (item: StockItem, draft: StockDraft) => void;
+  onUsedStock: (item: StockItem) => void;
   onRemove: (meal: PlannedMeal) => void;
   /** Adds every meal in the given list to the grocery list, combining repeats. */
   onAddToGroceries: (meals: PlannedMeal[]) => Promise<void>;
@@ -393,6 +399,10 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
   onPlan,
   onMove,
   onPushBack,
+  stockItems,
+  onAddStock,
+  onUpdateStock,
+  onUsedStock,
   onRemove,
   onAddToGroceries,
   onOpenRecipe,
@@ -405,6 +415,8 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
   const [moving, setMoving] = useState<PlannedMeal | null>(null);
   const [adding, setAdding] = useState(false);
   const [pushingBack, setPushingBack] = useState(false);
+  const [stockOpen, setStockOpen] = useState(false);
+  const thaw = thawTonight(stockItems, meals, today);
 
   const days = weekDays(start);
   const weekMeals = mealsInRange(meals, days[0], days[6]);
@@ -491,6 +503,9 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
                   Add
                 </button>
               </div>
+              {isToday && thaw.length > 0 && (
+                <p className="text-sm font-semibold text-sky-800 pb-1">Thaw tonight: {thaw.map((i) => i.name).join(', ')}</p>
+              )}
               {isToday && dayMeals.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap pb-1">
                   <span className="text-sm text-stone-700">Not cooking today?</span>
@@ -550,9 +565,18 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
         })}
       </ol>
 
-      <button type="button" onClick={onViewGroceries} className="self-start min-h-11 text-sm font-semibold text-stone-800 hover:underline">
-        See the grocery list by meal
-      </button>
+      <div className="flex items-center gap-4 flex-wrap">
+        <button type="button" onClick={onViewGroceries} className="min-h-11 text-sm font-semibold text-stone-800 hover:underline">
+          See the grocery list by meal
+        </button>
+        <button type="button" onClick={() => setStockOpen(true)} className="min-h-11 text-sm font-semibold text-stone-800 hover:underline">
+          Fridge &amp; freezer{stockItems.length > 0 && ` (${stockItems.length})`}
+        </button>
+      </div>
+
+      {stockOpen && (
+        <FridgeFreezerSheet items={stockItems} meals={meals} onAdd={onAddStock} onUpdate={onUpdateStock} onUsed={onUsedStock} onClose={() => setStockOpen(false)} />
+      )}
 
       {picking && !('recipe' in picking) && (
         <RecipePickerSheet

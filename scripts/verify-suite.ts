@@ -11,6 +11,7 @@ import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
 import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl, visibleStoreNames } from '../src/utils/storeOptions.ts';
 import { toDateKey, fromDateKey, addDays, weekStart, weekDays, isValidDateKey, dayLabel, planToList, slotOf, kindOf, mealsInRange, groupItemsByMeal, SHARED_GROUP, OTHER_GROUP } from '../src/utils/mealPlan.ts';
+import { thawTonight, stockToList } from '../src/utils/stock.ts';
 import { useLabel, compareMostUsed, compareRecentlyUsed, shouldCountCooking, COOKING_DEDUPE_MS } from '../src/utils/recipeUsage.ts';
 import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngine.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
@@ -414,6 +415,14 @@ try {
   const slotted = { d: { ...meal('d', 'Eggs', '2026-09-30'), slot: 'breakfast' as const }, e: meal('e', 'Chicken', '2026-09-30'), f: { ...meal('f', 'Salad', '2026-09-30'), slot: 'lunch' as const, kind: 'flexible' as const } };
   assert(planToList(slotted).map((m) => m.id).join('') === 'dfe', 'Planner', 'A day sorts breakfast, lunch, then dinner');
   assert(slotOf({ slot: undefined }) === 'dinner' && kindOf({ kind: undefined }) === 'cook', 'Planner', 'Older meals with no slot or type read as dinner and cook');
+
+  const stock = (id: string, name: string, place: 'fridge' | 'freezer', mealId?: string) => ({ id, name, place, mealId, addedBy: 'Tony' });
+  const stockMeals = [meal('m1', 'Fajitas', '2026-09-29'), meal('m2', 'Soup', '2026-09-30')];
+  const stockItems = [stock('s1', 'Chicken', 'freezer', 'm1'), stock('s2', 'Stock', 'freezer', 'm2'), stock('s3', 'Cream', 'fridge', 'm1'), stock('s4', 'Shrimp', 'freezer')];
+  assert(thawTonight(stockItems, stockMeals, '2026-09-28').map((i) => i.id).join() === 's1', 'Fridge & Freezer', 'Thaw tonight lists freezer items linked to tomorrow only');
+  assert(thawTonight(stockItems, stockMeals, '2026-09-27').length === 0, 'Fridge & Freezer', 'Nothing to thaw when no linked meal is tomorrow');
+  assert(thawTonight([stock('s5', 'Beef', 'freezer', 'gone')], stockMeals, '2026-09-28').length === 0, 'Fridge & Freezer', 'A link to a deleted meal does not break the hint');
+  assert(stockToList({ a: stock('a', 'Shrimp', 'freezer'), b: stock('b', 'Chicken', 'freezer') }).map((i) => i.name).join() === 'Chicken,Shrimp', 'Fridge & Freezer', 'The list sorts by name');
 
   const items = [
     { recipeTitle: 'Tacos' }, { recipeTitle: 'Soup' }, { recipeTitle: 'Tacos, Soup' },

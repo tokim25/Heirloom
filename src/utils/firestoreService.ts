@@ -18,7 +18,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { Recipe, GroceryList, GroceryItem, Household, PlannedMeal, ShareInvite, SharedRecipe, User } from '../types/recipe.ts';
+import { Recipe, GroceryList, GroceryItem, Household, PlannedMeal, StockItem, ShareInvite, SharedRecipe, User } from '../types/recipe.ts';
 import { generateShareId, sanitizeRecipeForShare } from './shareLink.ts';
 import { generateInviteCode, normalizeInviteCode } from './invite.ts';
 
@@ -284,6 +284,27 @@ export const firestoreService = {
 
   async unplanMeal(hid: string, mealId: string) {
     await updateDoc(householdRef(hid), new FieldPath('mealPlan', mealId), deleteField(), 'updatedAt', now());
+  },
+
+  // ---- Fridge and freezer (a map on the household document, like the meal plan) ----
+
+  async addStockItem(hid: string, item: StockItem) {
+    await updateDoc(householdRef(hid), new FieldPath('stockItems', item.id), item, 'updatedAt', now());
+  },
+
+  /** A null mealId clears the link. */
+  async updateStockItem(hid: string, id: string, updates: Pick<StockItem, 'name' | 'place'> & { mealId: string | null }) {
+    await updateDoc(
+      householdRef(hid),
+      new FieldPath('stockItems', id, 'name'), updates.name,
+      new FieldPath('stockItems', id, 'place'), updates.place,
+      new FieldPath('stockItems', id, 'mealId'), updates.mealId ?? deleteField(),
+      'updatedAt', now()
+    );
+  },
+
+  async removeStockItem(hid: string, id: string) {
+    await updateDoc(householdRef(hid), new FieldPath('stockItems', id), deleteField(), 'updatedAt', now());
   },
 
   // ---- Sending a shared recipe to someone's inbox ----
