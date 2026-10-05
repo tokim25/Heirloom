@@ -28,7 +28,7 @@ import { InstagramCookingMode } from './components/InstagramCookingMode.tsx';
 import { RecipeImportModal } from './components/RecipeImportModal.tsx';
 import { RecipeEditModal } from './components/RecipeEditModal.tsx';
 import { MealPlannerSheet, PlanDaySheet } from './components/MealPlanner.tsx';
-import { planToList, toDateKey } from './utils/mealPlan.ts';
+import { addDays, planToList, toDateKey } from './utils/mealPlan.ts';
 import { compareMostUsed, compareRecentlyUsed, shouldCountCooking, useCountOf } from './utils/recipeUsage.ts';
 import { OfflineBanner } from './components/OfflineBanner.tsx';
 import { InboxSheet } from './components/InboxSheet.tsx';
@@ -489,6 +489,15 @@ export default function App() {
     runWrite(firestoreService.moveMeal(householdId, meal.id, { date, servings, slot, kind }), 'Could not move that meal. Try again.');
   };
 
+  const handlePushBackMeals = (meals: PlannedMeal[], days: number) => {
+    const householdId = requireHousehold();
+    if (!householdId || meals.length === 0) return;
+    runWrite(
+      firestoreService.moveMealDates(householdId, meals.map((m) => ({ id: m.id, date: addDays(m.date, days) }))),
+      'Could not push your plan back. Try again.'
+    );
+  };
+
   const handleUnplanMeal = (meal: PlannedMeal) => {
     const householdId = requireHousehold();
     if (!householdId) return;
@@ -901,6 +910,7 @@ export default function App() {
           recipes={recipes}
           onPlan={handlePlanMeal}
           onMove={handleMoveMeal}
+          onPushBack={handlePushBackMeals}
           onRemove={handleUnplanMeal}
           onAddToGroceries={handleAddMealsToGroceryList}
           onOpenRecipe={(id) => navigate(recipePath(id))}

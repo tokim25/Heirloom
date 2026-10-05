@@ -272,6 +272,16 @@ export const firestoreService = {
     await updateDoc(householdRef(hid), first as FieldPath, firstValue, ...rest);
   },
 
+  /** Moves several meals to new days in one write, so a partner never sees the plan half-shifted. */
+  async moveMealDates(hid: string, moves: { id: string; date: string }[]) {
+    if (moves.length === 0) return;
+    const args: unknown[] = [];
+    moves.forEach((m) => args.push(new FieldPath('mealPlan', m.id, 'date'), m.date));
+    args.push('updatedAt', now());
+    const [first, firstValue, ...rest] = args;
+    await updateDoc(householdRef(hid), first as FieldPath, firstValue, ...rest);
+  },
+
   async unplanMeal(hid: string, mealId: string) {
     await updateDoc(householdRef(hid), new FieldPath('mealPlan', mealId), deleteField(), 'updatedAt', now());
   },
