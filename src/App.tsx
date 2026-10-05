@@ -19,7 +19,7 @@ import {
   List,
   X,
 } from 'lucide-react';
-import { Recipe, GroceryList, GroceryItem, PlannedMeal, ShareInvite } from './types/recipe.ts';
+import { Recipe, GroceryList, GroceryItem, MealKind, MealSlot, PlannedMeal, ShareInvite } from './types/recipe.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { RecipeCard } from './components/RecipeCard.tsx';
 import { RecipeRow } from './components/RecipeRow.tsx';
@@ -465,7 +465,7 @@ export default function App() {
   // ---- Meal plan ----
   const plannedMeals = useMemo(() => planToList(household?.mealPlan), [household?.mealPlan]);
 
-  const handlePlanMeal = (recipe: Recipe, date: string, servings: number) => {
+  const handlePlanMeal = (recipe: Recipe, date: string, servings: number, slot: MealSlot, kind: MealKind) => {
     const householdId = requireHousehold();
     if (!householdId) return;
     const meal: PlannedMeal = {
@@ -475,16 +475,18 @@ export default function App() {
       ...(recipe.heroImage ? { heroImage: recipe.heroImage } : {}),
       date,
       servings,
+      slot,
+      kind,
       addedBy: user?.name || 'Someone',
     };
     runWrite(firestoreService.planMeal(householdId, meal), 'Could not save your meal plan. Try again.');
     runWrite(firestoreService.adjustRecipeUse(householdId, recipe.id, 1, new Date().toISOString()), 'Could not update how often you use this recipe.');
   };
 
-  const handleMoveMeal = (meal: PlannedMeal, date: string, servings: number) => {
+  const handleMoveMeal = (meal: PlannedMeal, date: string, servings: number, slot: MealSlot, kind: MealKind) => {
     const householdId = requireHousehold();
     if (!householdId) return;
-    runWrite(firestoreService.moveMeal(householdId, meal.id, { date, servings }), 'Could not move that meal. Try again.');
+    runWrite(firestoreService.moveMeal(householdId, meal.id, { date, servings, slot, kind }), 'Could not move that meal. Try again.');
   };
 
   const handleUnplanMeal = (meal: PlannedMeal) => {
@@ -914,8 +916,8 @@ export default function App() {
           confirmLabel="Add to plan"
           initialServings={planningRecipe.defaultServings}
           meals={plannedMeals}
-          onConfirm={(date, servings) => {
-            handlePlanMeal(planningRecipe, date, servings);
+          onConfirm={(date, servings, slot, kind) => {
+            handlePlanMeal(planningRecipe, date, servings, slot, kind);
             setPlanningRecipe(null);
             showNotice('success', `Planned "${planningRecipe.title}" in your meal plan.`);
           }}

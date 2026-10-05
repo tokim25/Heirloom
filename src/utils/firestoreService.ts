@@ -264,7 +264,7 @@ export const firestoreService = {
     await updateDoc(householdRef(hid), new FieldPath('mealPlan', meal.id), meal, 'updatedAt', now());
   },
 
-  async moveMeal(hid: string, mealId: string, updates: Partial<Pick<PlannedMeal, 'date' | 'servings'>>) {
+  async moveMeal(hid: string, mealId: string, updates: Partial<Pick<PlannedMeal, 'date' | 'servings' | 'slot' | 'kind'>>) {
     const args: unknown[] = [];
     (Object.keys(updates) as (keyof typeof updates)[]).forEach((key) => args.push(new FieldPath('mealPlan', mealId, key), updates[key]));
     args.push('updatedAt', now());

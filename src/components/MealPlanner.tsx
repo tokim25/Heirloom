@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { CalendarDays, ChefHat, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Search, ShoppingBag, X } from 'lucide-react';
-import { PlannedMeal, Recipe } from '../types/recipe.ts';
-import { addDays, dayLabel, fromDateKey, mealsInRange, toDateKey, weekDays, weekLabel, weekStart } from '../utils/mealPlan.ts';
+import { MealKind, MealSlot, PlannedMeal, Recipe } from '../types/recipe.ts';
+import { addDays, dayLabel, fromDateKey, kindLabel, kindOf, MEAL_KINDS, MEAL_SLOTS, mealsInRange, slotLabel, slotOf, toDateKey, weekDays, weekLabel, weekStart } from '../utils/mealPlan.ts';
 import { compareMostUsed, useLabel } from '../utils/recipeUsage.ts';
 import { createRecipeSearchIndex, searchRecipes } from '../utils/searchEngine.ts';
 import { Sheet } from './ui/Sheet.tsx';
@@ -21,11 +21,13 @@ interface PlanDaySheetProps {
   confirmLabel: string;
   initialDate?: string;
   initialServings: number;
+  initialSlot?: MealSlot;
+  initialKind?: MealKind;
   meals: PlannedMeal[];
   /** A meal being moved, so it does not count as already planned on its own day. */
   ignoreMealId?: string;
   showServings?: boolean;
-  onConfirm: (date: string, servings: number) => void;
+  onConfirm: (date: string, servings: number, slot: MealSlot, kind: MealKind) => void;
   onClose: () => void;
 }
 
@@ -39,6 +41,8 @@ export const PlanDaySheet: React.FC<PlanDaySheetProps> = ({
   confirmLabel,
   initialDate,
   initialServings,
+  initialSlot = 'dinner',
+  initialKind = 'cook',
   meals,
   ignoreMealId,
   showServings = true,
@@ -51,6 +55,8 @@ export const PlanDaySheet: React.FC<PlanDaySheetProps> = ({
   const [date, setDate] = useState(startDate);
   const [start, setStart] = useState(weekStart(startDate));
   const [servings, setServings] = useState(Math.max(1, initialServings));
+  const [slot, setSlot] = useState<MealSlot>(initialSlot);
+  const [kind, setKind] = useState<MealKind>(initialKind);
 
   const others = meals.filter((m) => m.id !== ignoreMealId);
   const days = weekDays(start);
@@ -75,7 +81,7 @@ export const PlanDaySheet: React.FC<PlanDaySheetProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(date, servings)}
+            onClick={() => onConfirm(date, servings, slot, kind)}
             className="min-h-12 px-6 rounded-xl bg-ink hover:bg-ink-hover text-white text-base font-semibold"
           >
             {confirmLabel}
@@ -169,11 +175,35 @@ export const PlanDaySheet: React.FC<PlanDaySheetProps> = ({
           <ul className="mt-1 flex flex-col gap-0.5">
             {selectedMeals.map((m) => (
               <li key={m.id} className="text-sm text-stone-700 truncate">
-                {m.recipeTitle} · {m.servings} {m.servings === 1 ? 'person' : 'people'}
+                {slotLabel(slotOf(m))} · {m.recipeTitle} · {m.servings} {m.servings === 1 ? 'person' : 'people'}
               </li>
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {[
+          { label: 'Meal', options: MEAL_SLOTS, value: slot, set: setSlot as (v: string) => void },
+          { label: 'Type', options: MEAL_KINDS, value: kind, set: setKind as (v: string) => void },
+        ].map((group) => (
+          <div key={group.label} role="radiogroup" aria-label={group.label} className="flex items-center gap-2 flex-wrap">
+            {group.options.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={group.value === o.value}
+                onClick={() => group.set(o.value)}
+                className={`min-h-11 px-4 rounded-full border text-sm font-semibold transition-colors ${
+                  group.value === o.value ? 'bg-ink text-white border-ink' : 'bg-surface border-stone-300 text-stone-800 hover:bg-stone-50'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        ))}
       </div>
 
       {showServings && (
@@ -264,8 +294,8 @@ export const RecipePickerSheet: React.FC<RecipePickerSheetProps> = ({ recipes, d
 interface MealPlannerSheetProps {
   meals: PlannedMeal[];
   recipes: Recipe[];
-  onPlan: (recipe: Recipe, date: string, servings: number) => void;
-  onMove: (meal: PlannedMeal, date: string, servings: number) => void;
+  onPlan: (recipe: Recipe, date: string, servings: number, slot: MealSlot, kind: MealKind) => void;
+  onMove: (meal: PlannedMeal, date: string, servings: number, slot: MealSlot, kind: MealKind) => void;
   onRemove: (meal: PlannedMeal) => void;
   /** Adds every meal in the given list to the grocery list, combining repeats. */
   onAddToGroceries: (meals: PlannedMeal[]) => Promise<void>;
@@ -392,7 +422,8 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
                       >
                         <span className="block text-base font-semibold text-stone-900 truncate">{meal.recipeTitle}</span>
                         <span className="block text-sm text-stone-600">
-                          For {meal.servings} {meal.servings === 1 ? 'person' : 'people'}
+                          {slotLabel(slotOf(meal))}
+                          {kindOf(meal) !== 'cook' && ` · ${kindLabel(kindOf(meal))}`} · For {meal.servings} {meal.servings === 1 ? 'person' : 'people'}
                           {!recipeExists(meal.recipeId) && ' · recipe deleted'}
                         </span>
                       </button>
@@ -442,8 +473,8 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
           initialDate={picking.date}
           initialServings={picking.recipe.defaultServings}
           meals={meals}
-          onConfirm={(date, servings) => {
-            onPlan(picking.recipe, date, servings);
+          onConfirm={(date, servings, slot, kind) => {
+            onPlan(picking.recipe, date, servings, slot, kind);
             setStart(weekStart(date));
             setPicking(null);
           }}
@@ -457,10 +488,12 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
           confirmLabel="Move"
           initialDate={moving.date}
           initialServings={moving.servings}
+          initialSlot={slotOf(moving)}
+          initialKind={kindOf(moving)}
           meals={meals}
           ignoreMealId={moving.id}
-          onConfirm={(date, servings) => {
-            onMove(moving, date, servings);
+          onConfirm={(date, servings, slot, kind) => {
+            onMove(moving, date, servings, slot, kind);
             setStart(weekStart(date));
             setMoving(null);
           }}
