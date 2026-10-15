@@ -11,6 +11,7 @@ import { planGroceryMerge, normalizeItemName, normalizeUnit } from '../src/utils
 import { formatGroceryList, groupByAisle } from '../src/utils/groceryText.ts';
 import { STORES, STORE_NAMES, resolveStore, storeNotice, instacartSearchUrl, visibleStoreNames } from '../src/utils/storeOptions.ts';
 import { toDateKey, fromDateKey, addDays, weekStart, weekDays, isValidDateKey, dayLabel, planToList, slotOf, kindOf, mealsInRange, groupItemsByMeal, SHARED_GROUP, OTHER_GROUP } from '../src/utils/mealPlan.ts';
+import { ingredientsForStep } from '../src/utils/stepIngredients.ts';
 import { thawTonight, stockToList } from '../src/utils/stock.ts';
 import { useLabel, compareMostUsed, compareRecentlyUsed, shouldCountCooking, COOKING_DEDUPE_MS } from '../src/utils/recipeUsage.ts';
 import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngine.ts';
@@ -433,6 +434,15 @@ try {
   assert(groups.reduce((n, g) => n + g.items.length, 0) === items.length, 'Planner', 'Grouping never drops a grocery line');
   const comma = groupItemsByMeal([{ recipeTitle: 'Salt, Fat, Acid' }], [meal('z', 'Salt, Fat, Acid', '2026-09-30')], '2026-09-28');
   assert(comma.length === 1 && comma[0].label === 'Salt, Fat, Acid', 'Planner', 'A recipe title with a comma stays one meal');
+
+  const ing = (id: string, name: string) => ({ id, name, amount: 1, unit: 'cup', category: 'Other' as const });
+  const pantry = [ing('1', 'olive oil'), ing('2', 'yellow onion'), ing('3', 'tomatoes'), ing('4', 'chicken broth'), ing('5', 'salt')];
+  const names = (instruction: string, stepIngredients?: string[]) => ingredientsForStep(pantry, { instruction, stepIngredients }).map((i) => i.name).join('|');
+  assert(names('Heat the oil, then add the onions.') === 'olive oil|yellow onion', 'Step Ingredients', 'A step finds ingredients by the last word of their name, ignoring plurals');
+  assert(names('Pour in the chicken broth.') === 'chicken broth', 'Step Ingredients', 'A full ingredient name matches');
+  assert(names('Stir well and simmer.') === '', 'Step Ingredients', 'A step that names nothing shows nothing');
+  assert(names('Stir well.', ['salt']) === 'salt', 'Step Ingredients', 'Tagged ingredients still show when the text does not name them');
+  assert(names('Chop the tomato and the onion. Season.', ['tomatoes']) === 'yellow onion|tomatoes', 'Step Ingredients', 'Tags and text combine without repeats, in recipe order');
 } catch (e: any) {
   results.push({ suite: 'Planner', name: 'Exception in suite', passed: false, error: e.message });
 }

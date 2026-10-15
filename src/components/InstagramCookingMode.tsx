@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Recipe } from '../types/recipe.ts';
-import { scaleQuantity, formatFraction, formatStepTemperatures, UnitSystem } from '../utils/units.ts';
+import { scaleQuantity, formatFraction, convertUnit, formatStepTemperatures, UnitSystem } from '../utils/units.ts';
+import { ingredientsForStep } from '../utils/stepIngredients.ts';
 import { sounds } from '../utils/sound.ts';
 
 interface InstagramCookingModeProps {
@@ -507,12 +508,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   };
 
   // Get ingredients used specifically in this step
-  const stepIngredientItems = recipe.ingredients.filter((ing) => {
-    if (!currentStep.stepIngredients || currentStep.stepIngredients.length === 0) return false;
-    return currentStep.stepIngredients.some(
-      (name) => ing.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(ing.name.toLowerCase())
-    );
-  });
+  const stepIngredientItems = ingredientsForStep(recipe.ingredients, currentStep);
 
   return (
     <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} onClick={handleStoryTap} onTouchStart={handleStoryTouchStart} onTouchEnd={handleStoryTouchEnd} data-story-surface className="stone-original fixed inset-0 z-[60] cursor-pointer bg-ink-deep/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
@@ -785,14 +781,15 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
               <div className="flex flex-wrap gap-2">
                 {stepIngredientItems.map((ing) => {
                   const scaledAmount = scaleQuantity(ing.amount, recipe.defaultServings, servings);
-                  const formattedFraction = formatFraction(scaledAmount);
+                  const converted = convertUnit(scaledAmount, ing.unit, ing.name, unitSystem);
+                  const formattedFraction = formatFraction(converted.amount);
                   return (
                     <div
                       key={ing.id}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-xs text-stone-200"
                     >
                       <span className="font-semibold text-amber-300">
-                        {formattedFraction ? `${formattedFraction} ${ing.unit}` : ing.unit}
+                        {formattedFraction ? `${formattedFraction} ${converted.unit}` : converted.unit}
                       </span>
                       <span>{ing.name}</span>
                     </div>
