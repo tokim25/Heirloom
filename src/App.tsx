@@ -31,6 +31,7 @@ import { compareMostUsed, compareRecentlyUsed, shouldCountCooking, useCountOf } 
 import { OfflineBanner } from './components/OfflineBanner.tsx';
 import { ConfirmSheet } from './components/ui/Sheet.tsx';
 import { recipeFromShare } from './utils/shareLink.ts';
+import { apiFetch } from './utils/api.ts';
 import { googleDriveService, DriveAuthError, HeirloomDrivePayload } from './utils/googleDriveService.ts';
 import { PantryItem } from './types/recipe.ts';
 import { DEFAULT_PANTRY_ITEMS, isIngredientInPantry } from './utils/pantryDefaults.ts';
@@ -931,7 +932,12 @@ export default function App() {
           refresh={(share) => firestoreService.refreshShare(share, sharingRecipe)}
           stop={(share) => firestoreService.deleteShare(share.id)}
           listInvites={(share) => firestoreService.listInvitesForShare(user.id, share.id)}
-          sendInvite={(share, to) => firestoreService.sendShareInvite(share, to)}
+          sendInvite={async (share, to) => {
+            const invite = await firestoreService.sendShareInvite(share, to);
+            // A push is a courtesy: the invite is already in their Inbox whether or not this succeeds.
+            apiFetch('/api/push/inbox', { method: 'POST', body: JSON.stringify({ inviteId: invite.id }) }).catch(() => undefined);
+            return invite;
+          }}
           removeInvite={(invite) => firestoreService.removeInvite(invite.id)}
           onClose={() => setSharingRecipe(null)}
         />

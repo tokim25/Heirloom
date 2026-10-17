@@ -17,6 +17,7 @@ import {
   urlRetrievedSuccessfully,
 } from './src/utils/pageExtract.ts';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
+import { pushInboxInvite, runDinnerReminders } from './src/server/pushServer.ts';
 
 dotenv.config();
 
@@ -62,7 +63,34 @@ async function requireFirebaseUser(req: AuthedRequest, res: Response, next: Next
   }
 }
 
+// The morning reminder job. Vercel Cron calls this with "Authorization: Bearer <CRON_SECRET>"; it has no
+// Firebase user, so it sits before the sign-in check and proves itself with the secret instead.
+app.get('/api/cron/dinner', async (req: Request, res: Response) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return res.json({ skipped: 'CRON_SECRET is not set' });
+  if (req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ error: 'Not allowed.' });
+  try {
+    return res.json(await runDinnerReminders());
+  } catch (error) {
+    console.error('[Push] dinner reminders failed:', error);
+    return res.status(500).json({ error: 'Reminders failed.' });
+  }
+});
+
 app.use('/api', requireFirebaseUser);
+
+// Tells the person an invite was sent to that a recipe is waiting in their Inbox.
+app.post('/api/push/inbox', async (req: AuthedRequest, res: Response) => {
+  const inviteId = typeof req.body?.inviteId === 'string' ? req.body.inviteId : '';
+  if (!inviteId || inviteId.length > 100) return res.status(400).json({ error: 'Missing invite.' });
+  try {
+    const result = await pushInboxInvite(req.uid as string, inviteId);
+    return res.status(result === 'forbidden' ? 403 : 200).json({ result });
+  } catch (error) {
+    console.error('[Push] inbox notification failed:', error);
+    return res.status(500).json({ error: 'Could not send the notification.' });
+  }
+});
 
 // ==========================================
 // URL SAFETY: only fetch public http(s) pages

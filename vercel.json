@@ -55,6 +55,12 @@
       ]
     }
   ],
+  "crons": [
+    {
+      "path": "/api/cron/dinner",
+      "schedule": "0 14 * * *"
+    }
+  ],
   "functions": {
     "api/index.ts": {
       "maxDuration": 60
