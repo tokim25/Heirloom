@@ -15,6 +15,7 @@ import { ingredientsForStep } from '../src/utils/stepIngredients.ts';
 import { thawTonight, stockToList } from '../src/utils/stock.ts';
 import { useLabel, compareMostUsed, compareRecentlyUsed, shouldCountCooking, COOKING_DEDUPE_MS } from '../src/utils/recipeUsage.ts';
 import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngine.ts';
+import { dinnerMessage, inboxMessage, dateKeyInZone, wantsPush } from '../src/utils/pushMessages.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 
 interface TestResult {
@@ -445,6 +446,32 @@ try {
   assert(names('Chop the tomato and the onion. Season.', ['tomatoes']) === 'yellow onion|tomatoes', 'Step Ingredients', 'Tags and text combine without repeats, in recipe order');
 } catch (e: any) {
   results.push({ suite: 'Planner', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// Push messages
+try {
+  const meal = (id: string, title: string, date: string, extra: Record<string, unknown> = {}) => ({ id, recipeId: id, recipeTitle: title, date, servings: 4, addedBy: 'T', ...extra } as any);
+  const frozen = (id: string, name: string, mealId?: string) => ({ id, name, place: 'freezer', mealId, addedBy: 'T' } as any);
+  assert(dateKeyInZone(new Date('2026-10-18T03:00:00Z'), 'America/Los_Angeles') === '2026-10-17' && dateKeyInZone(new Date('2026-10-18T03:00:00Z'), 'Asia/Tokyo') === '2026-10-18', 'Push', 'Today is the day in the person\'s own time zone');
+  assert(dateKeyInZone(new Date('2026-10-18T03:00:00Z'), 'Not/AZone') === '2026-10-18', 'Push', 'A bad time zone falls back to UTC instead of failing');
+  const m = inboxMessage('Alex', 'Pigs in a Blanket');
+  assert(m.title === 'Alex sent you a recipe' && m.body === 'Pigs in a Blanket' && m.url === '/inbox', 'Push', 'The inbox notification names the sender and recipe');
+  assert(dinnerMessage([], [], '2026-10-18') === null, 'Push', 'Nothing planned means no notification');
+  const one = dinnerMessage([meal('a', 'Thai Basil Chicken', '2026-10-18')], [], '2026-10-18')!;
+  assert(one.title === 'Tonight: Thai Basil Chicken' && one.body === 'For 4 people.' && one.url === '/plan', 'Push', 'Tonight\'s dinner reads naturally');
+  const lunchOnly = dinnerMessage([meal('a', 'Salad', '2026-10-18', { slot: 'lunch' })], [], '2026-10-18');
+  assert(lunchOnly === null, 'Push', 'Lunch and breakfast do not trigger the dinner reminder');
+  const two = dinnerMessage([meal('a', 'Tacos', '2026-10-18'), meal('b', 'Soup', '2026-10-18')], [], '2026-10-18')!;
+  assert(two.title === 'Tonight: Tacos and Soup', 'Push', 'Two dinners are joined');
+  const left = dinnerMessage([meal('a', 'Chili', '2026-10-18', { kind: 'leftovers' })], [], '2026-10-18')!;
+  assert(left.title === 'Leftovers tonight: Chili', 'Push', 'Leftovers are called leftovers');
+  const thaw = dinnerMessage([meal('a', 'Tacos', '2026-10-18'), meal('b', 'Pasta', '2026-10-19')], [frozen('s1', 'ground beef', 'b'), frozen('s2', 'peas')], '2026-10-18')!;
+  assert(thaw.body === "For 4 people. Take ground beef out of the freezer tonight for tomorrow's Pasta.", 'Push', 'The thaw reminder names the item and tomorrow\'s meal');
+  const thawOnly = dinnerMessage([meal('b', 'Pasta', '2026-10-19')], [frozen('s1', 'ground beef', 'b')], '2026-10-18')!;
+  assert(thawOnly.title === 'Nothing to cook tonight' && thawOnly.body.startsWith('Take ground beef'), 'Push', 'A thaw reminder can go out on its own');
+  assert(wantsPush(undefined, 'inbox') && wantsPush({ dinner: true }, 'dinner') && !wantsPush({ inbox: false }, 'inbox') && wantsPush({ inbox: false }, 'dinner'), 'Push', 'Both kinds are on until switched off, independently');
+} catch (e: any) {
+  results.push({ suite: 'Push', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // YouTube failure handling

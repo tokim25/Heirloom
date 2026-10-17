@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronRight, Copy, LogOut, Plus, Loader2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
-import { GroceryList, Recipe } from '../types/recipe.ts';
-import { formatInviteCode } from '../utils/firestoreService.ts';
+import { GroceryList, Recipe, User } from '../types/recipe.ts';
+import { firestoreService, formatInviteCode } from '../utils/firestoreService.ts';
+import { currentDeviceKey, pushConfigured, pushSupport, registerDevice, unregisterDevice } from '../utils/push.ts';
+import { wantsPush } from '../utils/pushMessages.ts';
 import { inviteLink } from '../utils/invite.ts';
 import { storeNotice, visibleStoreNames } from '../utils/storeOptions.ts';
 import { Sheet } from './ui/Sheet.tsx';
@@ -40,6 +42,118 @@ const Group: React.FC<{ title?: string; note?: string; children: React.ReactNode
 const Row: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div className={`min-h-14 px-4 py-2.5 flex items-center gap-3 ${className}`}>{children}</div>
 );
+
+const Switch: React.FC<{ checked: boolean; onChange: (next: boolean) => void; label: string }> = ({ checked, onChange, label }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
+    onClick={() => onChange(!checked)}
+    className={`relative h-8 w-14 shrink-0 rounded-full transition-colors hit-area ${checked ? 'bg-emerald-600' : 'bg-stone-300'}`}
+  >
+    <span className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-6' : ''}`} />
+  </button>
+);
+
+/** Turning notifications on for this phone or computer, and choosing which ones to get. */
+const NotificationsGroup: React.FC<{ user: User; onPrefs: (prefs: NonNullable<User['pushPrefs']>) => void }> = ({ user, onPrefs }) => {
+  const [deviceKey, setDeviceKey] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const devices = Object.keys(user.pushTokens ?? {});
+
+  useEffect(() => {
+    let cancelled = false;
+    currentDeviceKey().then((key) => !cancelled && setDeviceKey(key));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const state = pushSupport(!!deviceKey && devices.includes(deviceKey));
+  if (!pushConfigured || state === 'unsupported') return null;
+
+  const turnOn = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const device = await registerDevice();
+      await firestoreService.addPushDevice(user.id, device);
+      setDeviceKey(device.key);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not turn on notifications.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const turnOff = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const key = (await unregisterDevice()) ?? deviceKey;
+      await firestoreService.removePushDevice(user.id, key, devices.length - (key && devices.includes(key) ? 1 : 0));
+      setDeviceKey(null);
+    } catch {
+      setError('Could not turn notifications off. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const prefs = user.pushPrefs ?? {};
+  return (
+    <Group
+      title="Notifications"
+      note={
+        error ??
+        (state === 'needs_install'
+          ? 'On iPhone, add Heirloom to your Home Screen first (Share, then Add to Home Screen). Then open it from there and come back here.'
+          : state === 'blocked'
+          ? 'Notifications are blocked for Heirloom. Turn them on in your phone or browser settings, then come back.'
+          : undefined)
+      }
+    >
+      {state === 'on' ? (
+        <>
+          <Row>
+            <span className="flex-1 text-base text-stone-900">A recipe is sent to me</span>
+            <Switch label="Notify me when a recipe is sent to me" checked={wantsPush(prefs, 'inbox')} onChange={(v) => onPrefs({ ...prefs, inbox: v })} />
+          </Row>
+          <Row>
+            <span className="flex-1 min-w-0">
+              <span className="block text-base text-stone-900">Tonight's dinner</span>
+              <span className="block text-sm text-stone-600">Each morning, plus what to thaw for tomorrow.</span>
+            </span>
+            <Switch label="Send me tonight's dinner each morning" checked={wantsPush(prefs, 'dinner')} onChange={(v) => onPrefs({ ...prefs, dinner: v })} />
+          </Row>
+          <Row>
+            <button type="button" onClick={turnOff} disabled={busy} className="min-h-11 flex-1 text-left text-base text-rose-700 dark:text-rose-300 disabled:opacity-50">
+              Turn off on this device
+            </button>
+          </Row>
+        </>
+      ) : state === 'off' ? (
+        <Row>
+          <span className="flex-1 min-w-0">
+            <span className="block text-base text-stone-900">Get notifications</span>
+            <span className="block text-sm text-stone-600">When a recipe is sent to you, and tonight's dinner.</span>
+          </span>
+          <button
+            type="button"
+            onClick={turnOn}
+            disabled={busy}
+            className="min-h-11 px-4 rounded-xl bg-ink hover:bg-ink-hover disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center gap-2 shrink-0"
+          >
+            {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+            Turn on
+          </button>
+        </Row>
+      ) : null}
+    </Group>
+  );
+};
 
 const Avatar: React.FC<{ name: string; url?: string; size?: number }> = ({ name, url, size = 40 }) =>
   url ? (
@@ -263,6 +377,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, rec
               </Row>
             )}
           </Group>
+
+          <NotificationsGroup user={user} onPrefs={(pushPrefs) => void save({ pushPrefs })} />
 
           <Group title="Groceries" note={notice ?? undefined}>
             <Row>

@@ -12,6 +12,13 @@ export interface User {
   hiddenStores?: string[];
   /** The person turned the Google Drive copy on. Kept on the account so it survives a new browser or cleared site data. */
   driveCopyEnabled?: boolean;
+  /** One entry per phone or computer that turned notifications on, keyed by a short hash of its token. */
+  pushTokens?: Record<string, { token: string; timeZone: string; addedAt: string }>;
+  /** True while at least one device is registered, so the daily job can find people without scanning everyone. */
+  pushEnabled?: boolean;
+  pushPrefs?: { inbox?: boolean; dinner?: boolean };
+  /** The last day (in the person's time zone) a dinner reminder went out, so a retried job never sends twice. */
+  lastDinnerPush?: string;
   householdId: string;
   createdAt: string;
 }

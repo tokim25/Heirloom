@@ -161,6 +161,21 @@ export const firestoreService = {
     });
   },
 
+  /** Remembers this device for notifications. Keyed by a hash so the same phone never registers twice. */
+  async addPushDevice(uid: string, device: { key: string; token: string; timeZone: string }) {
+    await updateDoc(userRef(uid), new FieldPath('pushTokens', device.key), { token: device.token, timeZone: device.timeZone, addedAt: now() }, 'pushEnabled', true, 'updatedAt', now());
+  },
+
+  async removePushDevice(uid: string, key: string | null, remaining: number) {
+    const args: unknown[] = [];
+    if (key) args.push(new FieldPath('pushTokens', key), deleteField());
+    if (remaining <= 0) args.push('pushEnabled', false);
+    if (args.length === 0) return;
+    args.push('updatedAt', now());
+    const [first, firstValue, ...rest] = args;
+    await updateDoc(userRef(uid), first as FieldPath, firstValue, ...rest);
+  },
+
   async updateProfile(uid: string, updates: Partial<User>) {
     const { id: _id, householdId: _hid, ...safeUpdates } = updates;
     await updateDoc(userRef(uid), { ...safeUpdates, updatedAt: now() });

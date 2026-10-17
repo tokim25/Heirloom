@@ -1,5 +1,5 @@
 // Heirloom Kitchen Studio Service Worker - Offline Caching
-const CACHE_NAME = 'heirloom-kitchen-cache-v7';
+const CACHE_NAME = 'heirloom-kitchen-cache-v8';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -102,6 +102,42 @@ self.addEventListener('fetch', (event) => {
             }
           });
         });
+    })
+  );
+});
+
+// Push notifications. The server sends data only ({ title, body, url, tag }); this builds the notification
+// and, when it is tapped, brings Heirloom forward and opens the right screen.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    const payload = event.data ? event.data.json() : {};
+    data = payload.data || payload;
+  } catch (e) {
+    data = {};
+  }
+  const title = data.title || 'Heirloom';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/favicon-32.png',
+      tag: data.tag || 'heirloom',
+      data: { url: data.url || '/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      if (open) {
+        return open.focus().then(() => ('navigate' in open ? open.navigate(target) : undefined));
+      }
+      return self.clients.openWindow(target);
     })
   );
 });
