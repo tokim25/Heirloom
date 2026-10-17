@@ -8,5 +8,6 @@
   "messagingSenderId": "357258985638",
   "measurementId": "",
   "oAuthClientId": "357258985638-4is25auh0a1g8jddosu26ie4s916d3ca.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "recaptchaSiteKey": "",
+  "vapidKey": "BHMEsaxCW4QYQKbNv9CNnZvh15TtCN-l10KBrvbX_SSQEVJNBGFcABjn0OPKmDBdLIksOyEbpqhQ39u5Fgu7oG0"
 }
