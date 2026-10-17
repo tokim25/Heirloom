@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocFromCache,
   getDocs,
   setDoc,
   updateDoc,
@@ -89,6 +90,24 @@ export const firestoreService = {
    * Loads (or creates) the signed-in user's profile and makes sure their household exists.
    * Profile fields the user has saved are never overwritten here.
    */
+  /** This device's saved copy of the profile, if there is one. Instant and works offline; never waits on the network. */
+  async cachedProfile(fbUser: FirebaseUser): Promise<User | null> {
+    try {
+      const snap = await getDocFromCache(userRef(fbUser.uid));
+      if (!snap.exists()) return null;
+      const identity = {
+        id: fbUser.uid,
+        email: fbUser.email || '',
+        name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Heirloom Cook',
+        avatarUrl: fbUser.photoURL || undefined,
+      };
+      const stored = snap.data() as User;
+      return stored.householdId ? { ...stored, ...identity } : null;
+    } catch {
+      return null;
+    }
+  },
+
   async ensureProfile(fbUser: FirebaseUser): Promise<User> {
     const snap = await getDoc(userRef(fbUser.uid));
     const identity = {
@@ -100,8 +119,12 @@ export const firestoreService = {
 
     let profile: User;
     if (snap.exists()) {
-      profile = { ...(snap.data() as User), ...identity };
-      await updateDoc(userRef(fbUser.uid), { ...identity, updatedAt: now() });
+      const stored = snap.data() as User;
+      profile = { ...stored, ...identity };
+      // Only touch the profile when the Google account details actually changed, and don't wait for the server.
+      if (stored.name !== identity.name || stored.email !== identity.email || (stored.avatarUrl || undefined) !== identity.avatarUrl) {
+        updateDoc(userRef(fbUser.uid), { ...identity, updatedAt: now() }).catch((err) => console.warn('Could not refresh profile details:', err));
+      }
     } else {
       profile = {
         ...identity,
@@ -115,7 +138,9 @@ export const firestoreService = {
     }
 
     const ownHouseholdId = `household-${fbUser.uid}`;
-    const householdSnap = await getDoc(householdRef(profile.householdId)).catch(() => null);
+    const householdSnap =
+      (await getDocFromCache(householdRef(profile.householdId)).catch(() => null)) ??
+      (await getDoc(householdRef(profile.householdId)).catch(() => null));
     if (!householdSnap?.exists()) {
       if (profile.householdId === ownHouseholdId) {
         await createHousehold(ownHouseholdId, profile);

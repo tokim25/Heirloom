@@ -6,8 +6,11 @@ import { initSentry } from './utils/sentry.ts';
 import { registerServiceWorker } from './utils/pwa.ts';
 import { AuthProvider } from './context/AuthContext.tsx';
 
-// Initialize Sentry error telemetry
-initSentry();
+// Error telemetry starts once the browser is idle, after the app has painted.
+const startTelemetry = () => void initSentry();
+const idle = (window as { requestIdleCallback?: (fn: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
+if (idle) idle(startTelemetry, { timeout: 4000 });
+else setTimeout(startTelemetry, 1500);
 
 // Register PWA Service Worker for offline kitchen and grocery use
 registerServiceWorker();

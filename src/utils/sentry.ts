@@ -1,5 +1,6 @@
-import * as Sentry from '@sentry/react';
-
+// Sentry is loaded after the first paint (see main.tsx), so crash reporting never delays opening the app.
+type SentryModule = typeof import('@sentry/react');
+let Sentry: SentryModule | null = null;
 let isSentryInitialized = false;
 
 // Check if a DSN is valid (32 hex characters or proper Sentry URI structure, not placeholder/mock)
@@ -15,7 +16,7 @@ function isValidSentryDsn(dsn?: string): boolean {
 }
 
 // Initialize Sentry for client-side crash and bug reporting
-export function initSentry() {
+export async function initSentry() {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
 
   if (!isValidSentryDsn(dsn)) {
@@ -25,6 +26,7 @@ export function initSentry() {
   }
 
   try {
+    Sentry = await import('@sentry/react');
     Sentry.init({
       dsn: dsn,
       environment: import.meta.env.MODE || 'development',
@@ -66,7 +68,7 @@ export function reportUserBug(report: Omit<BugReport, 'id' | 'timestamp' | 'url'
   };
 
   // Capture message in Sentry if initialized
-  if (isSentryInitialized) {
+  if (isSentryInitialized && Sentry) {
     try {
       Sentry.captureMessage(`[User Bug Report] ${report.title}`, {
         level: report.severity === 'high' ? 'error' : report.severity === 'medium' ? 'warning' : 'info',
@@ -96,4 +98,3 @@ export function reportUserBug(report: Omit<BugReport, 'id' | 'timestamp' | 'url'
   return fullReport;
 }
 
-export { Sentry };

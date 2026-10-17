@@ -1,5 +1,5 @@
 // Heirloom Kitchen Studio Service Worker - Offline Caching
-const CACHE_NAME = 'heirloom-kitchen-cache-v6';
+const CACHE_NAME = 'heirloom-kitchen-cache-v7';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -48,28 +48,60 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Built files have a hash in their name, so a cached copy is always the right one: serve it instantly.
+  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')) {
+    event.respondWith(
+      caches.match(event.request).then(
+        (cached) =>
+          cached ||
+          fetch(event.request).then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+              const responseToCache = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+            }
+            return networkResponse;
+          })
+      )
+    );
+    return;
+  }
+
+  // The page itself stays fresh (so new releases arrive), but a slow or missing connection falls back to the
+  // saved copy after a couple of seconds instead of leaving a blank screen.
   event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        // Cache valid responses
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      })
-      .catch(() => {
-        // Offline fallback
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
+    new Promise((resolve) => {
+      let settled = false;
+      const useCache = () =>
+        caches.match(event.request).then((cached) => cached || (event.request.mode === 'navigate' ? caches.match('/') : undefined));
+      const timer = setTimeout(() => {
+        useCache().then((cached) => {
+          if (cached && !settled) {
+            settled = true;
+            resolve(cached);
           }
         });
-      })
+      }, event.request.mode === 'navigate' ? 2500 : 4000);
+      fetch(event.request)
+        .then((networkResponse) => {
+          clearTimeout(timer);
+          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          }
+          if (!settled) {
+            settled = true;
+            resolve(networkResponse);
+          }
+        })
+        .catch(() => {
+          clearTimeout(timer);
+          useCache().then((cached) => {
+            if (!settled) {
+              settled = true;
+              resolve(cached || Response.error());
+            }
+          });
+        });
+    })
   );
 });

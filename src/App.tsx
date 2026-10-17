@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -23,29 +23,14 @@ import { Recipe, GroceryList, GroceryItem, MealKind, MealSlot, PlannedMeal, Shar
 import { Navbar } from './components/Navbar.tsx';
 import { RecipeCard } from './components/RecipeCard.tsx';
 import { RecipeRow } from './components/RecipeRow.tsx';
-import { RecipeDetailModal, AddToGroceryListResult } from './components/RecipeDetailModal.tsx';
-import { InstagramCookingMode } from './components/InstagramCookingMode.tsx';
-import { RecipeImportModal } from './components/RecipeImportModal.tsx';
-import { RecipeEditModal } from './components/RecipeEditModal.tsx';
-import { MealPlannerSheet, PlanDaySheet } from './components/MealPlanner.tsx';
+import type { AddToGroceryListResult } from './components/RecipeDetailModal.tsx';
 import { addDays, planToList, toDateKey } from './utils/mealPlan.ts';
 import { stockToList } from './utils/stock.ts';
 import type { StockDraft } from './components/FridgeFreezerSheet.tsx';
 import { compareMostUsed, compareRecentlyUsed, shouldCountCooking, useCountOf } from './utils/recipeUsage.ts';
 import { OfflineBanner } from './components/OfflineBanner.tsx';
-import { InboxSheet } from './components/InboxSheet.tsx';
-import { ShareRecipeSheet } from './components/ShareRecipeSheet.tsx';
-import { SharedRecipeSheet } from './components/SharedRecipeSheet.tsx';
 import { ConfirmSheet } from './components/ui/Sheet.tsx';
 import { recipeFromShare } from './utils/shareLink.ts';
-import { ShoppingMode } from './components/ShoppingMode.tsx';
-import { GroceryListView } from './components/GroceryListView.tsx';
-import { UnitConverterModal } from './components/UnitConverterModal.tsx';
-import { UserProfileModal } from './components/UserProfileModal.tsx';
-import { GeminiChatModal } from './components/GeminiChatModal.tsx';
-import { PantryModal } from './components/PantryModal.tsx';
-import { GoogleDriveBackupModal } from './components/GoogleDriveBackupModal.tsx';
-import { IngredientOrganizerModal } from './components/IngredientOrganizerModal.tsx';
 import { googleDriveService, DriveAuthError, HeirloomDrivePayload } from './utils/googleDriveService.ts';
 import { PantryItem } from './types/recipe.ts';
 import { DEFAULT_PANTRY_ITEMS, isIngredientInPantry } from './utils/pantryDefaults.ts';
@@ -68,6 +53,32 @@ import {
 } from './utils/recipeTaxonomy.ts';
 import { createRecipeSearchIndex, searchRecipes } from './utils/searchEngine.ts';
 
+// Screens people open on demand load as separate files, so the first paint ships only what the cookbook needs.
+const RecipeDetailModal = lazy(() => import('./components/RecipeDetailModal.tsx').then((m) => ({ default: m.RecipeDetailModal })));
+const InstagramCookingMode = lazy(() => import('./components/InstagramCookingMode.tsx').then((m) => ({ default: m.InstagramCookingMode })));
+const RecipeImportModal = lazy(() => import('./components/RecipeImportModal.tsx').then((m) => ({ default: m.RecipeImportModal })));
+const RecipeEditModal = lazy(() => import('./components/RecipeEditModal.tsx').then((m) => ({ default: m.RecipeEditModal })));
+const InboxSheet = lazy(() => import('./components/InboxSheet.tsx').then((m) => ({ default: m.InboxSheet })));
+const ShareRecipeSheet = lazy(() => import('./components/ShareRecipeSheet.tsx').then((m) => ({ default: m.ShareRecipeSheet })));
+const SharedRecipeSheet = lazy(() => import('./components/SharedRecipeSheet.tsx').then((m) => ({ default: m.SharedRecipeSheet })));
+const ShoppingMode = lazy(() => import('./components/ShoppingMode.tsx').then((m) => ({ default: m.ShoppingMode })));
+const GroceryListView = lazy(() => import('./components/GroceryListView.tsx').then((m) => ({ default: m.GroceryListView })));
+const UnitConverterModal = lazy(() => import('./components/UnitConverterModal.tsx').then((m) => ({ default: m.UnitConverterModal })));
+const UserProfileModal = lazy(() => import('./components/UserProfileModal.tsx').then((m) => ({ default: m.UserProfileModal })));
+const GeminiChatModal = lazy(() => import('./components/GeminiChatModal.tsx').then((m) => ({ default: m.GeminiChatModal })));
+const PantryModal = lazy(() => import('./components/PantryModal.tsx').then((m) => ({ default: m.PantryModal })));
+const GoogleDriveBackupModal = lazy(() => import('./components/GoogleDriveBackupModal.tsx').then((m) => ({ default: m.GoogleDriveBackupModal })));
+const IngredientOrganizerModal = lazy(() => import('./components/IngredientOrganizerModal.tsx').then((m) => ({ default: m.IngredientOrganizerModal })));
+const MealPlannerSheet = lazy(() => import('./components/MealPlanner.tsx').then((m) => ({ default: m.MealPlannerSheet })));
+const PlanDaySheet = lazy(() => import('./components/MealPlanner.tsx').then((m) => ({ default: m.PlanDaySheet })));
+
+// After the first paint, fetch the screens people open most while the browser is idle, so the first tap feels instant.
+const prefetchCommonScreens = () => {
+  void import('./components/RecipeDetailModal.tsx');
+  void import('./components/GroceryListView.tsx');
+  void import('./components/MealPlanner.tsx');
+};
+
 export default function App() {
   const {
     user,
@@ -85,6 +96,13 @@ export default function App() {
     authErrorMessage,
     updateProfile,
   } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    const idle = (window as { requestIdleCallback?: (fn: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
+    if (idle) idle(prefetchCommonScreens, { timeout: 5000 });
+    else setTimeout(prefetchCommonScreens, 2000);
+  }, [!!user]);
+
   // Screens follow the address bar: / (recipes), /groceries, /add, /profile, /r/:id
   const path = usePath();
   // The tab behind a sheet (Add, Profile, a recipe) is whichever of / or /groceries was last shown.
@@ -786,6 +804,7 @@ export default function App() {
           </div>
         ) : (
           /* Shared Groceries Tab */
+          <Suspense fallback={<div className="flex justify-center py-32" aria-label="Loading groceries"><div className="h-8 w-8 rounded-full border-2 border-stone-300 border-t-stone-900 animate-spin" /></div>}>
           <GroceryListView
             groceryLists={householdLists}
             currentList={currentGroceryList}
@@ -804,6 +823,7 @@ export default function App() {
             onDismissActionMessage={() => setNotice(null)}
             recipes={recipes}
           />
+          </Suspense>
         )}
       </main>
 
@@ -812,7 +832,8 @@ export default function App() {
       <MobileBottomNav groceryPendingCount={groceryPendingCount} />
       )}
 
-      {/* Modals */}
+      {/* Modals (loaded on first use) */}
+      <Suspense fallback={null}>
       {isChatOpen && (
         <GeminiChatModal
           onClose={() => setIsChatOpen(false)}
@@ -1075,6 +1096,8 @@ export default function App() {
         filter={organizationFilter}
         setFilter={setOrganizationFilter}
       />
+
+      </Suspense>
 
       {/* Vercel Web Analytics */}
       <Analytics />
