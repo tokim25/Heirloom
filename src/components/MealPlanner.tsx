@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { CalendarDays, ChefHat, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Search, ShoppingBag, X } from 'lucide-react';
 import { MealKind, MealSlot, PlannedMeal, Recipe, StockItem } from '../types/recipe.ts';
-import { addDays, dayLabel, fromDateKey, kindLabel, kindOf, MEAL_KINDS, MEAL_SLOTS, mealsInRange, slotLabel, slotOf, toDateKey, weekDays, weekLabel, weekStart } from '../utils/mealPlan.ts';
+import { addDays, dayLabel, fromDateKey, kindLabel, kindOf, MEAL_KINDS, MEAL_SLOTS, isValidDateKey, mealsInRange, slotLabel, slotOf, toDateKey, weekDays, weekLabel, weekStart } from '../utils/mealPlan.ts';
 import { compareMostUsed, useLabel } from '../utils/recipeUsage.ts';
 import { createRecipeSearchIndex, searchRecipes } from '../utils/searchEngine.ts';
 import { thawTonight } from '../utils/stock.ts';
 import { FridgeFreezerSheet, StockDraft } from './FridgeFreezerSheet.tsx';
+import { navigate } from '../utils/router.ts';
 import { Sheet } from './ui/Sheet.tsx';
 
 const Thumb: React.FC<{ url?: string }> = ({ url }) =>
@@ -410,7 +411,16 @@ export const MealPlannerSheet: React.FC<MealPlannerSheetProps> = ({
   onClose,
 }) => {
   const today = toDateKey(new Date());
-  const [start, setStart] = useState(() => weekStart(today));
+  // The week being viewed lives in the address (/plan?week=2026-10-05), so opening a meal and coming back
+  // returns to that week instead of this one.
+  const [start, setStartState] = useState(() => {
+    const requested = new URLSearchParams(window.location.search).get('week');
+    return requested && isValidDateKey(requested) ? weekStart(requested) : weekStart(today);
+  });
+  const setStart = (key: string) => {
+    setStartState(key);
+    navigate(key === weekStart(today) ? '/plan' : `/plan?week=${key}`, { replace: true });
+  };
   const [picking, setPicking] = useState<{ date: string } | { recipe: Recipe; date: string } | null>(null);
   const [moving, setMoving] = useState<PlannedMeal | null>(null);
   const [adding, setAdding] = useState(false);
