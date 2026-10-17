@@ -1081,14 +1081,17 @@ export default function App() {
       )}
 
       {/* Google Drive Vault & Cloud Backup Modal */}
+      {isDriveBackupOpen && (
       <GoogleDriveBackupModal
         isOpen={isDriveBackupOpen}
         onClose={() => setIsDriveBackupOpen(false)}
         copyStatus={driveCopyStatus}
         onRestore={handleRestoreFromDrive}
       />
+      )}
 
       {/* Organize By Ingredient Fast Inverted Index Modal */}
+      {isIngredientOrganizerOpen && (
       <IngredientOrganizerModal
         isOpen={isIngredientOrganizerOpen}
         onClose={() => setIsIngredientOrganizerOpen(false)}
@@ -1096,6 +1099,7 @@ export default function App() {
         filter={organizationFilter}
         setFilter={setOrganizationFilter}
       />
+      )}
 
       </Suspense>
 
