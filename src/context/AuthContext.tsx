@@ -128,6 +128,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       try {
+        // Returning visitors see their cookbook straight from this device's saved copy; the server check
+        // (which can create or repair the household) runs behind it instead of in front of it.
+        const cached = await firestoreService.cachedProfile(fbUser);
+        if (cached) {
+          setUser(cached);
+          setIsAuthLoading(false);
+          unsubscribeProfile = firestoreService.subscribeProfile(fbUser.uid, (p) => setUser(p));
+          firestoreService
+            .ensureProfile(fbUser)
+            .then((profile) => setUser((current) => (current && current.householdId !== profile.householdId ? profile : current)))
+            .catch((err) => console.error('Could not verify your Heirloom profile:', err));
+          return;
+        }
         const profile = await firestoreService.ensureProfile(fbUser);
         setUser(profile);
         unsubscribeProfile = firestoreService.subscribeProfile(fbUser.uid, (p) => setUser(p));

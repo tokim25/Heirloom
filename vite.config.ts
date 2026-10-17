@@ -6,6 +6,19 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    build: {
+      rolldownOptions: {
+        output: {
+          // Libraries change far less often than the app, so they get their own files and stay cached across deploys.
+          codeSplitting: {
+            groups: [
+              { name: 'firebase', test: /node_modules[\\/](firebase|@firebase)[\\/]/, priority: 20 },
+              { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 10 },
+            ],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
