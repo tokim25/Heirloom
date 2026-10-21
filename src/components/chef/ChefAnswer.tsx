@@ -17,6 +17,8 @@ interface ChefActions {
   addedGroceryKeys: Set<string>;
   /** The household's recipes. CookbookPicks draws only recipes found here. */
   cookbook?: Recipe[];
+  /** True while the answer is still arriving; every button waits until it is complete. */
+  isStreaming?: boolean;
   onSave: (recipe: Recipe) => void;
   onCook?: (recipe: Recipe) => void;
   onAddGroceries: (key: string, items: Partial<GroceryItem>[]) => void;
@@ -102,7 +104,7 @@ const Tip = defineComponent({
 const RecipeChoices = defineComponent({
   ...spec.RecipeChoices,
   component: ({ props }) => {
-    const { messageId, savedIds, savingIds, saveErrors, onSave, onCook } = useActions();
+    const { messageId, savedIds, savingIds, saveErrors, onSave, onCook, isStreaming } = useActions();
     const recipes = propsOf(props.recipes)
       .map((p, i) => toRecipe(p, `recipe-ai-${messageId}-${i}`))
       .filter((r): r is Recipe => r !== null);
@@ -140,6 +142,7 @@ const RecipeChoices = defineComponent({
                       type="checkbox"
                       checked={isPicked}
                       onChange={() => toggle(r.id)}
+                      disabled={isStreaming}
                       className="mt-1 h-4 w-4 accent-amber-500"
                     />
                   )}
@@ -159,7 +162,7 @@ const RecipeChoices = defineComponent({
                   {onCook && (
                     <button
                       onClick={() => onCook(r)}
-                      disabled={savingIds.has(r.id)}
+                      disabled={savingIds.has(r.id) || isStreaming}
                       className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs font-semibold text-stone-800 hover:bg-stone-100 disabled:opacity-50"
                     >
                       <ChefHat className="w-3.5 h-3.5" />
@@ -179,7 +182,7 @@ const RecipeChoices = defineComponent({
         {(toSave.length > 0 || multiple) && recipes.some((r) => !savedIds.has(r.id)) && (
           <button
             onClick={() => toSave.forEach(onSave)}
-            disabled={toSave.length === 0 || saving}
+            disabled={toSave.length === 0 || saving || isStreaming}
             className="w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-ink hover:bg-ink-hover text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
@@ -198,7 +201,7 @@ const RecipeChoices = defineComponent({
 const CookbookPicks = defineComponent({
   ...spec.CookbookPicks,
   component: ({ props }) => {
-    const { messageId, cookbook = [], addedGroceryKeys, onCook, onAddGroceries } = useActions();
+    const { messageId, cookbook = [], addedGroceryKeys, onCook, onAddGroceries, isStreaming } = useActions();
     // Title, times and ingredients come from the saved recipe; an id not in the cookbook is dropped.
     const picks = propsOf(props.picks).flatMap((p) => {
       const recipe = cookbook.find((r) => r.id === p.recipeId);
@@ -230,7 +233,8 @@ const CookbookPicks = defineComponent({
                 {onCook && (
                   <button
                     onClick={() => onCook(recipe)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-ink hover:bg-ink-hover text-white px-2.5 py-1.5 text-xs font-semibold"
+                    disabled={isStreaming}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-ink hover:bg-ink-hover text-white px-2.5 py-1.5 text-xs font-semibold disabled:opacity-50"
                   >
                     <ChefHat className="w-3.5 h-3.5" /> Start cooking
                   </button>
@@ -251,7 +255,7 @@ const CookbookPicks = defineComponent({
                         })),
                       )
                     }
-                    disabled={added}
+                    disabled={added || isStreaming}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs font-semibold text-stone-800 hover:bg-stone-100 disabled:opacity-60 disabled:cursor-default"
                   >
                     {added ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
@@ -270,7 +274,7 @@ const CookbookPicks = defineComponent({
 const GroceryList = defineComponent({
   ...spec.GroceryList,
   component: ({ props }) => {
-    const { messageId, addedGroceryKeys, onAddGroceries } = useActions();
+    const { messageId, addedGroceryKeys, onAddGroceries, isStreaming } = useActions();
     const items = propsOf(props.items).map((it) => ({
       name: String(it.name ?? ''),
       amount: Number(it.amount) > 0 ? Number(it.amount) : null,
@@ -302,7 +306,7 @@ const GroceryList = defineComponent({
         </ul>
         <button
           onClick={() => onAddGroceries(key, items)}
-          disabled={added}
+          disabled={added || isStreaming}
           className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 ${
             added ? 'bg-emerald-700 text-white cursor-default' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
           }`}
@@ -318,7 +322,7 @@ const GroceryList = defineComponent({
 const FollowUps = defineComponent({
   ...spec.FollowUps,
   component: ({ props }) => {
-    const { onAsk } = useActions();
+    const { onAsk, isStreaming } = useActions();
     const questions = (Array.isArray(props.questions) ? props.questions : []).map(String).filter(Boolean);
     if (!questions.length) return null;
     return (
@@ -327,7 +331,8 @@ const FollowUps = defineComponent({
           <button
             key={q}
             onClick={() => onAsk(q)}
-            className="px-3 py-1.5 rounded-full bg-surface border border-stone-200 hover:border-amber-400 text-xs text-stone-700 transition-colors"
+            disabled={isStreaming}
+            className="px-3 py-1.5 rounded-full bg-surface border border-stone-200 hover:border-amber-400 text-xs text-stone-700 transition-colors disabled:opacity-50"
           >
             {q}
           </button>
@@ -361,7 +366,7 @@ const chefLibrary = createLibrary({
 
 export const ChefAnswer: React.FC<ChefActions & { response: string }> = ({ response, ...actions }) => (
   <ActionsContext.Provider value={actions}>
-    <Renderer response={response} library={chefLibrary} isStreaming={false} />
+    <Renderer response={spec.unwrapChefAnswer(response)} library={chefLibrary} isStreaming={!!actions.isStreaming} />
   </ActionsContext.Provider>
 );
 

@@ -19,6 +19,7 @@ import { dinnerMessage, inboxMessage, dateKeyInZone, wantsPush } from '../src/ut
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 import { parseChatEmbeds } from '../src/utils/chatEmbeds.ts';
 import { CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE, checkChefAnswer, unwrapChefAnswer } from '../src/utils/chefLibrary.ts';
+import { firstTextChunk, writeTextStream, readTextStream } from '../src/utils/chefStream.ts';
 import { buildKitchenContext, MAX_CONTEXT_RECIPES, MAX_CONTEXT_INGREDIENTS } from '../src/utils/kitchenContext.ts';
 import { PlannedMeal, StockItem, PantryItem } from '../src/types/recipe.ts';
 import { createElement } from 'react';
@@ -634,6 +635,69 @@ try {
   assert(offList.includes('Add 1 to grocery list'), 'Kitchen context', 'Missing items not in the recipe are ignored');
 } catch (e: any) {
   results.push({ suite: 'Kitchen context', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// 15. Streaming beta answers
+try {
+  const S = 'Streaming';
+  const bytes = new TextEncoder().encode('Roast at 425°F');
+  const split = bytes.indexOf(0xc2) + 1; // cut through the middle of the ° character
+  const body = new ReadableStream<Uint8Array>({
+    start(c) { c.enqueue(bytes.slice(0, split)); c.enqueue(bytes.slice(split)); c.close(); },
+  });
+  const seen: string[] = [];
+  const read = await readTextStream(body, (t) => seen.push(t));
+  assert(read === 'Roast at 425°F' && seen.at(-1) === read && seen.every((t) => !t.includes('\uFFFD')), S, 'The assembler joins chunks, even a character split across two');
+
+  async function* gemini(parts: string[], failAt = -1) {
+    for (let i = 0; i < parts.length; i++) {
+      if (i === failAt) throw new Error('connection reset');
+      yield { text: parts[i] };
+    }
+  }
+  const start = await firstTextChunk(gemini(['', 'root = ', 'Answer()']));
+  assert(start?.first === 'root = ', S, 'Waits past empty chunks for the first text');
+  assert((await firstTextChunk(gemini(['', '']))) === null, S, 'A stream with no text counts as a failed attempt, so the next model is tried');
+  let threw = false;
+  try { await firstTextChunk(gemini(['x'], 0)); } catch { threw = true; }
+  assert(threw, S, 'An error before the first chunk is thrown, so it can be retried');
+
+  const fakeRes = () => {
+    const r = { headers: {} as Record<string, string>, body: [] as string[], ended: false,
+      setHeader(k: string, v: string) { r.headers[k] = v; }, write(c: string) { r.body.push(c); }, end() { r.ended = true; } };
+    return r;
+  };
+  const ok = fakeRes();
+  const opened = (await firstTextChunk(gemini(['a', 'b', '', 'c'])))!;
+  const sent = await writeTextStream(ok, opened.first, opened.rest);
+  assert(sent === 'abc' && ok.body.join('|') === 'a|b|c' && ok.ended, S, 'Chunks are written as they arrive and the response ends');
+  assert(ok.headers['Content-Type'] === 'text/plain; charset=utf-8' && ok.headers['Cache-Control'] === 'no-cache' && ok.headers['X-Accel-Buffering'] === 'no', S, 'Streaming headers that avoid buffering are set');
+  const broken = fakeRes();
+  const half = (await firstTextChunk(gemini(['a', 'b', 'c'], 2)))!;
+  let logged = false;
+  const partial = await writeTextStream(broken, half.first, half.rest, () => { logged = true; });
+  assert(partial === 'ab' && broken.ended && logged, S, 'An error mid-stream ends the response with what was sent');
+
+  const ids = new Set(['r_8f2', 'r_19c', 'r_44a']);
+  const cut = CHEF_TONIGHT_EXAMPLE.slice(0, Math.floor(CHEF_TONIGHT_EXAMPLE.length * 0.6));
+  assert(!checkChefAnswer(cut, ids).ok, S, 'A stream that broke off fails the end check, so the app asks for markdown');
+  assert(!checkChefAnswer('', ids).ok, S, 'An empty stream falls back too');
+  assert(checkChefAnswer('```openui\n' + CHEF_TONIGHT_EXAMPLE + '\n```', ids).ok, S, 'A complete fenced answer is kept');
+  assert(unwrapChefAnswer('```openui\nroot = Answer("Hi"') === 'root = Answer("Hi"', S, 'A half-streamed fence is unwrapped for the renderer');
+
+  const cookbook = [
+    { id: 'r_8f2', title: 'Gochujang chicken thighs', totalTimeMinutes: 35, ingredients: [] },
+    { id: 'r_44a', title: 'Sesame soba', totalTimeMinutes: 20, ingredients: [{ id: 'x', name: 'Scallions', amount: 1, unit: '', category: 'Produce' }] },
+  ] as unknown as Recipe[];
+  const noop = () => {};
+  const draw = (response: string, isStreaming: boolean) => renderToString(createElement(ChefAnswer, { response, isStreaming, messageId: 'm3', cookbook, savedIds: new Set<string>(), savingIds: new Set<string>(), saveErrors: {}, addedGroceryKeys: new Set<string>(), onSave: noop, onCook: noop, onAddGroceries: noop, onAsk: noop }));
+  const upTo = CHEF_TONIGHT_EXAMPLE.indexOf('thaw =');
+  const live = draw('```openui\n' + CHEF_TONIGHT_EXAMPLE.slice(0, upTo), true);
+  assert(live.includes('Gochujang chicken thighs') && /<button disabled=""[^>]*>(?:(?!<\/button>).)*Start cooking/.test(live), S, 'A half-streamed answer draws, with its buttons disabled');
+  const done = draw(CHEF_TONIGHT_EXAMPLE, false);
+  assert(done.includes('Start cooking') && !/<button disabled=""[^>]*>(?:(?!<\/button>).)*Start cooking/.test(done), S, 'Buttons work once the answer is complete');
+} catch (e: any) {
+  results.push({ suite: 'Streaming', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // Output Summary

@@ -7,7 +7,8 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Recipe } from './src/types/recipe.ts';
 import { RECIPE_JSON_SCHEMA, RecipeParseError, normalizeParsedRecipe } from './src/utils/recipeSchema.ts';
 import { generateWithFallback, isTransientGeminiError, youtubeFailurePlan } from './src/utils/geminiRetry.ts';
-import { CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE, chefPromptLibrary, checkChefAnswer, unwrapChefAnswer } from './src/utils/chefLibrary.ts';
+import { CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE, chefPromptLibrary, checkChefAnswer } from './src/utils/chefLibrary.ts';
+import { firstTextChunk, writeTextStream } from './src/utils/chefStream.ts';
 import {
   BLOCK_PAGE_MARKERS,
   YOUTUBE_ID,
@@ -557,20 +558,52 @@ Keep conversational responses elegant, concise, warm, and helpful. Always respon
       }
     }
 
-    // Pilot: an OpenUI answer is used only if it passes the checks; otherwise fall back to the markdown chat.
+    // Pilot: an OpenUI answer streams as plain text. The browser checks it at the end and asks
+    // again without format (the markdown chat) if it fails; the server logs the same check.
     if (format === 'openui') {
-      const response = await callGeminiWithFallback({
-        contents,
-        config: { systemInstruction: CHEF_OPENUI_PROMPT, temperature: 0.4 },
-      });
-      const answer = unwrapChefAnswer(response.text || '');
+      const startedAt = Date.now();
+      // Model fallback and retry only cover failures before the first chunk.
+      const opened = await generateWithFallback(
+        async (model, timeoutMs) => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
+          let ok = false;
+          try {
+            const stream = await ai.models.generateContentStream({
+              model,
+              contents,
+              config: { systemInstruction: CHEF_OPENUI_PROMPT, temperature: 0.4, abortSignal: controller.signal },
+            });
+            const start = await firstTextChunk(stream);
+            ok = !!start;
+            return start && { ...start, controller };
+          } finally {
+            clearTimeout(timer);
+            if (!ok) controller.abort();
+          }
+        },
+        {
+          models: GEMINI_MODELS,
+          attemptTimeoutMs: GEMINI_ATTEMPT_TIMEOUT_MS,
+          totalBudgetMs: GEMINI_TOTAL_BUDGET_MS,
+          retryPauseMs: GEMINI_RETRY_PAUSE_MS,
+          onFailure: (model, err) => console.warn(`[Gemini] ${model} failed:`, err?.status || err?.name || err?.message),
+        }
+      );
+      // The rest of the answer must finish inside the function's time limit, and stops if the user leaves.
+      const deadline = setTimeout(() => opened.controller.abort(), Math.max(1000, GEMINI_TOTAL_BUDGET_MS - (Date.now() - startedAt)));
+      res.on('close', () => opened.controller.abort());
+      const answer = await writeTextStream(res, opened.first, opened.rest, (err: any) =>
+        console.warn('[chat] OpenUI stream ended early:', err?.status || err?.name || err?.message),
+      );
+      clearTimeout(deadline);
       // Picks must name recipes the app sent in the kitchen context.
       const cookbookIds = new Set<string>(
         (Array.isArray(context?.cookbook) ? context.cookbook : []).map((r: { id?: unknown }) => String(r?.id)),
       );
       const check = checkChefAnswer(answer, cookbookIds);
-      if (check.ok) return res.json({ reply: answer, format: 'openui' });
-      console.warn('[chat] OpenUI answer failed checks, falling back to markdown:', check.problems.slice(0, 5).join(', '));
+      if (!check.ok) console.warn('[chat] OpenUI answer failed checks, the app falls back to markdown:', check.problems.slice(0, 5).join(', '));
+      return;
     }
 
     const response = await callGeminiWithFallback({
@@ -585,6 +618,7 @@ Keep conversational responses elegant, concise, warm, and helpful. Always respon
     res.json({ reply, format: 'markdown' });
   } catch (err: unknown) {
     console.error('Chat with Gemini error:', err);
+    if (res.headersSent) return res.end();
     res.status(500).json({ error: 'Failed to chat with Gemini assistant' });
   }
 });

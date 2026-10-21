@@ -18,6 +18,7 @@ import {
 import { Recipe, GroceryItem, StockItem, PlannedMeal, PantryItem } from '../types/recipe.ts';
 import { buildKitchenContext } from '../utils/kitchenContext.ts';
 import { toDateKey } from '../utils/mealPlan.ts';
+import { readTextStream } from '../utils/chefStream.ts';
 import { apiFetch } from '../utils/api.ts';
 import { parseChatEmbeds } from '../utils/chatEmbeds.ts';
 // The OpenUI renderer (~60 KB gz) loads only when a beta answer arrives.
@@ -32,6 +33,8 @@ interface Message {
   parsedGroceryItems?: Partial<GroceryItem>[];
   /** 'openui' when content is an OpenUI Lang answer drawn by ChefAnswer. */
   format?: 'openui';
+  /** True while an OpenUI answer is still arriving. */
+  streaming?: boolean;
   timestamp: string;
 }
 
@@ -95,6 +98,8 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
   const [recipeSaveErrors, setRecipeSaveErrors] = useState<Record<string, string>>({});
   const [addedGroceryMsgIds, setAddedGroceryMsgIds] = useState<Set<string>>(new Set());
   const [betaAnswers, setBetaAnswers] = useState(readBeta);
+  /** Read out by screen readers once an answer is complete. */
+  const [announcement, setAnnouncement] = useState('');
   const toggleBeta = () => {
     const next = !betaAnswers;
     setBetaAnswers(next);
@@ -130,54 +135,69 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
     setInput('');
     setIsLoading(true);
 
-    try {
+    const context = betaAnswers
+      ? {
+          ...(activeRecipe ? { activeRecipeTitle: activeRecipe.title, servings: activeRecipe.defaultServings } : {}),
+          ...buildKitchenContext(recipes, stockItems, plannedMeals, pantryItems, toDateKey(new Date())),
+        }
+      : activeRecipe
+      ? { activeRecipeTitle: activeRecipe.title, servings: activeRecipe.defaultServings }
+      : null;
+    const ask = async (format?: 'openui') => {
       const res = await apiFetch('/api/chat', {
         method: 'POST',
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-          context: betaAnswers
-            ? {
-                ...(activeRecipe ? { activeRecipeTitle: activeRecipe.title, servings: activeRecipe.defaultServings } : {}),
-                ...buildKitchenContext(recipes, stockItems, plannedMeals, pantryItems, toDateKey(new Date())),
-              }
-            : activeRecipe
-            ? { activeRecipeTitle: activeRecipe.title, servings: activeRecipe.defaultServings }
-            : null,
-          ...(betaAnswers ? { format: 'openui' } : {}),
+          context,
+          ...(format ? { format } : {}),
         }),
       });
+      if (!res.ok) throw new Error('Failed to communicate with Gemini');
+      return res;
+    };
+    const botId = `bot-${Date.now()}`;
+    const stamp = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const markdownMessage = async (): Promise<Message> => {
+      const data = await (await ask()).json();
+      const { cleanText, recipes, groceryItems } = parseChatEmbeds(data.reply);
+      return { id: botId, role: 'assistant', content: cleanText, parsedRecipes: recipes, parsedGroceryItems: groceryItems, timestamp: stamp() };
+    };
+    const putMessage = (msg: Message) =>
+      setMessages((prev) => (prev.some((m) => m.id === botId) ? prev.map((m) => (m.id === botId ? msg : m)) : [...prev, msg]));
+    setAnnouncement('');
 
-      if (!res.ok) {
-        throw new Error('Failed to communicate with Gemini');
-      }
-
-      const data = await res.json();
-      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      let botMsg: Message;
-      if (data.format === 'openui') {
-        botMsg = { id: `bot-${Date.now()}`, role: 'assistant', content: data.reply, format: 'openui', timestamp };
+    try {
+      if (betaAnswers) {
+        // Beta: the answer streams in as OpenUI Lang. If it doesn't pass the checks once complete,
+        // the same turn is asked again as a normal markdown answer, which replaces it.
+        const res = await ask('openui');
+        let text = '';
+        if (res.body) {
+          const timestamp = stamp();
+          text = await readTextStream(res.body, (soFar) =>
+            putMessage({ id: botId, role: 'assistant', content: soFar, format: 'openui', streaming: true, timestamp }),
+          ).catch(() => '');
+        }
+        const { checkChefAnswer } = await import('../utils/chefLibrary.ts');
+        const cookbookIds = new Set(context && 'cookbook' in context ? context.cookbook.map((r) => r.id) : []);
+        if (checkChefAnswer(text, cookbookIds).ok) {
+          putMessage({ id: botId, role: 'assistant', content: text, format: 'openui', timestamp: stamp() });
+        } else {
+          putMessage(await markdownMessage());
+        }
       } else {
-        const { cleanText, recipes, groceryItems } = parseChatEmbeds(data.reply);
-        botMsg = {
-          id: `bot-${Date.now()}`,
-          role: 'assistant',
-          content: cleanText,
-          parsedRecipes: recipes,
-          parsedGroceryItems: groceryItems,
-          timestamp,
-        };
+        putMessage(await markdownMessage());
       }
-
-      setMessages((prev) => [...prev, botMsg]);
+      setAnnouncement('Chef answered.');
     } catch (err: unknown) {
       console.error('Chat error:', err);
       const errMsg: Message = {
         id: `err-${Date.now()}`,
         role: 'assistant',
         content: "I'm having a little trouble reaching the kitchen cloud right now. Please try asking again!",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: stamp(),
       };
-      setMessages((prev) => [...prev, errMsg]);
+      setMessages((prev) => [...prev.filter((m) => m.id !== botId || !m.streaming), errMsg]);
     } finally {
       setIsLoading(false);
     }
@@ -286,6 +306,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                 className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
               >
                 <div
+                  aria-busy={m.streaming || undefined}
                   className={`${m.format === 'openui' ? 'w-full' : 'max-w-[85%] sm:max-w-[80%]'} rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
                     isUser
                       ? 'bg-ink text-white rounded-br-xs shadow-xs'
@@ -302,6 +323,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                       saveErrors={recipeSaveErrors}
                       addedGroceryKeys={addedGroceryMsgIds}
                       cookbook={recipes}
+                      isStreaming={!!m.streaming}
                       onSave={handleSaveRecipe}
                       onCook={onCookRecipe}
                       onAddGroceries={handleAddGroceries}
@@ -458,7 +480,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
             );
           })}
 
-          {isLoading && (
+          {isLoading && !messages.some((m) => m.streaming) && (
             <div className="flex items-center gap-2 p-3.5 bg-surface border border-stone-200/80 rounded-2xl rounded-bl-xs w-fit text-xs text-stone-500 shadow-xs">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600 dark:text-amber-400" />
               <span>Chef Gemini is thinking…</span>
@@ -466,6 +488,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
           )}
 
           <div ref={messagesEndRef} />
+          <p className="sr-only" aria-live="polite">{announcement}</p>
         </div>
 
         {/* Quick Suggestion Chips */}

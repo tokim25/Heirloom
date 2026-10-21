@@ -168,11 +168,9 @@ export const chefPromptLibrary = createLibrary({ components: CHEF_COMPONENTS, ro
 
 const parser = createParser(chefPromptLibrary.toJSONSchema(), chefPromptLibrary.root);
 
-/** Models sometimes wrap the program in a ``` fence; the renderer wants the bare program. */
-export const unwrapChefAnswer = (text: string) => {
-  const fenced = text.trim().match(/^```[\w-]*\s*\n([\s\S]*?)\n```$/);
-  return (fenced ? fenced[1] : text).trim();
-};
+/** Models sometimes wrap the program in a ``` fence; the renderer wants the bare program. Works on a half-streamed answer too. */
+export const unwrapChefAnswer = (text: string) =>
+  text.trim().replace(/^```[\w-]*[ \t]*\n/, '').replace(/\n```$/, '').trim();
 
 /** Every CookbookPick recipeId in a parsed answer. */
 const pickedRecipeIds = (node: unknown): string[] => {
