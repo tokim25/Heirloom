@@ -15,7 +15,9 @@ import {
   Flame,
   MessageSquare,
 } from 'lucide-react';
-import { Recipe, GroceryItem } from '../types/recipe.ts';
+import { Recipe, GroceryItem, StockItem, PlannedMeal, PantryItem } from '../types/recipe.ts';
+import { buildKitchenContext } from '../utils/kitchenContext.ts';
+import { toDateKey } from '../utils/mealPlan.ts';
 import { apiFetch } from '../utils/api.ts';
 import { parseChatEmbeds } from '../utils/chatEmbeds.ts';
 // The OpenUI renderer (~60 KB gz) loads only when a beta answer arrives.
@@ -50,7 +52,14 @@ interface GeminiChatModalProps {
   /** Saves the recipe (if needed) and opens it in Stories Mode. */
   onCookRecipe?: (recipe: Recipe) => void;
   activeRecipe?: Recipe | null;
+  /** The household's kitchen, sent with beta answers so Chef can suggest from it. */
+  recipes?: Recipe[];
+  stockItems?: StockItem[];
+  plannedMeals?: PlannedMeal[];
+  pantryItems?: PantryItem[];
 }
+
+const TONIGHT_PROMPT = 'What can we make tonight?';
 
 const QUICK_PROMPTS = [
   '⚡ Give me 3 recipes with under 15 minutes of prep time',
@@ -66,6 +75,10 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
   onAddGroceryItems,
   onCookRecipe,
   activeRecipe,
+  recipes = [],
+  stockItems = [],
+  plannedMeals = [],
+  pantryItems = [],
 }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -122,7 +135,12 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
         method: 'POST',
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-          context: activeRecipe
+          context: betaAnswers
+            ? {
+                ...(activeRecipe ? { activeRecipeTitle: activeRecipe.title, servings: activeRecipe.defaultServings } : {}),
+                ...buildKitchenContext(recipes, stockItems, plannedMeals, pantryItems, toDateKey(new Date())),
+              }
+            : activeRecipe
             ? { activeRecipeTitle: activeRecipe.title, servings: activeRecipe.defaultServings }
             : null,
           ...(betaAnswers ? { format: 'openui' } : {}),
@@ -283,6 +301,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                       savingIds={savingRecipeIds}
                       saveErrors={recipeSaveErrors}
                       addedGroceryKeys={addedGroceryMsgIds}
+                      cookbook={recipes}
                       onSave={handleSaveRecipe}
                       onCook={onCookRecipe}
                       onAddGroceries={handleAddGroceries}
@@ -451,7 +470,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
 
         {/* Quick Suggestion Chips */}
         <div className="p-3 bg-stone-100/70 border-t border-stone-200/80 overflow-x-auto no-scrollbar flex items-center gap-2">
-          {QUICK_PROMPTS.map((prompt, i) => (
+          {(betaAnswers ? [TONIGHT_PROMPT, ...QUICK_PROMPTS] : QUICK_PROMPTS).map((prompt, i) => (
             <button
               key={i}
               onClick={() => handleSendMessage(prompt)}

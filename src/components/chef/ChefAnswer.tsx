@@ -15,6 +15,8 @@ interface ChefActions {
   savingIds: Set<string>;
   saveErrors: Record<string, string>;
   addedGroceryKeys: Set<string>;
+  /** The household's recipes. CookbookPicks draws only recipes found here. */
+  cookbook?: Recipe[];
   onSave: (recipe: Recipe) => void;
   onCook?: (recipe: Recipe) => void;
   onAddGroceries: (key: string, items: Partial<GroceryItem>[]) => void;
@@ -193,6 +195,78 @@ const RecipeChoices = defineComponent({
   },
 });
 
+const CookbookPicks = defineComponent({
+  ...spec.CookbookPicks,
+  component: ({ props }) => {
+    const { messageId, cookbook = [], addedGroceryKeys, onCook, onAddGroceries } = useActions();
+    // Title, times and ingredients come from the saved recipe; an id not in the cookbook is dropped.
+    const picks = propsOf(props.picks).flatMap((p) => {
+      const recipe = cookbook.find((r) => r.id === p.recipeId);
+      if (!recipe) return [];
+      const wanted = new Set((Array.isArray(p.missing) ? p.missing : []).map((m: unknown) => String(m).trim().toLowerCase()));
+      const missing = recipe.ingredients.filter((i) => wanted.has(i.name.trim().toLowerCase()));
+      return [{ recipe, reason: String(p.reason ?? ''), missing, haveAll: wanted.size === 0 }];
+    });
+    if (!picks.length) return null;
+    return (
+      <ol className="flex flex-col gap-2">
+        {picks.map(({ recipe, reason, missing, haveAll }, i) => {
+          const key = `${messageId}-pick-${recipe.id}`;
+          const added = addedGroceryKeys.has(key);
+          return (
+            <li key={recipe.id} className="rounded-xl border border-stone-200 p-3 flex flex-col gap-2 bg-surface">
+              <div className="flex items-start gap-2.5">
+                <span className="w-5 h-5 shrink-0 rounded-full bg-stone-100 text-stone-600 text-xs font-semibold flex items-center justify-center">{i + 1}</span>
+                <span className="min-w-0">
+                  <span className="block font-serif text-base font-semibold text-stone-900 leading-snug">{recipe.title}</span>
+                  <span className="block text-xs text-stone-500 mt-0.5">
+                    {recipe.totalTimeMinutes}m total
+                    {missing.length ? ` • Missing ${missing.length}` : haveAll ? ' • Have it all' : ''}
+                  </span>
+                  {reason && <span className="block text-xs text-stone-600 mt-1">{reason}</span>}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {onCook && (
+                  <button
+                    onClick={() => onCook(recipe)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-ink hover:bg-ink-hover text-white px-2.5 py-1.5 text-xs font-semibold"
+                  >
+                    <ChefHat className="w-3.5 h-3.5" /> Start cooking
+                  </button>
+                )}
+                {missing.length > 0 && (
+                  <button
+                    onClick={() =>
+                      onAddGroceries(
+                        key,
+                        missing.map((m) => ({
+                          name: m.name,
+                          amount: null,
+                          unit: '',
+                          category: m.category,
+                          assignedTo: 'Anyone',
+                          recipeId: recipe.id,
+                          recipeTitle: recipe.title,
+                        })),
+                      )
+                    }
+                    disabled={added}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs font-semibold text-stone-800 hover:bg-stone-100 disabled:opacity-60 disabled:cursor-default"
+                  >
+                    {added ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                    {added ? 'Added to your grocery list' : `Add ${missing.length} to grocery list`}
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  },
+});
+
 const GroceryList = defineComponent({
   ...spec.GroceryList,
   component: ({ props }) => {
@@ -263,7 +337,7 @@ const FollowUps = defineComponent({
   },
 });
 
-// Recipe, Ingredient, Step and GroceryItem are data nodes read by their parents, never drawn alone.
+// CookbookPick, Recipe, Ingredient, Step and GroceryItem are data nodes read by their parents, never drawn alone.
 const dataOnly = <T extends z.ZodObject>(d: { name: string; props: T; description: string }) =>
   defineComponent({ name: d.name, props: d.props, description: d.description, component: () => null });
 
@@ -272,9 +346,11 @@ const chefLibrary = createLibrary({
     Answer,
     Text,
     Tip,
+    CookbookPicks,
     RecipeChoices,
     GroceryList,
     FollowUps,
+    dataOnly(spec.CookbookPick),
     dataOnly(spec.Recipe),
     dataOnly(spec.Ingredient),
     dataOnly(spec.Step),

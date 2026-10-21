@@ -853,6 +853,10 @@ export default function App() {
             handleStartCooking({ ...recipe, householdId });
           }}
           activeRecipe={selectedRecipeDetail}
+          recipes={recipes}
+          stockItems={stockItems}
+          plannedMeals={plannedMeals}
+          pantryItems={pantryItems}
         />
       )}
 

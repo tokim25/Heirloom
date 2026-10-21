@@ -81,6 +81,26 @@ export const GroceryList = defineComponent({
   component: null,
 });
 
+export const CookbookPick = defineComponent({
+  name: 'CookbookPick',
+  description: 'One of the household\'s own recipes, inside CookbookPicks. recipeId is copied exactly from the cookbook in [Kitchen Context]. reason is one short line on why it fits tonight. missing lists that recipe\'s ingredient names (as written in the context) that are not in the fridge, freezer or pantry; [] when they have it all. Names only, no amounts.',
+  props: z.object({
+    recipeId: z.string(),
+    reason: z.string(),
+    missing: z.array(z.string()),
+  }),
+  component: null,
+});
+
+export const CookbookPicks = defineComponent({
+  name: 'CookbookPicks',
+  description: 'Up to 3 recipes from the household\'s own cookbook, best first. The app shows each recipe\'s real title and time with Start cooking and Add to grocery list buttons.',
+  props: z.object({
+    picks: z.array(CookbookPick.ref),
+  }),
+  component: null,
+});
+
 export const Text = defineComponent({
   name: 'Text',
   description: 'A short paragraph of plain text. **bold** is allowed.',
@@ -111,13 +131,13 @@ export const Answer = defineComponent({
   description: 'Every reply. title is a short headline. children are the parts of the reply, in order. subtitle is an optional one-line summary.',
   props: z.object({
     title: z.string(),
-    children: z.array(z.union([Text.ref, Tip.ref, RecipeChoices.ref, GroceryList.ref, FollowUps.ref])),
+    children: z.array(z.union([Text.ref, Tip.ref, CookbookPicks.ref, RecipeChoices.ref, GroceryList.ref, FollowUps.ref])),
     subtitle: z.string().optional(),
   }),
   component: null,
 });
 
-export const CHEF_COMPONENTS = [Answer, Text, Tip, RecipeChoices, Recipe, Ingredient, Step, GroceryList, GroceryItem, FollowUps];
+export const CHEF_COMPONENTS = [Answer, Text, Tip, CookbookPicks, CookbookPick, RecipeChoices, Recipe, Ingredient, Step, GroceryList, GroceryItem, FollowUps];
 
 /** The worked example given to the model, also used by the tests. */
 export const CHEF_EXAMPLE = `root = Answer("2 quick dinners", [intro, picks, swap, more], "Under 15 minutes of prep")
@@ -135,6 +155,15 @@ s3 = Step("Crisp", "Pan-fry the chickpeas in olive oil until golden.", 480)
 swap = Tip("Swap", "No salmon? Any firm white fish works at the same timing.")
 more = FollowUps(["Make one of these vegetarian", "Add the ingredients to my grocery list"])`;
 
+/** The second worked example: dinner from the household's own cookbook. IDs match the sample context in the tests. */
+export const CHEF_TONIGHT_EXAMPLE = `root = Answer("Tonight: 3 dinners from what you have", [picks, thaw, more], "From your cookbook, checked against the fridge and freezer")
+picks = CookbookPicks([p1, p2, p3])
+p1 = CookbookPick("r_8f2", "Uses the chicken thighs in the freezer", [])
+p2 = CookbookPick("r_19c", "Kimchi and tofu are in the fridge", [])
+p3 = CookbookPick("r_44a", "Quickest, about 20 minutes", ["Scallions", "Lime"])
+thaw = Tip("Thaw now", "The chicken thighs for the first pick are in the freezer. Move them to the fridge now, or use cold water for about an hour.", "warning")
+more = FollowUps(["Something without chicken", "Add what's missing to my grocery list"])`;
+
 export const chefPromptLibrary = createLibrary({ components: CHEF_COMPONENTS, root: 'Answer' });
 
 const parser = createParser(chefPromptLibrary.toJSONSchema(), chefPromptLibrary.root);
@@ -145,16 +174,27 @@ export const unwrapChefAnswer = (text: string) => {
   return (fenced ? fenced[1] : text).trim();
 };
 
+/** Every CookbookPick recipeId in a parsed answer. */
+const pickedRecipeIds = (node: unknown): string[] => {
+  if (Array.isArray(node)) return node.flatMap(pickedRecipeIds);
+  if (!node || typeof node !== 'object') return [];
+  const n = node as { typeName?: string; props?: Record<string, unknown> };
+  const own = n.typeName === 'CookbookPick' ? [String(n.props?.recipeId ?? '')] : [];
+  return [...own, ...Object.values(n.props ?? {}).flatMap(pickedRecipeIds)];
+};
+
 /**
- * Checks a Chef reply before it reaches the page. A reply passes when it has an Answer root
- * and no component was dropped for missing or mistyped props.
+ * Checks a Chef reply before it reaches the page. A reply passes when it has an Answer root,
+ * no component was dropped for missing or mistyped props, and every CookbookPick names a
+ * recipe in cookbookIds (the IDs sent in the kitchen context).
  */
-export const checkChefAnswer = (text: string) => {
+export const checkChefAnswer = (text: string, cookbookIds: ReadonlySet<string> = new Set()) => {
   const result = parser.parse(unwrapChefAnswer(text));
   const problems = [
     ...(result.root?.typeName === 'Answer' ? [] : ['no-root']),
     ...result.meta.errors.map((e) => e.code),
     ...result.meta.unresolved.map((name) => `unresolved:${name}`),
+    ...pickedRecipeIds(result.root).filter((id) => !cookbookIds.has(id)).map((id) => `unknown-recipe:${id}`),
   ];
   return { ok: problems.length === 0, problems };
 };
