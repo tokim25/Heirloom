@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import {
   X,
   Sparkles,
@@ -18,6 +18,8 @@ import {
 import { Recipe, GroceryItem } from '../types/recipe.ts';
 import { apiFetch } from '../utils/api.ts';
 import { parseChatEmbeds } from '../utils/chatEmbeds.ts';
+// The OpenUI renderer (~60 KB gz) loads only when a beta answer arrives.
+const ChefAnswer = lazy(() => import('./chef/ChefAnswer.tsx'));
 import { Sheet } from './ui/Sheet.tsx';
 
 interface Message {
@@ -26,8 +28,20 @@ interface Message {
   content: string;
   parsedRecipes?: Recipe[];
   parsedGroceryItems?: Partial<GroceryItem>[];
+  /** 'openui' when content is an OpenUI Lang answer drawn by ChefAnswer. */
+  format?: 'openui';
   timestamp: string;
 }
+
+// Pilot switch for OpenUI answers, remembered on this device only.
+const BETA_KEY = 'heirloom_chef_answers_beta';
+const readBeta = () => {
+  try {
+    return localStorage.getItem(BETA_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
 
 interface GeminiChatModalProps {
   onClose: () => void;
@@ -67,6 +81,16 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
   const [savingRecipeIds, setSavingRecipeIds] = useState<Set<string>>(new Set());
   const [recipeSaveErrors, setRecipeSaveErrors] = useState<Record<string, string>>({});
   const [addedGroceryMsgIds, setAddedGroceryMsgIds] = useState<Set<string>>(new Set());
+  const [betaAnswers, setBetaAnswers] = useState(readBeta);
+  const toggleBeta = () => {
+    const next = !betaAnswers;
+    setBetaAnswers(next);
+    try {
+      localStorage.setItem(BETA_KEY, next ? '1' : '0');
+    } catch {
+      // Private mode: the switch still works for this visit.
+    }
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -101,6 +125,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
           context: activeRecipe
             ? { activeRecipeTitle: activeRecipe.title, servings: activeRecipe.defaultServings }
             : null,
+          ...(betaAnswers ? { format: 'openui' } : {}),
         }),
       });
 
@@ -109,16 +134,21 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
       }
 
       const data = await res.json();
-      const { cleanText, recipes, groceryItems } = parseChatEmbeds(data.reply);
-
-      const botMsg: Message = {
-        id: `bot-${Date.now()}`,
-        role: 'assistant',
-        content: cleanText,
-        parsedRecipes: recipes,
-        parsedGroceryItems: groceryItems,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      let botMsg: Message;
+      if (data.format === 'openui') {
+        botMsg = { id: `bot-${Date.now()}`, role: 'assistant', content: data.reply, format: 'openui', timestamp };
+      } else {
+        const { cleanText, recipes, groceryItems } = parseChatEmbeds(data.reply);
+        botMsg = {
+          id: `bot-${Date.now()}`,
+          role: 'assistant',
+          content: cleanText,
+          parsedRecipes: recipes,
+          parsedGroceryItems: groceryItems,
+          timestamp,
+        };
+      }
 
       setMessages((prev) => [...prev, botMsg]);
     } catch (err: unknown) {
@@ -188,6 +218,18 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              onClick={toggleBeta}
+              aria-pressed={betaAnswers}
+              title="Try the new interactive answers on this device"
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                betaAnswers
+                  ? 'bg-amber-500 border-amber-500 text-on-accent'
+                  : 'border-stone-200 text-stone-500 hover:text-stone-800 hover:bg-stone-100'
+              }`}
+            >
+              Beta answers
+            </button>
+            <button
               onClick={() => {
                 setMessages([
                   {
@@ -226,13 +268,29 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                 className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
               >
                 <div
-                  className={`max-w-[85%] sm:max-w-[80%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
+                  className={`${m.format === 'openui' ? 'w-full' : 'max-w-[85%] sm:max-w-[80%]'} rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
                     isUser
                       ? 'bg-ink text-white rounded-br-xs shadow-xs'
                       : 'bg-surface text-stone-800 border border-stone-200/80 rounded-bl-xs shadow-xs'
                   }`}
                 >
-                  {/* Markdown content rendering */}
+                  {m.format === 'openui' ? (
+                    <Suspense fallback={<Loader2 className="w-4 h-4 animate-spin text-stone-400" />}>
+                    <ChefAnswer
+                      response={m.content}
+                      messageId={m.id}
+                      savedIds={addedRecipeIds}
+                      savingIds={savingRecipeIds}
+                      saveErrors={recipeSaveErrors}
+                      addedGroceryKeys={addedGroceryMsgIds}
+                      onSave={handleSaveRecipe}
+                      onCook={onCookRecipe}
+                      onAddGroceries={handleAddGroceries}
+                      onAsk={(text) => handleSendMessage(text)}
+                    />
+                    </Suspense>
+                  ) : (
+                  /* Markdown content rendering */
                   <div className="whitespace-pre-wrap space-y-2">
                     {m.content.split('\n\n').map((paragraph, i) => (
                       <p key={i}>
@@ -249,6 +307,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                       </p>
                     ))}
                   </div>
+                  )}
 
                   {/* Interactive Recipe Embed Boxes, one per recipe Gemini provided */}
                   {m.parsedRecipes?.map((recipe) => {

@@ -18,6 +18,10 @@ import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngin
 import { dinnerMessage, inboxMessage, dateKeyInZone, wantsPush } from '../src/utils/pushMessages.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 import { parseChatEmbeds } from '../src/utils/chatEmbeds.ts';
+import { CHEF_EXAMPLE, checkChefAnswer, unwrapChefAnswer } from '../src/utils/chefLibrary.ts';
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
+import { ChefAnswer } from '../src/components/chef/ChefAnswer.tsx';
 
 interface TestResult {
   suite: string;
@@ -560,6 +564,23 @@ try {
   results.push({ suite: 'Chat', name: 'Exception in suite', passed: false, error: e.message });
 }
 
+
+// 13. Chef answers pilot (OpenUI Lang)
+try {
+  assert(checkChefAnswer(CHEF_EXAMPLE).ok, 'Chef answers', 'The example given to the model passes the checks');
+  assert(checkChefAnswer('```openui\n' + CHEF_EXAMPLE + '\n```').ok && unwrapChefAnswer('```\nroot = X()\n```') === 'root = X()', 'Chef answers', 'A fenced answer is unwrapped');
+  assert(!checkChefAnswer('Sure! Here is a salmon recipe...').ok, 'Chef answers', 'A markdown reply fails, so the server falls back');
+  assert(checkChefAnswer(CHEF_EXAMPLE.replace(/^s3 = .*$/m, '')).problems.includes('unresolved:s3'), 'Chef answers', 'A missing definition fails');
+  assert(checkChefAnswer(CHEF_EXAMPLE.replace('"Easy", 10, 12', '"Easy", "ten", 12')).problems.includes('type-mismatch'), 'Chef answers', 'A wrong prop type fails');
+  const noop = () => {};
+  const html = renderToString(createElement(ChefAnswer, { response: CHEF_EXAMPLE, messageId: 'm1', savedIds: new Set(['recipe-ai-m1-0']), savingIds: new Set<string>(), saveErrors: {}, addedGroceryKeys: new Set<string>(), onSave: noop, onCook: noop, onAddGroceries: noop, onAsk: noop }));
+  assert(html.includes('Lemon-herb salmon') && html.includes('Crispy chickpea bowl'), 'Chef answers', 'Every recipe in RecipeChoices is drawn');
+  assert(html.includes('Saved') && html.includes('Cook in Stories Mode') && html.includes('Save &amp; Cook'), 'Chef answers', 'Saved and unsaved recipes show the right cook button');
+  assert(html.includes('22<!-- -->m total') || html.includes('22m total'), 'Chef answers', 'Total time is prep plus cook, as in imported recipes');
+  assert(html.includes('Make one of these vegetarian'), 'Chef answers', 'Follow-up questions are drawn');
+} catch (e: any) {
+  results.push({ suite: 'Chef answers', name: 'Exception in suite', passed: false, error: e.message });
+}
 
 // Output Summary
 const passedCount = results.filter(r => r.passed).length;

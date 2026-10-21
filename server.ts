@@ -7,6 +7,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Recipe } from './src/types/recipe.ts';
 import { RECIPE_JSON_SCHEMA, RecipeParseError, normalizeParsedRecipe } from './src/utils/recipeSchema.ts';
 import { generateWithFallback, isTransientGeminiError, youtubeFailurePlan } from './src/utils/geminiRetry.ts';
+import { CHEF_EXAMPLE, chefPromptLibrary, checkChefAnswer, unwrapChefAnswer } from './src/utils/chefLibrary.ts';
 import {
   BLOCK_PAGE_MARKERS,
   YOUTUBE_ID,
@@ -472,14 +473,7 @@ Respond strictly in JSON array format:
 // GEMINI AI CULINARY & GROCERY CHAT ASSISTANT
 // ==========================================
 
-app.post('/api/chat', async (req: Request, res: Response) => {
-  try {
-    const { messages, context } = req.body;
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: 'Messages array is required' });
-    }
-
-    const systemInstruction = `You are the Heirloom Culinary Assistant powered by Google Gemini.
+const CHEF_ROLE = `You are the Heirloom Culinary Assistant powered by Google Gemini.
 Your role is built on a rigorous culinary Information & Data Architecture:
 1. Help home cooks find, generate, and organize delicious recipes across four core dimensions:
    - INGREDIENTS: Hero proteins/elements (Fish & Seafood, Poultry, Meat & Pork, Pasta & Grains, Vegetarian), key produce, and pantry staples.
@@ -488,7 +482,29 @@ Your role is built on a rigorous culinary Information & Data Architecture:
    - CUISINE: Regional culinary traditions (Italian, Japanese, Mexican, Mediterranean, French, Thai, etc.) and dietary tags (e.g. "Gluten-Free", "High-Protein", "One-Pan").
 2. Fix, standardize, and reformat messy recipes, confusing measurements, or unorganized steps into clear culinary instructions.
 3. Assist with grocery planning: categorize shopping lists by supermarket aisle (Produce, Dairy & Refrigerated, Meat & Seafood, Pantry & Spices, Bakery, etc.), suggest substitutions for missing items, and organize meal plans.
-4. Scale portions, explain culinary techniques (e.g. emulsification, braising, tempering chocolate, searing), and provide baking advice.
+4. Scale portions, explain culinary techniques (e.g. emulsification, braising, tempering chocolate, searing), and provide baking advice.`;
+
+// Pilot: answers written in OpenUI Lang and drawn as Heirloom components (src/utils/chefLibrary.ts).
+const CHEF_OPENUI_PROMPT = chefPromptLibrary.prompt({
+  preamble: `${CHEF_ROLE}\n\nYou answer by writing a short program in OpenUI Lang that the Heirloom app draws as cards and buttons. Keep the words warm, concise and practical.`,
+  additionalRules: [
+    'Reply with OpenUI Lang only: no markdown, no code fences, and no text outside components.',
+    'Every complete recipe goes in RecipeChoices, so the user can save or cook it. When you give several recipes, put them all in one RecipeChoices. Never write a recipe out as Text.',
+    'Use GroceryList when you suggest things to buy.',
+    'A [Kitchen Context: ...] prefix on the user message is background about what the user has open, not a request.',
+    'End with FollowUps when there is a natural next step.',
+  ],
+  examples: [CHEF_EXAMPLE],
+});
+
+app.post('/api/chat', async (req: Request, res: Response) => {
+  try {
+    const { messages, context, format } = req.body;
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Messages array is required' });
+    }
+
+    const systemInstruction = `${CHEF_ROLE}
 
 INTERACTIVE EMBED FORMATS:
 - If the user asks for a recipe or you provide a complete recipe, include a structured JSON block labeled \`\`\`recipe-json
@@ -536,6 +552,18 @@ Keep conversational responses elegant, concise, warm, and helpful. Always respon
       }
     }
 
+    // Pilot: an OpenUI answer is used only if it passes the checks; otherwise fall back to the markdown chat.
+    if (format === 'openui') {
+      const response = await callGeminiWithFallback({
+        contents,
+        config: { systemInstruction: CHEF_OPENUI_PROMPT, temperature: 0.4 },
+      });
+      const answer = unwrapChefAnswer(response.text || '');
+      const check = checkChefAnswer(answer);
+      if (check.ok) return res.json({ reply: answer, format: 'openui' });
+      console.warn('[chat] OpenUI answer failed checks, falling back to markdown:', check.problems.slice(0, 5).join(', '));
+    }
+
     const response = await callGeminiWithFallback({
       contents,
       config: {
@@ -545,7 +573,7 @@ Keep conversational responses elegant, concise, warm, and helpful. Always respon
     });
 
     const reply = response.text || "I'm here to help with your recipes and shopping lists! What would you like to cook today?";
-    res.json({ reply });
+    res.json({ reply, format: 'markdown' });
   } catch (err: unknown) {
     console.error('Chat with Gemini error:', err);
     res.status(500).json({ error: 'Failed to chat with Gemini assistant' });
