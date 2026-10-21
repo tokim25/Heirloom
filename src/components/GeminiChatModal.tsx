@@ -33,6 +33,8 @@ interface GeminiChatModalProps {
   onClose: () => void;
   onSaveRecipeToCookbook: (recipe: Recipe) => void | Promise<void>;
   onAddGroceryItems: (items: Partial<GroceryItem>[]) => void;
+  /** Saves the recipe (if needed) and opens it in Stories Mode. */
+  onCookRecipe?: (recipe: Recipe) => void;
   activeRecipe?: Recipe | null;
 }
 
@@ -48,6 +50,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
   onClose,
   onSaveRecipeToCookbook,
   onAddGroceryItems,
+  onCookRecipe,
   activeRecipe,
 }) => {
   const [messages, setMessages] = useState<Message[]>([
@@ -304,6 +307,16 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                           </>
                         )}
                       </button>
+                      {onCookRecipe && (
+                        <button
+                          onClick={() => onCookRecipe(recipe)}
+                          disabled={isRecipeSaving}
+                          className="w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all bg-surface text-stone-800 border border-stone-200 hover:bg-stone-100 active:scale-95 disabled:opacity-50 disabled:cursor-wait"
+                        >
+                          <ChefHat className="w-3.5 h-3.5" />
+                          <span>{isRecipeAdded ? 'Cook in Stories Mode' : 'Save & Cook in Stories Mode'}</span>
+                        </button>
+                      )}
                       {recipeSaveError && (
                         <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-2 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50">
                           {recipeSaveError}

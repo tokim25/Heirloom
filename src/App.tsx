@@ -844,6 +844,14 @@ export default function App() {
               items.forEach((item) => handleAddGroceryItem(currentGroceryList.id, item));
             }
           }}
+          onCookRecipe={(recipe) => {
+            const householdId = requireHousehold();
+            if (!householdId) return;
+            // A chat recipe is saved first so cooking mode can count the cook and return to it.
+            if (!recipes.some((r) => r.id === recipe.id)) handleRecipeImported(recipe);
+            setIsChatOpen(false);
+            handleStartCooking({ ...recipe, householdId });
+          }}
           activeRecipe={selectedRecipeDetail}
         />
       )}
