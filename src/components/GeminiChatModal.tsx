@@ -17,13 +17,14 @@ import {
 } from 'lucide-react';
 import { Recipe, GroceryItem } from '../types/recipe.ts';
 import { apiFetch } from '../utils/api.ts';
+import { parseChatEmbeds } from '../utils/chatEmbeds.ts';
 import { Sheet } from './ui/Sheet.tsx';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  parsedRecipe?: Recipe;
+  parsedRecipes?: Recipe[];
   parsedGroceryItems?: Partial<GroceryItem>[];
   timestamp: string;
 }
@@ -73,81 +74,6 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
     scrollToBottom();
   }, [messages, isLoading]);
 
-  // Extract embedded JSON blocks from Gemini response
-  const parseGeminiContent = (text: string) => {
-    let cleanText = text;
-    let parsedRecipe: Recipe | undefined;
-    let parsedGroceryItems: Partial<GroceryItem>[] | undefined;
-
-    // Check for ```recipe-json ... ```
-    const recipeMatch = text.match(/```recipe-json\s*([\s\S]*?)\s*```/);
-    if (recipeMatch) {
-      try {
-        const rawObj = JSON.parse(recipeMatch[1]);
-        parsedRecipe = {
-          id: `recipe-ai-${Date.now()}`,
-          title: rawObj.title || 'Untitled Recipe',
-          description: rawObj.description || '',
-          cuisine: rawObj.cuisine || 'Continental',
-          difficulty: rawObj.difficulty || 'Intermediate',
-          prepTimeMinutes: rawObj.prepTimeMinutes || 15,
-          cookTimeMinutes: rawObj.cookTimeMinutes || 20,
-          totalTimeMinutes: (rawObj.prepTimeMinutes || 15) + (rawObj.cookTimeMinutes || 20),
-          defaultServings: rawObj.defaultServings || 2,
-          heroImage: '',
-          tags: rawObj.tags || ['Chef AI'],
-          ingredients: (rawObj.ingredients || []).map((ing: any, i: number) => ({
-            id: `ing-${Date.now()}-${i}`,
-            name: ing.name || 'Ingredient',
-            amount: typeof ing.amount === 'number' ? ing.amount : parseFloat(ing.amount) || 1,
-            unit: ing.unit || '',
-            category: ing.category || 'Other',
-            notes: ing.notes || '',
-          })),
-          steps: (rawObj.steps || []).map((st: any, i: number) => ({
-            stepNumber: i + 1,
-            title: st.title || `Step ${i + 1}`,
-            instruction: st.instruction || '',
-            timerSeconds: st.timerSeconds || 0,
-            temperature: st.temperature || '',
-            tips: st.tips || '',
-          })),
-          source: {
-            type: 'manual',
-            sourceName: 'Created with Gemini AI',
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        cleanText = cleanText.replace(/```recipe-json[\s\S]*?```/, '').trim();
-      } catch (e) {
-        console.warn('Failed to parse recipe-json from Gemini:', e);
-      }
-    }
-
-    // Check for ```grocery-json ... ```
-    const groceryMatch = text.match(/```grocery-json\s*([\s\S]*?)\s*```/);
-    if (groceryMatch) {
-      try {
-        const rawItems = JSON.parse(groceryMatch[1]);
-        if (Array.isArray(rawItems)) {
-          parsedGroceryItems = rawItems.map((item: any) => ({
-            name: item.name,
-            amount: item.amount || null,
-            unit: item.unit || '',
-            category: item.category || 'Other',
-            assignedTo: 'Anyone',
-          }));
-        }
-        cleanText = cleanText.replace(/```grocery-json[\s\S]*?```/, '').trim();
-      } catch (e) {
-        console.warn('Failed to parse grocery-json from Gemini:', e);
-      }
-    }
-
-    return { cleanText, parsedRecipe, parsedGroceryItems };
-  };
-
   const handleSendMessage = async (textToSend?: string) => {
     const messageContent = (textToSend || input).trim();
     if (!messageContent || isLoading) return;
@@ -180,14 +106,14 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
       }
 
       const data = await res.json();
-      const { cleanText, parsedRecipe, parsedGroceryItems } = parseGeminiContent(data.reply);
+      const { cleanText, recipes, groceryItems } = parseChatEmbeds(data.reply);
 
       const botMsg: Message = {
         id: `bot-${Date.now()}`,
         role: 'assistant',
         content: cleanText,
-        parsedRecipe,
-        parsedGroceryItems,
+        parsedRecipes: recipes,
+        parsedGroceryItems: groceryItems,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -289,9 +215,6 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4">
           {messages.map((m) => {
             const isUser = m.role === 'user';
-            const isRecipeAdded = m.parsedRecipe && addedRecipeIds.has(m.parsedRecipe.id);
-            const isRecipeSaving = m.parsedRecipe && savingRecipeIds.has(m.parsedRecipe.id);
-            const recipeSaveError = m.parsedRecipe ? recipeSaveErrors[m.parsedRecipe.id] : null;
             const isGroceriesAdded = addedGroceryMsgIds.has(m.id);
 
             return (
@@ -324,33 +247,37 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                     ))}
                   </div>
 
-                  {/* Interactive Recipe Embed Box if Gemini provided one */}
-                  {m.parsedRecipe && (
-                    <div className="mt-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 flex flex-col gap-2.5 dark:bg-amber-950/40 dark:border-amber-800/50">
+                  {/* Interactive Recipe Embed Boxes, one per recipe Gemini provided */}
+                  {m.parsedRecipes?.map((recipe) => {
+                    const isRecipeAdded = addedRecipeIds.has(recipe.id);
+                    const isRecipeSaving = savingRecipeIds.has(recipe.id);
+                    const recipeSaveError = recipeSaveErrors[recipe.id];
+                    return (
+                    <div key={recipe.id} className="mt-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 flex flex-col gap-2.5 dark:bg-amber-950/40 dark:border-amber-800/50">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
                             Chef Recipe Generated
                           </span>
                           <h4 className="font-serif text-base text-stone-900 font-semibold mt-0.5">
-                            {m.parsedRecipe.title}
+                            {recipe.title}
                           </h4>
                           <p className="text-xs text-stone-600 mt-0.5">
-                            {m.parsedRecipe.totalTimeMinutes}m total • {m.parsedRecipe.ingredients.length} ingredients • {m.parsedRecipe.difficulty}
+                            {recipe.totalTimeMinutes}m total • {recipe.ingredients.length} ingredients • {recipe.difficulty}
                           </p>
                         </div>
 
-                        {m.parsedRecipe.heroImage && (
+                        {recipe.heroImage && (
                           <img
-                            src={m.parsedRecipe.heroImage}
-                            alt={m.parsedRecipe.title}
+                            src={recipe.heroImage}
+                            alt={recipe.title}
                             className="w-14 h-14 rounded-lg object-cover border border-amber-200 shrink-0 dark:border-amber-800/50"
                           />
                         )}
                       </div>
 
                       <button
-                        onClick={() => handleSaveRecipe(m.parsedRecipe!)}
+                        onClick={() => handleSaveRecipe(recipe)}
                         disabled={isRecipeAdded || isRecipeSaving}
                         className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                           isRecipeAdded
@@ -383,7 +310,8 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                         </div>
                       )}
                     </div>
-                  )}
+                  );
+                  })}
 
                   {/* Interactive Grocery List Embed Box */}
                   {m.parsedGroceryItems && m.parsedGroceryItems.length > 0 && (
