@@ -7,7 +7,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Recipe } from './src/types/recipe.ts';
 import { RECIPE_JSON_SCHEMA, RecipeParseError, normalizeParsedRecipe } from './src/utils/recipeSchema.ts';
 import { generateWithFallback, isTransientGeminiError, youtubeFailurePlan } from './src/utils/geminiRetry.ts';
-import { CHEF_EXAMPLE, chefPromptLibrary, checkChefAnswer, unwrapChefAnswer } from './src/utils/chefLibrary.ts';
+import { CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE, chefPromptLibrary, checkChefAnswer, unwrapChefAnswer } from './src/utils/chefLibrary.ts';
 import {
   BLOCK_PAGE_MARKERS,
   YOUTUBE_ID,
@@ -492,9 +492,14 @@ const CHEF_OPENUI_PROMPT = chefPromptLibrary.prompt({
     'Every complete recipe goes in RecipeChoices, so the user can save or cook it. When you give several recipes, put them all in one RecipeChoices. Never write a recipe out as Text.',
     'Use GroceryList when you suggest things to buy.',
     'A [Kitchen Context: ...] prefix on the user message is background about what the user has open, not a request.',
+    'The kitchen context may list the household\'s cookbook (id, title, total minutes, main ingredients), what is in the fridge and freezer, meals planned for today and tomorrow, and pantry staples in stock.',
+    'When the user asks what to make, cook or eat, suggest up to 3 of their own recipes with CookbookPicks. Copy each recipeId exactly from the cookbook; never invent or guess an id. Prefer recipes that use what is in the fridge and freezer. If a meal is already planned for today, put it first.',
+    'In CookbookPick missing, list only that recipe\'s ingredient names, written as in the context, that are not in the fridge, freezer or pantry. Never give amounts.',
+    'If a pick needs something that is in the freezer, add a Tip with tone "warning" saying to thaw it now and how.',
+    'Only write a new recipe with RecipeChoices when nothing in the cookbook fits or the user asks for something new.',
     'End with FollowUps when there is a natural next step.',
   ],
-  examples: [CHEF_EXAMPLE],
+  examples: [CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE],
 });
 
 app.post('/api/chat', async (req: Request, res: Response) => {
@@ -559,7 +564,11 @@ Keep conversational responses elegant, concise, warm, and helpful. Always respon
         config: { systemInstruction: CHEF_OPENUI_PROMPT, temperature: 0.4 },
       });
       const answer = unwrapChefAnswer(response.text || '');
-      const check = checkChefAnswer(answer);
+      // Picks must name recipes the app sent in the kitchen context.
+      const cookbookIds = new Set<string>(
+        (Array.isArray(context?.cookbook) ? context.cookbook : []).map((r: { id?: unknown }) => String(r?.id)),
+      );
+      const check = checkChefAnswer(answer, cookbookIds);
       if (check.ok) return res.json({ reply: answer, format: 'openui' });
       console.warn('[chat] OpenUI answer failed checks, falling back to markdown:', check.problems.slice(0, 5).join(', '));
     }

@@ -18,7 +18,9 @@ import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngin
 import { dinnerMessage, inboxMessage, dateKeyInZone, wantsPush } from '../src/utils/pushMessages.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 import { parseChatEmbeds } from '../src/utils/chatEmbeds.ts';
-import { CHEF_EXAMPLE, checkChefAnswer, unwrapChefAnswer } from '../src/utils/chefLibrary.ts';
+import { CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE, checkChefAnswer, unwrapChefAnswer } from '../src/utils/chefLibrary.ts';
+import { buildKitchenContext, MAX_CONTEXT_RECIPES, MAX_CONTEXT_INGREDIENTS } from '../src/utils/kitchenContext.ts';
+import { PlannedMeal, StockItem, PantryItem } from '../src/types/recipe.ts';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { ChefAnswer } from '../src/components/chef/ChefAnswer.tsx';
@@ -580,6 +582,58 @@ try {
   assert(html.includes('Make one of these vegetarian'), 'Chef answers', 'Follow-up questions are drawn');
 } catch (e: any) {
   results.push({ suite: 'Chef answers', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// 14. Dinner from what we have (beta answers)
+try {
+  const ing = (name: string, category = 'Other') => ({ id: name, name, amount: 2, unit: 'lb', category });
+  const rec = (id: string, title: string, ingredients: ReturnType<typeof ing>[], useCount = 0) =>
+    ({ id, title, description: '', totalTimeMinutes: 35, ingredients, useCount, createdAt: '2026-01-01', userId: 'u1', addedBy: 'Grandma' } as unknown as Recipe);
+  const many = Array.from({ length: 200 }, (_, i) => rec('r' + i, 'Recipe ' + i, Array.from({ length: 14 }, (_, j) => ing('Item ' + j)), i));
+  const stock: StockItem[] = [
+    { id: 's1', name: 'Chicken thighs', place: 'freezer', mealId: 'm1', addedBy: 'Tony' },
+    { id: 's2', name: 'Kimchi', place: 'fridge', addedBy: 'Tony' },
+  ];
+  const meals: PlannedMeal[] = [
+    { id: 'm0', recipeId: 'r1', recipeTitle: 'Recipe 1', date: '2026-10-21', servings: 4, addedBy: 'Tony' },
+    { id: 'm1', recipeId: 'r2', recipeTitle: 'Recipe 2', date: '2026-10-22', servings: 4, slot: 'lunch', kind: 'leftovers', addedBy: 'Tony' },
+    { id: 'm2', recipeId: 'r3', recipeTitle: 'Recipe 3', date: '2026-10-25', servings: 4, addedBy: 'Tony' },
+  ];
+  const pantry = [
+    { id: 'p1', name: 'Olive oil', category: 'Oils & Vinegars', inStock: true },
+    { id: 'p2', name: 'Saffron', category: 'Spices & Seasonings', inStock: false },
+  ] as PantryItem[];
+  const ctx = buildKitchenContext(many, stock, meals, pantry, '2026-10-21');
+  assert(ctx.cookbook.length === MAX_CONTEXT_RECIPES && ctx.cookbook[0].id === 'r199', 'Kitchen context', 'Cookbook is capped, most used first');
+  assert(ctx.cookbook.every((r) => r.ingredients.length === MAX_CONTEXT_INGREDIENTS), 'Kitchen context', 'Ingredient names are capped per recipe');
+  assert(ctx.fridge.join() === 'Kimchi' && ctx.freezer.join() === 'Chicken thighs', 'Kitchen context', 'Fridge and freezer are split by place');
+  assert(ctx.planned.map((m) => `${m.day}:${m.slot}:${m.kind}:${m.recipeId}`).join() === 'today:dinner:cook:r1,tomorrow:lunch:leftovers:r2', 'Kitchen context', 'Only today and tomorrow are planned, with defaults');
+  assert(ctx.pantry.join() === 'Olive oil', 'Kitchen context', 'Only in-stock pantry items are sent');
+  const json = JSON.stringify(ctx);
+  assert(!/Tony|Grandma|addedBy|userId|mealId|@|"amount"|"unit"/.test(json), 'Kitchen context', 'No people, accounts or quantities are sent');
+
+  const cookbook = [
+    rec('r_8f2', 'Gochujang chicken thighs', [ing('Chicken thighs', 'Meat & Seafood')], 4),
+    rec('r_19c', "Mom's Sunday Kimchi Jjigae", [ing('Kimchi')]),
+    rec('r_44a', 'Sesame soba with greens', [ing('Soba'), ing('Scallions', 'Produce'), ing('Lime', 'Produce')]),
+  ];
+  const ids = new Set(cookbook.map((r) => r.id));
+  assert(checkChefAnswer(CHEF_TONIGHT_EXAMPLE, ids).ok, 'Kitchen context', 'The tonight example passes the checks');
+  const bogus = CHEF_TONIGHT_EXAMPLE.replace('"r_19c"', '"r_made_up"');
+  assert(checkChefAnswer(bogus, ids).problems.includes('unknown-recipe:r_made_up'), 'Kitchen context', 'The server check flags a recipe id not in the cookbook');
+  const noop = () => {};
+  const draw = (response: string) => renderToString(createElement(ChefAnswer, { response, messageId: 'm2', cookbook, savedIds: new Set<string>(), savingIds: new Set<string>(), saveErrors: {}, addedGroceryKeys: new Set<string>(), onSave: noop, onCook: noop, onAddGroceries: noop, onAsk: noop }));
+  const tonight = draw(CHEF_TONIGHT_EXAMPLE.replace('"Quickest, about 20 minutes"', '"Ready in 5"'));
+  assert(tonight.includes('Gochujang chicken thighs') && tonight.includes('Mom&#x27;s Sunday Kimchi Jjigae') && tonight.includes('Sesame soba with greens'), 'Kitchen context', 'Picks show the real recipe titles');
+  assert((tonight.match(/35<!-- -->m total/g) || []).length === 3, 'Kitchen context', 'Times come from the saved recipe');
+  assert(tonight.includes('Start cooking') && tonight.includes('Add 2 to grocery list'), 'Kitchen context', 'Each pick can be cooked and missing items added');
+  assert(tonight.includes('Thaw now') && tonight.includes('amber'), 'Kitchen context', 'The thaw warning uses the warning tip');
+  const dropped = draw(bogus.replace('"r_8f2"', '"Gochujang chicken thighs"'));
+  assert(!dropped.includes('Kimchi Jjigae') && !dropped.includes('r_made_up') && !dropped.includes('Gochujang') && dropped.includes('Sesame soba'), 'Kitchen context', 'Unknown recipe ids are dropped, even when the model writes a title');
+  const offList = draw(CHEF_TONIGHT_EXAMPLE.replace('["Scallions", "Lime"]', '["Scallions", "Caviar"]'));
+  assert(offList.includes('Add 1 to grocery list'), 'Kitchen context', 'Missing items not in the recipe are ignored');
+} catch (e: any) {
+  results.push({ suite: 'Kitchen context', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // Output Summary
