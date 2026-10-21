@@ -17,6 +17,7 @@ import { useLabel, compareMostUsed, compareRecentlyUsed, shouldCountCooking, COO
 import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngine.ts';
 import { dinnerMessage, inboxMessage, dateKeyInZone, wantsPush } from '../src/utils/pushMessages.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
+import { parseChatEmbeds } from '../src/utils/chatEmbeds.ts';
 
 interface TestResult {
   suite: string;
@@ -535,6 +536,28 @@ try {
   assert(timeAgo('garbage', now) === '' && timeAgo(ago(-5000), now) === 'just now', 'Inbox', 'Bad or future times do not break');
 } catch (e: any) {
   results.push({ suite: 'Inbox', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+
+// 12. Chef chat embeds
+try {
+  const fence = (label: string, body: unknown) => '```' + label + '\n' + JSON.stringify(body) + '\n```';
+  const r = (title: string) => ({ title, prepTimeMinutes: 10, cookTimeMinutes: 12, ingredients: [{ name: 'Lemon', amount: '2' }], steps: [{ instruction: 'Zest.' }] });
+  const reply = ['Here are three:', fence('recipe-json', r('Lemon-herb salmon')), fence('recipe-json', r('Chickpea bowl')), fence('recipe-json', r('Shrimp linguine')), 'Enjoy!'].join('\n\n');
+  const out = parseChatEmbeds(reply, 1000);
+  assert(out.recipes.length === 3, 'Chat', 'Every recipe in a reply becomes a savable card, not just the first');
+  assert(out.recipes.map(x => x.title).join('|') === 'Lemon-herb salmon|Chickpea bowl|Shrimp linguine', 'Chat', 'Recipes keep their order');
+  assert(new Set(out.recipes.map(x => x.id)).size === 3, 'Chat', 'Each recipe gets its own id');
+  assert(new Set(out.recipes.flatMap(x => x.ingredients.map(i => i.id))).size === 3, 'Chat', 'Ingredient ids never collide across recipes');
+  assert(out.recipes[0].ingredients[0].amount === 2 && out.recipes[0].totalTimeMinutes === 22, 'Chat', 'Amounts and total time are filled as before');
+  assert(out.cleanText === 'Here are three:\n\nEnjoy!', 'Chat', 'Blocks are removed from the visible text without leaving gaps');
+  const broken = parseChatEmbeds('Try this:\n```recipe-json\n{not json\n```', 1000);
+  assert(broken.recipes.length === 0 && broken.cleanText.includes('{not json'), 'Chat', 'A block that fails to parse stays visible');
+  const groceries = parseChatEmbeds(fence('grocery-json', [{ name: 'Lime' }]) + '\n' + fence('grocery-json', [{ name: 'Scallions', amount: 3, unit: 'whole', category: 'Produce' }]), 1000);
+  assert(groceries.groceryItems?.length === 2 && groceries.groceryItems[1].category === 'Produce' && groceries.groceryItems[0].category === 'Other', 'Chat', 'Grocery blocks are all read and keep their defaults');
+  assert(parseChatEmbeds('Just a tip: salt the pasta water.', 1000).recipes.length === 0, 'Chat', 'Plain replies have no cards');
+} catch (e: any) {
+  results.push({ suite: 'Chat', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 
