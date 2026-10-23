@@ -1,59 +1,142 @@
 @import "tailwindcss";
 
 @theme {
-  /* Roles that need the same meaning in light and dark, so they get names instead of a stone shade */
-  --color-canvas: #faf9f5;      /* page background */
-  --color-surface: #ffffff;     /* cards, sheets, inputs */
-  --color-ink: #1c1917;         /* dark buttons and pills that carry white text */
-  --color-ink-hover: #292524;
-  --color-ink-deep: #0c0a09;    /* backdrops and always-dark tiles */
-  --color-on-accent: #0c0a09;   /* text on amber buttons: dark in both modes */
+  /* Heirloom palette, taken from the app icon: warm cream paper, slate ink, terracotta, sage and ochre. */
+  --color-canvas: #f7f4ee;      /* page background: cream paper */
+  --color-surface: #fdfbf7;     /* cards, sheets, inputs */
+  --color-ink: #2b353e;         /* dark buttons and pills that carry white text: slate */
+  --color-ink-hover: #1f272e;
+  --color-ink-deep: #11161a;    /* backdrops and always-dark tiles */
+  --color-on-accent: #1d120d;   /* text on terracotta buttons: dark in both modes */
+  --color-ochre: #d49b4b;
+  --color-sage: #55755e;
+  --color-terracotta: #c86d51;
+
+  /* The accent. Components say "amber"; here amber is terracotta. */
+  --color-amber-50: #fbf2ed;
+  --color-amber-100: #f6e2d8;
+  --color-amber-200: #efc8b6;
+  --color-amber-300: #e5a98d;
+  --color-amber-400: #d98b69;
+  --color-amber-500: #c86d51;
+  --color-amber-600: #af5a40;
+  --color-amber-700: #8d4733;
+  --color-amber-800: #6e3828;
+  --color-amber-900: #542c20;
+  --color-amber-950: #2f1710;
+
+  /* Success and "fresh": sage green. */
+  --color-emerald-50: #eef4ef;
+  --color-emerald-100: #dbe8de;
+  --color-emerald-200: #bad2c0;
+  --color-emerald-300: #92b69d;
+  --color-emerald-400: #6b9879;
+  --color-emerald-500: #55755e;
+  --color-emerald-600: #486650;
+  --color-emerald-700: #3b5442;
+  --color-emerald-800: #2f4335;
+  --color-emerald-900: #25352a;
+  --color-emerald-950: #131d17;
+
+  /* Neutrals: warm hairlines on cream, slate for text. */
+  --color-stone-50: #f7f4ee;
+  --color-stone-100: #efebe3;
+  --color-stone-200: #e3ded4;
+  --color-stone-300: #cfc9bd;
+  --color-stone-400: #9aa0a2;
+  --color-stone-500: #66717a;
+  --color-stone-600: #4f5b64;
+  --color-stone-700: #3b464f;
+  --color-stone-800: #2b353e;
+  --color-stone-900: #212a31;
+  --color-stone-950: #12171b;
+
+  /* Headlines use Fraunces with its "soft" axis turned up: rounder, warmer, a little more like handwriting. */
   --font-serif: 'Fraunces', 'Instrument Serif', Georgia, serif;
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Plus Jakarta Sans', system-ui, sans-serif;
+  /* A small handwritten voice, only for signatures like "from Halmoni's kitchen". */
+  --font-hand: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive;
 }
 
-/* Dark mode follows the system setting. The neutral scale is flipped, so text-stone-900 is light and
-   border-stone-200 is subtle on a dark page; the named roles above are set explicitly. */
+/* Dark mode follows the system setting: deep slate with cream text, and the accents lifted so they still glow. */
 :root { color-scheme: light dark; }
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-canvas: #1a1816;
-    --color-surface: #24211e;
-    --color-ink: #57504a;
-    --color-ink-hover: #675f57;
-    --color-ink-deep: #050403;
-    --color-stone-50: #262320;
-    --color-stone-100: #2d2926;
-    --color-stone-200: #3a3531;
-    --color-stone-300: #4d4741;
-    --color-stone-400: #857e77;
-    --color-stone-500: #a29b93;
-    --color-stone-600: #b8b1a9;
-    --color-stone-700: #d1ccc5;
-    --color-stone-800: #e5e1db;
-    --color-stone-900: #f3f0ea;
-    --color-stone-950: #faf8f4;
+    --color-canvas: #14191c;
+    --color-surface: #1c2327;
+    --color-ink: #3f4d57;
+    --color-ink-hover: #4d5c67;
+    --color-ink-deep: #07090a;
+    --color-amber-50: #2d1d17;
+    --color-amber-100: #3a241b;
+    --color-amber-200: #5a3426;
+    --color-amber-300: #e3987a;
+    --color-amber-400: #e5987a;
+    --color-amber-500: #d9805f;
+    --color-amber-600: #e5987a;
+    --color-amber-700: #ecaf96;
+    --color-amber-800: #f2c6b4;
+    --color-amber-900: #f7dacd;
+    --color-emerald-50: #17231b;
+    --color-emerald-100: #1e3023;
+    --color-emerald-200: #2e4a37;
+    --color-emerald-300: #8cc09a;
+    --color-emerald-400: #7ab08a;
+    --color-emerald-500: #62a075;
+    --color-emerald-600: #6aa87d;
+    --color-emerald-700: #86c097;
+    --color-emerald-800: #a6d3b3;
+    --color-stone-50: #1b2226;
+    --color-stone-100: #232b30;
+    --color-stone-200: #2f383e;
+    --color-stone-300: #434e56;
+    --color-stone-400: #79848b;
+    --color-stone-500: #99a3a9;
+    --color-stone-600: #b1b9bd;
+    --color-stone-700: #ccd1d3;
+    --color-stone-800: #e4e6e3;
+    --color-stone-900: #f1eee7;
+    --color-stone-950: #fbf9f4;
   }
 }
 
 /* Keeps a subtree in the light palette in both modes (the cooking screen is always dark-on-light-text) */
 .stone-original {
-  --color-canvas: #faf9f5;
-  --color-surface: #ffffff;
-  --color-ink: #1c1917;
-  --color-ink-hover: #292524;
-  --color-ink-deep: #0c0a09;
-  --color-stone-50: oklch(98.5% 0.001 106.423);
-  --color-stone-100: oklch(97% 0.001 106.424);
-  --color-stone-200: oklch(92.3% 0.003 48.717);
-  --color-stone-300: oklch(86.9% 0.005 56.366);
-  --color-stone-400: oklch(70.9% 0.01 56.259);
-  --color-stone-500: oklch(55.3% 0.013 58.071);
-  --color-stone-600: oklch(44.4% 0.011 73.639);
-  --color-stone-700: oklch(37.4% 0.01 67.558);
-  --color-stone-800: oklch(26.8% 0.007 34.298);
-  --color-stone-900: oklch(21.6% 0.006 56.043);
-  --color-stone-950: oklch(14.7% 0.004 49.25);
+  --color-canvas: #f7f4ee;
+  --color-surface: #fdfbf7;
+  --color-ink: #2b353e;
+  --color-ink-hover: #1f272e;
+  --color-ink-deep: #11161a;
+  --color-amber-50: #fbf2ed;
+  --color-amber-100: #f6e2d8;
+  --color-amber-200: #efc8b6;
+  --color-amber-300: #e5a98d;
+  --color-amber-400: #d98b69;
+  --color-amber-500: #c86d51;
+  --color-amber-600: #af5a40;
+  --color-amber-700: #8d4733;
+  --color-amber-800: #6e3828;
+  --color-amber-900: #542c20;
+  --color-emerald-50: #eef4ef;
+  --color-emerald-100: #dbe8de;
+  --color-emerald-200: #bad2c0;
+  --color-emerald-300: #92b69d;
+  --color-emerald-400: #6b9879;
+  --color-emerald-500: #55755e;
+  --color-emerald-600: #486650;
+  --color-emerald-700: #3b5442;
+  --color-emerald-800: #2f4335;
+  --color-stone-50: #f7f4ee;
+  --color-stone-100: #efebe3;
+  --color-stone-200: #e3ded4;
+  --color-stone-300: #cfc9bd;
+  --color-stone-400: #9aa0a2;
+  --color-stone-500: #66717a;
+  --color-stone-600: #4f5b64;
+  --color-stone-700: #3b464f;
+  --color-stone-800: #2b353e;
+  --color-stone-900: #212a31;
+  --color-stone-950: #12171b;
 }
 
 @layer base {
@@ -85,6 +168,14 @@
 
   h1, h2, h3, .font-editorial {
     font-family: var(--font-serif);
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+
+  .font-hand {
+    font-family: var(--font-hand);
+    font-weight: 500;
+    letter-spacing: 0.01em;
   }
 
   /* Standard base font size for form controls to prevent mobile auto-zooming */
