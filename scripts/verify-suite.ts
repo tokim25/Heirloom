@@ -16,6 +16,7 @@ import { thawTonight, stockToList } from '../src/utils/stock.ts';
 import { useLabel, compareMostUsed, compareRecentlyUsed, shouldCountCooking, COOKING_DEDUPE_MS } from '../src/utils/recipeUsage.ts';
 import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngine.ts';
 import { dinnerMessage, inboxMessage, dateKeyInZone, wantsPush } from '../src/utils/pushMessages.ts';
+import { signature, isFavorite, FAVORITE_AT } from '../src/utils/recipePeople.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 import { parseChatEmbeds } from '../src/utils/chatEmbeds.ts';
 import { CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE, checkChefAnswer, unwrapChefAnswer } from '../src/utils/chefLibrary.ts';
@@ -480,6 +481,20 @@ try {
   assert(wantsPush(undefined, 'inbox') && wantsPush({ dinner: true }, 'dinner') && !wantsPush({ inbox: false }, 'inbox') && wantsPush({ inbox: false }, 'dinner'), 'Push', 'Both kinds are on until switched off, independently');
 } catch (e: any) {
   results.push({ suite: 'Push', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// Recipe people
+try {
+  const base = { source: { type: 'link' as const } } as any;
+  assert(signature({ ...base, fromName: 'Halmoni' })?.text === "from Halmoni's kitchen", 'People', 'A family name becomes a signature');
+  assert(signature({ ...base, fromName: 'James' })?.text === "from James' kitchen", 'People', 'Names ending in s get a plain apostrophe');
+  assert(signature({ ...base, fromName: '  ' }) === null && signature(base) === null, 'People', 'Blank means no signature');
+  const sent = signature({ source: { type: 'link', sharedBy: 'Jess' } } as any);
+  assert(sent?.kind === 'sent' && sent.text === 'sent by Jess', 'People', 'A shared recipe says who sent it');
+  assert(signature({ fromName: 'Dad', source: { type: 'link', sharedBy: 'Jess' } } as any)?.kind === 'family', 'People', 'The family name wins over the sender');
+  assert(!isFavorite({}) && !isFavorite({ useCount: FAVORITE_AT - 1 }) && isFavorite({ useCount: FAVORITE_AT }), 'People', 'Three uses make a family favorite');
+} catch (e: any) {
+  results.push({ suite: 'People', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // YouTube failure handling

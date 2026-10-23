@@ -78,6 +78,29 @@ export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) 
         </label>
 
         <label className="flex flex-col gap-1.5 sm:col-span-2">
+          <span className={labelClass}>Who is this recipe from? (optional)</span>
+          <input
+            value={recipe.fromName ?? ''}
+            onChange={(e) => update({ fromName: e.target.value })}
+            placeholder="Halmoni, Dad, Aunt May…"
+            maxLength={60}
+            className={`${inputClass} border-stone-300`}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 sm:col-span-2">
+          <span className={labelClass}>A note or story (optional)</span>
+          <textarea
+            rows={2}
+            value={recipe.story ?? ''}
+            onChange={(e) => update({ story: e.target.value })}
+            placeholder="Why it matters, or what to remember."
+            maxLength={600}
+            className={`${inputClass} border-stone-300 py-2`}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 sm:col-span-2">
           <span className={labelClass}>Description</span>
           <textarea
             rows={2}

@@ -106,6 +106,10 @@ export interface RecipeStep {
 export interface Recipe {
   id: string;
   /** How many times this recipe was planned or cooked. Counts up when it joins the meal plan or you start cooking. */
+  /** Who this recipe came from in the family, like Halmoni or Dad. Shown as a handwritten signature. */
+  fromName?: string;
+  /** A line or two of story: why it matters, what to remember. */
+  story?: string;
   useCount?: number;
   /** When it was last planned or cooked (ISO). */
   lastUsedAt?: string;

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { signature } from '../utils/recipePeople.ts';
 import {
   X,
   Clock,
@@ -197,6 +198,16 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               </div>
             ))}
           </dl>
+          )}
+
+          {(signature(recipe) || recipe.story?.trim()) && (
+            <div className="flex flex-col gap-2">
+              {signature(recipe)?.kind === 'family' && <p className="font-hand text-3xl leading-none text-amber-700">{signature(recipe)!.text}</p>}
+              {signature(recipe)?.kind === 'sent' && <p className="text-sm font-semibold text-stone-700">{signature(recipe)!.text}</p>}
+              {recipe.story?.trim() && (
+                <blockquote className="border-l-2 border-amber-500/60 pl-4 font-serif text-lg italic text-stone-800 leading-relaxed">{recipe.story.trim()}</blockquote>
+              )}
+            </div>
           )}
 
           {recipe.description && <p className="text-stone-700 text-base leading-relaxed">{recipe.description}</p>}
