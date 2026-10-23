@@ -17,6 +17,7 @@ import { useLabel, compareMostUsed, compareRecentlyUsed, shouldCountCooking, COO
 import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngine.ts';
 import { dinnerMessage, inboxMessage, dateKeyInZone, wantsPush } from '../src/utils/pushMessages.ts';
 import { signature, isFavorite, FAVORITE_AT } from '../src/utils/recipePeople.ts';
+import { greeting, timeOfDay, tonightsDinner } from '../src/utils/greeting.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 import { parseChatEmbeds } from '../src/utils/chatEmbeds.ts';
 import { CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE, checkChefAnswer, unwrapChefAnswer } from '../src/utils/chefLibrary.ts';
@@ -481,6 +482,18 @@ try {
   assert(wantsPush(undefined, 'inbox') && wantsPush({ dinner: true }, 'dinner') && !wantsPush({ inbox: false }, 'inbox') && wantsPush({ inbox: false }, 'dinner'), 'Push', 'Both kinds are on until switched off, independently');
 } catch (e: any) {
   results.push({ suite: 'Push', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// Greeting
+try {
+  assert(timeOfDay(5) === 'morning' && timeOfDay(11) === 'morning' && timeOfDay(12) === 'afternoon' && timeOfDay(17) === 'evening' && timeOfDay(22) === 'night' && timeOfDay(3) === 'night', 'Greeting', 'Hours map to the part of the day');
+  assert(greeting(19, 'Tony Kim') === 'Good evening, Tony' && greeting(8) === 'Good morning' && greeting(1, '  ') === 'Still up', 'Greeting', 'Uses the first name, and copes with none');
+  const m = (id: string, date: string, extra: Record<string, unknown> = {}) => ({ id, recipeId: 'r' + id, recipeTitle: 'T' + id, date, servings: 4, addedBy: 'x', ...extra } as any);
+  assert(tonightsDinner([m('a', '2026-10-23')], '2026-10-23', 9) === null, 'Greeting', 'Nothing is suggested before midday');
+  assert(tonightsDinner([m('a', '2026-10-23')], '2026-10-23', 15)?.id === 'a', 'Greeting', 'Tonight\'s dinner shows from midday');
+  assert(tonightsDinner([m('a', '2026-10-23', { kind: 'leftovers' })], '2026-10-23', 18) === null && tonightsDinner([m('a', '2026-10-23', { slot: 'lunch' })], '2026-10-23', 18) === null && tonightsDinner([m('a', '2026-10-24')], '2026-10-23', 18) === null, 'Greeting', 'Leftovers, lunches and other days are skipped');
+} catch (e: any) {
+  results.push({ suite: 'Greeting', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // Recipe people

@@ -28,6 +28,7 @@ import type { AddToGroceryListResult } from './components/RecipeDetailModal.tsx'
 import { addDays, planToList, toDateKey } from './utils/mealPlan.ts';
 import { stockToList } from './utils/stock.ts';
 import type { StockDraft } from './components/FridgeFreezerSheet.tsx';
+import { greeting, tonightsDinner } from './utils/greeting.ts';
 import { compareMostUsed, compareRecentlyUsed, shouldCountCooking, useCountOf } from './utils/recipeUsage.ts';
 import { OfflineBanner } from './components/OfflineBanner.tsx';
 import { ConfirmSheet } from './components/ui/Sheet.tsx';
@@ -486,6 +487,8 @@ export default function App() {
 
   // ---- Meal plan ----
   const plannedMeals = useMemo(() => planToList(household?.mealPlan), [household?.mealPlan]);
+  const tonight = tonightsDinner(plannedMeals, toDateKey(new Date()), new Date().getHours());
+  const tonightRecipe = tonight ? recipes.find((r) => r.id === tonight.recipeId) ?? null : null;
 
   const handlePlanMeal = (recipe: Recipe, date: string, servings: number, slot: MealSlot, kind: MealKind) => {
     const householdId = requireHousehold();
@@ -682,6 +685,27 @@ export default function App() {
           <WelcomeScreen onSignIn={signInWithGoogle} errorMessage={authErrorMessage} />
         ) : activeTab === 'cookbook' ? (
           <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 flex flex-col gap-6 sm:gap-8 w-full max-w-full">
+            {/* A friendly line, and tonight's dinner when there is one */}
+            <div className="flex flex-col gap-3 -mb-2">
+              <p className="font-hand text-2xl leading-none text-amber-700">{greeting(new Date().getHours(), user.name)}</p>
+              {tonight && tonightRecipe && (
+                <div className="flex items-center gap-3 rounded-2xl bg-surface border border-stone-200/80 pl-4 pr-2 py-2 shadow-[0_2px_12px_rgba(43,53,62,0.04)]">
+                  <button type="button" onClick={() => openRecipe(tonightRecipe)} className="min-w-0 flex-1 text-left min-h-11">
+                    <span className="block text-xs font-semibold uppercase tracking-wider text-stone-600">Tonight</span>
+                    <span className="block font-serif text-xl text-stone-900 truncate">{tonightRecipe.title}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStartCooking(tonightRecipe)}
+                    className="min-h-11 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-on-accent text-sm font-semibold inline-flex items-center gap-2 shrink-0"
+                  >
+                    <Play className="w-4 h-4 fill-current" aria-hidden="true" />
+                    Cook
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Cookbook Header & Action Bar */}
             <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-stone-200/80">
               <div>
