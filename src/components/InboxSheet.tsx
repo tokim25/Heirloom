@@ -32,9 +32,9 @@ export const InboxSheet: React.FC<InboxSheetProps> = ({ invites, onView, onDismi
     {invites.length === 0 ? (
       <div className="flex flex-col items-center text-center gap-2 py-8">
         <Inbox className="w-8 h-8 text-stone-400" aria-hidden="true" />
-        <p className="text-base font-semibold text-stone-900">Nothing here yet</p>
+        <p className="text-base font-semibold text-stone-900">Your inbox is empty</p>
         <p className="text-sm text-stone-600 max-w-xs">
-          When someone on Heirloom sends you a recipe, it shows up here. You can also ask them to send it to your Google email.
+          When someone on Heirloom sends you a recipe, it lands here. Ask them to send it to your Google email.
         </p>
       </div>
     ) : (
