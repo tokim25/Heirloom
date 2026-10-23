@@ -18,6 +18,7 @@ import { createRecipeSearchIndex, searchRecipes } from '../src/utils/searchEngin
 import { dinnerMessage, inboxMessage, dateKeyInZone, wantsPush } from '../src/utils/pushMessages.ts';
 import { signature, isFavorite, FAVORITE_AT } from '../src/utils/recipePeople.ts';
 import { greeting, timeOfDay, tonightsDinner } from '../src/utils/greeting.ts';
+import { parallaxOffset, heroShift } from '../src/utils/parallax.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 import { parseChatEmbeds } from '../src/utils/chatEmbeds.ts';
 import { CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE, checkChefAnswer, unwrapChefAnswer } from '../src/utils/chefLibrary.ts';
@@ -482,6 +483,16 @@ try {
   assert(wantsPush(undefined, 'inbox') && wantsPush({ dinner: true }, 'dinner') && !wantsPush({ inbox: false }, 'inbox') && wantsPush({ inbox: false }, 'dinner'), 'Push', 'Both kinds are on until switched off, independently');
 } catch (e: any) {
   results.push({ suite: 'Push', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// Parallax
+try {
+  assert(Math.abs(parallaxOffset(300, 200, 800, 10)) < 0.01, 'Parallax', 'A frame at the middle of the screen is not shifted');
+  assert(parallaxOffset(800, 200, 800, 10) < -9 && parallaxOffset(-200, 200, 800, 10) > 9, 'Parallax', 'The picture drifts opposite to the scroll, entering and leaving');
+  assert(parallaxOffset(5000, 200, 800, 10) === -10 && parallaxOffset(-5000, 200, 800, 10) === 10, 'Parallax', 'The shift never exceeds its range');
+  assert(heroShift(0, 300) === 0 && Math.abs(heroShift(100, 300) - 35) < 1e-9 && Math.abs(heroShift(900, 300) - 105) < 1e-9 && heroShift(-40, 300) === 0, 'Parallax', 'The hero sinks at a third of the scroll and stops at its own height');
+} catch (e: any) {
+  results.push({ suite: 'Parallax', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // Greeting

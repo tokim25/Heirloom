@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useHeroParallax } from '../utils/useParallax.ts';
 import { signature } from '../utils/recipePeople.ts';
 import {
   X,
@@ -68,6 +69,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   const [addListStatus, setAddListStatus] = useState<AddToGroceryListResult | null>(null);
   const [isAddingToList, setIsAddingToList] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const { scrollRef, heroRef, mediaRef } = useHeroParallax<HTMLDivElement, HTMLDivElement, HTMLImageElement>();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
@@ -136,13 +138,14 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
       </div>
 
       {/* Everything scrolls together, so the picture moves out of the way as you read */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-        <div className="relative h-56 sm:h-80 w-full overflow-hidden bg-stone-200">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+        <div ref={heroRef} className="relative h-56 sm:h-80 w-full overflow-hidden bg-stone-200">
           {recipe.heroImage && !imageFailed ? (
             <img
+              ref={mediaRef}
               src={recipe.heroImage}
               alt=""
-              className="w-full h-full object-cover"
+              className="absolute bottom-0 left-0 w-full h-[135%] object-cover will-change-transform"
               referrerPolicy="no-referrer"
               onError={() => setImageFailed(true)}
             />

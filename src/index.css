@@ -296,3 +296,19 @@
   .sprout-leaf { stroke-dasharray: 1; stroke-dashoffset: 1; animation: sprout-draw 500ms cubic-bezier(0.32, 0.72, 0, 1) 850ms forwards; }
   @keyframes sprout-draw { to { stroke-dashoffset: 0; } }
 }
+
+/* Drawn once, not on every re-render of a list. */
+.sprout-still .sprout-heart, .sprout-still .sprout-leaf { animation: none !important; stroke-dashoffset: 0 !important; }
+
+/* An unopened shared recipe arrives as an envelope: the flap opens and the letter slides up. */
+.envelope { position: relative; display: block; width: 100%; height: 132px; margin-top: 46px; text-align: left; perspective: 900px; }
+.envelope-body { position: absolute; inset: 22px 0 0 0; z-index: 2; border-radius: 16px; border: 1px solid var(--color-amber-200); background: var(--color-amber-50); padding: 40px 18px 12px; display: flex; flex-direction: column; justify-content: flex-end; }
+.envelope-flap { position: absolute; top: 22px; left: 0; right: 0; height: 62px; z-index: 3; transform-origin: top center; clip-path: polygon(0 0, 100% 0, 50% 100%); background: var(--color-amber-100); border-top-left-radius: 16px; border-top-right-radius: 16px; transition: transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease 300ms; }
+.envelope-seal { position: absolute; top: 62px; left: 50%; width: 34px; height: 34px; margin-left: -17px; z-index: 4; border-radius: 9999px; background: var(--color-amber-500); color: var(--color-on-accent); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(43, 53, 62, 0.25); transition: opacity 160ms ease; }
+.envelope-letter { position: absolute; left: 14px; right: 14px; top: 30px; height: 96px; z-index: 1; border-radius: 12px; background: var(--color-surface); border: 1px solid var(--color-stone-200); padding: 12px 14px; transition: transform 460ms cubic-bezier(0.2, 0.8, 0.2, 1) 220ms; box-shadow: 0 -4px 14px rgba(43, 53, 62, 0.08); }
+.envelope[data-open="true"] .envelope-flap { transform: rotateX(180deg); opacity: 0; }
+.envelope[data-open="true"] .envelope-seal { opacity: 0; }
+.envelope[data-open="true"] .envelope-letter { transform: translateY(-72px); }
+@media (prefers-reduced-motion: reduce) {
+  .envelope-flap, .envelope-seal, .envelope-letter { transition: none; }
+}

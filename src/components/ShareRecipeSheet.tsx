@@ -12,7 +12,7 @@ interface ShareRecipeSheetProps {
   refresh: (share: SharedRecipe) => Promise<SharedRecipe>;
   stop: (share: SharedRecipe) => Promise<void>;
   listInvites: (share: SharedRecipe) => Promise<ShareInvite[]>;
-  sendInvite: (share: SharedRecipe, email: string) => Promise<ShareInvite>;
+  sendInvite: (share: SharedRecipe, email: string, note?: string) => Promise<ShareInvite>;
   removeInvite: (invite: ShareInvite) => Promise<void>;
   onClose: () => void;
 }
@@ -32,6 +32,7 @@ export const ShareRecipeSheet: React.FC<ShareRecipeSheetProps> = ({ recipe, load
   const [confirmingStop, setConfirmingStop] = useState(false);
   const [invites, setInvites] = useState<ShareInvite[]>([]);
   const [email, setEmail] = useState('');
+  const [note, setNote] = useState('');
 
   useEffect(() => {
     if (!share) {
@@ -108,9 +109,10 @@ export const ShareRecipeSheet: React.FC<ShareRecipeSheetProps> = ({ recipe, load
       'send',
       async () => {
         if (!share) return;
-        const invite = await sendInvite(share, to);
+        const invite = await sendInvite(share, to, note);
         setInvites((list) => [...list, invite]);
         setEmail('');
+        setNote('');
       },
       'Could not send it. Check your connection and try again.'
     );
@@ -219,6 +221,15 @@ export const ShareRecipeSheet: React.FC<ShareRecipeSheetProps> = ({ recipe, load
                 Send
               </button>
             </div>
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={140}
+              placeholder="Add a note, like: Mom thinks you'd love this"
+              aria-label="A note to send with the recipe (optional)"
+              className="min-h-12 px-3 rounded-xl bg-surface border border-stone-300 text-base text-stone-900 placeholder:text-stone-500"
+            />
             <p className="text-xs text-stone-600">It lands in their Inbox in Heirloom. They need to sign in with that Google email.</p>
             {invites.length > 0 && (
               <ul className="flex flex-col">

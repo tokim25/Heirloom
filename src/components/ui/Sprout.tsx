@@ -4,12 +4,12 @@ import React from 'react';
  * The Heirloom mark (a heart with a sprouting leaf) drawn as outlines that write themselves in once.
  * Used where a screen is empty, so "nothing here yet" feels like a beginning. Static under reduced motion.
  */
-export const Sprout: React.FC<{ className?: string; size?: number }> = ({ className = '', size = 72 }) => (
+export const Sprout: React.FC<{ className?: string; size?: number; animate?: boolean }> = ({ className = '', size = 72, animate = true }) => (
   <svg
     viewBox="0 0 100 100"
     width={size}
     height={size}
-    className={`sprout ${className}`}
+    className={`sprout ${animate ? '' : 'sprout-still'} ${className}`}
     fill="none"
     strokeLinecap="round"
     strokeLinejoin="round"
