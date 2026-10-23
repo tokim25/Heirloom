@@ -66,7 +66,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-canvas/95 backdrop-blur-xl border-b border-stone-200/70 transition-all">
+    <header className="sticky top-0 z-40 w-full bg-canvas border-b border-stone-200/70 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-3">
         {/* Brand & Section Switcher (Desktop) */}
         <div className="flex items-center gap-4 md:gap-8 min-w-0">

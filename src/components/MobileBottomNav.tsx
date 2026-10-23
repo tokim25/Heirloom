@@ -45,7 +45,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ groceryPending
   return (
     <nav
       aria-label="Main"
-      className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas/95 backdrop-blur-2xl border-t border-stone-200/90 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
+      className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas border-t border-stone-200/90 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
     >
       <ul className="max-w-lg mx-auto px-2 pt-1 flex items-stretch justify-between">
         {tabs.map((tab) => {
