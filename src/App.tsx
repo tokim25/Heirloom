@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Recipe, GroceryList, GroceryItem, MealKind, MealSlot, PlannedMeal, ShareInvite, StockItem } from './types/recipe.ts';
 import { Navbar } from './components/Navbar.tsx';
+import { Sprout } from './components/ui/Sprout.tsx';
 import { RecipeCard } from './components/RecipeCard.tsx';
 import { RecipeRow } from './components/RecipeRow.tsx';
 import type { AddToGroceryListResult } from './components/RecipeDetailModal.tsx';
@@ -766,22 +767,24 @@ export default function App() {
               </div>
             ) : filteredRecipes.length === 0 ? (
               <div className="py-20 text-center bg-surface rounded-3xl border border-stone-200/80 p-8">
-                <ChefHat className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+                {recipes.length === 0 ? <Sprout size={64} className="mx-auto mb-4 text-stone-800" /> : <ChefHat className="w-12 h-12 text-stone-300 mx-auto mb-3" />}
                 <h3 className="font-serif text-2xl text-stone-900">
-                  {recipes.length === 0 ? 'Add your first recipe' : 'No matching recipes'}
+                  {recipes.length === 0 ? 'Your cookbook starts with one recipe' : 'Nothing matches that'}
                 </h3>
-                <p className="text-sm text-stone-600 mt-1 max-w-sm mx-auto">
+                <p className="text-base text-stone-600 mt-1 max-w-sm mx-auto">
                   {recipes.length === 0
-                    ? 'Paste a link, snap a photo of a recipe card, or upload a PDF. Heirloom turns it into a clean, cookable recipe.'
-                    : 'Try a different search, or clear the filters.'}
+                    ? 'Start with the one you already know by heart. Paste a link, snap a photo of a recipe card, or upload a PDF.'
+                    : 'Try different words, or clear the filters.'}
                 </p>
-                <button
-                  onClick={openImport}
-                  className="mt-4 px-4 py-2 rounded-xl bg-ink text-white text-xs font-semibold inline-flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Import Recipe Now</span>
-                </button>
+                {recipes.length === 0 && (
+                  <button
+                    onClick={openImport}
+                    className="mt-5 min-h-12 px-6 rounded-xl bg-ink hover:bg-ink-hover text-white text-base font-semibold inline-flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add a recipe</span>
+                  </button>
+                )}
               </div>
             ) : cookbookView === 'list' ? (
               <ul className="divide-y divide-stone-100 bg-surface rounded-3xl border border-stone-200/80 p-1.5 shadow-xs">

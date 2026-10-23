@@ -731,10 +731,10 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       <div className="flex flex-col gap-6">
         {sections.length === 0 && completedItems.length === 0 ? (
           <div className="p-12 text-center bg-surface rounded-3xl border border-stone-200">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-            <h3 className="font-serif text-xl text-stone-900">Your shopping list is all set!</h3>
-            <p className="text-xs text-stone-500 mt-1">
-              Add ingredients from your recipes or type new items above.
+            <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
+            <h3 className="font-serif text-xl text-stone-900">That's everything</h3>
+            <p className="text-sm text-stone-600 mt-1">
+              Nothing left to buy. Add ingredients from a recipe, or type an item above.
             </p>
           </div>
         ) : (

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen, ShoppingBag, Sparkles } from 'lucide-react';
+import { Sprout } from './ui/Sprout.tsx';
 
 interface WelcomeScreenProps {
   onSignIn: () => Promise<void>;
@@ -7,9 +8,9 @@ interface WelcomeScreenProps {
 }
 
 const FEATURES = [
-  { icon: Sparkles, title: 'Import from anywhere', body: 'Links, videos, photos of recipe cards, and PDFs become clean recipes.' },
-  { icon: BookOpen, title: 'On every device', body: 'Your cookbook syncs automatically, with an optional copy in Google Drive.' },
-  { icon: ShoppingBag, title: 'Shop together', body: 'Share grocery lists with your household, then shop them at your store on Instacart.' },
+  { icon: Sparkles, title: 'Bring recipes in from anywhere', body: 'Links, videos, photos of recipe cards and PDFs become clean, cookable recipes.' },
+  { icon: BookOpen, title: 'Keep them on every device', body: 'Your cookbook syncs on its own, with an optional copy in Google Drive.' },
+  { icon: ShoppingBag, title: 'Shop together', body: 'Share one grocery list with your household and shop it at your store.' },
 ];
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSignIn, errorMessage }) => {
@@ -27,11 +28,19 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSignIn, errorMes
   };
 
   return (
-    <section className="max-w-md mx-auto px-4 pt-12 sm:pt-20 pb-12 flex flex-col gap-8">
-      <div className="flex flex-col gap-3 text-center">
-        <h1 className="font-serif text-4xl text-stone-900 tracking-tight">Your family cookbook, on every device.</h1>
-        <p className="text-base text-stone-600">Preserve the recipe. Share the table.</p>
+    <section className="max-w-md mx-auto px-4 pt-10 sm:pt-16 pb-12 flex flex-col gap-8">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <Sprout size={64} className="text-stone-800" />
+        <h1 className="font-serif text-4xl text-stone-900">Preserve the recipe. Share the table.</h1>
+        <p className="text-base text-stone-600">Your family's cookbook, on every device.</p>
       </div>
+
+      {/* One sample card shows what a kept recipe feels like: a person, not a URL. */}
+      <figure className="rounded-2xl bg-surface border border-stone-200/80 shadow-[0_8px_30px_rgba(43,53,62,0.08)] px-6 py-5 flex flex-col gap-1">
+        <figcaption className="font-hand text-2xl text-amber-700 -mb-1">from Halmoni's kitchen</figcaption>
+        <p className="font-serif text-2xl text-stone-900">Sesame Noodles</p>
+        <p className="text-sm text-stone-600">Serves 4 · 20 minutes · "Add the sesame oil last, always."</p>
+      </figure>
 
       <ul className="flex flex-col gap-4">
         {FEATURES.map(({ icon: Icon, title, body }) => (
