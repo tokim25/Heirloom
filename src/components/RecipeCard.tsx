@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useCardParallax } from '../utils/useParallax.ts';
 import { useLabel } from '../utils/recipeUsage.ts';
 import { Play, Heart, ChefHat } from 'lucide-react';
 import { isFavorite, signature } from '../utils/recipePeople.ts';
@@ -17,6 +18,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
   onStartCooking,
 }) => {
   const [imageFailed, setImageFailed] = useState(false);
+  const { frameRef, mediaRef } = useCardParallax<HTMLDivElement, HTMLImageElement>();
 
   const sig = signature(recipe);
   const meta = [recipe.cuisine, recipe.totalTimeMinutes ? `${recipe.totalTimeMinutes} min` : '', useLabel(recipe) ?? ''].filter(Boolean);
@@ -27,12 +29,13 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
       className="bg-surface rounded-2xl overflow-hidden border border-stone-200/70 hover:border-stone-300 shadow-[0_2px_12px_rgba(43,53,62,0.04)] transition-colors flex flex-col cursor-pointer"
     >
       {/* The photo is the card */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
+      <div ref={frameRef} className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
         {recipe.heroImage && !imageFailed ? (
           <img
+            ref={mediaRef}
             src={recipe.heroImage}
             alt={recipe.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover will-change-transform"
             loading="lazy"
             referrerPolicy="no-referrer"
             onError={() => setImageFailed(true)}

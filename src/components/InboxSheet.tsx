@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ChefHat, Inbox } from 'lucide-react';
 import { ShareInvite } from '../types/recipe.ts';
 import { timeAgo } from '../utils/inbox.ts';
+import { reducedMotion } from '../utils/parallax.ts';
+import { InviteEnvelope } from './InviteEnvelope.tsx';
 import { Sheet } from './ui/Sheet.tsx';
 
 interface InboxSheetProps {
@@ -11,8 +13,49 @@ interface InboxSheetProps {
   onClose: () => void;
 }
 
-/** Recipes other Heirloom users have sent to this account's email. */
-export const InboxSheet: React.FC<InboxSheetProps> = ({ invites, onView, onDismiss, onClose }) => (
+const OPENED_KEY = 'heirloom_opened_invites';
+
+const readOpened = (): string[] => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(OPENED_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+const rememberOpened = (id: string) => {
+  try {
+    localStorage.setItem(OPENED_KEY, JSON.stringify([id, ...readOpened().filter((x) => x !== id)].slice(0, 200)));
+  } catch {
+    // Private mode: the envelope just closes again next time.
+  }
+};
+
+/** How long the envelope takes to open before the recipe appears. */
+const OPEN_MS = 950;
+
+/** Recipes other Heirloom users have sent to this account's email. A new one arrives as an envelope. */
+export const InboxSheet: React.FC<InboxSheetProps> = ({ invites, onView, onDismiss, onClose }) => {
+  const [opened, setOpened] = useState<string[]>(readOpened);
+  const [opening, setOpening] = useState<string | null>(null);
+
+  const open = (invite: ShareInvite) => {
+    rememberOpened(invite.id);
+    if (reducedMotion()) {
+      setOpened(readOpened());
+      onView(invite);
+      return;
+    }
+    setOpening(invite.id);
+    window.setTimeout(() => {
+      setOpening(null);
+      setOpened(readOpened());
+      onView(invite);
+    }, OPEN_MS);
+  };
+
+  return (
   <Sheet
     open
     onClose={onClose}
@@ -39,7 +82,12 @@ export const InboxSheet: React.FC<InboxSheetProps> = ({ invites, onView, onDismi
       </div>
     ) : (
       <ul className="flex flex-col gap-3">
-        {invites.map((invite) => (
+        {invites.map((invite) =>
+          !opened.includes(invite.id) ? (
+            <li key={invite.id}>
+              <InviteEnvelope invite={invite} opening={opening === invite.id} onOpen={() => open(invite)} />
+            </li>
+          ) : (
           <li key={invite.id} className="rounded-2xl border border-stone-200 bg-surface p-3 flex items-center gap-3">
             {invite.heroImage ? (
               <img src={invite.heroImage} alt="" className="w-16 h-16 rounded-xl object-cover shrink-0" referrerPolicy="no-referrer" />
@@ -71,8 +119,10 @@ export const InboxSheet: React.FC<InboxSheetProps> = ({ invites, onView, onDismi
               </div>
             </div>
           </li>
-        ))}
+          )
+        )}
       </ul>
     )}
   </Sheet>
 );
+};

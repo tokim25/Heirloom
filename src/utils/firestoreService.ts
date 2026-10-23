@@ -354,7 +354,7 @@ export const firestoreService = {
 
   // ---- Sending a shared recipe to someone's inbox ----
 
-  async sendShareInvite(share: SharedRecipe, toEmail: string): Promise<ShareInvite> {
+  async sendShareInvite(share: SharedRecipe, toEmail: string, note?: string): Promise<ShareInvite> {
     const ref = doc(collection(db, 'shareInvites'));
     const invite: ShareInvite = {
       id: ref.id,
@@ -364,6 +364,7 @@ export const firestoreService = {
       toEmail,
       recipeTitle: share.recipe.title,
       heroImage: share.recipe.heroImage || '',
+      ...(note?.trim() ? { note: note.trim().slice(0, 140) } : {}),
       createdAt: now(),
     };
     await setDoc(ref, invite);

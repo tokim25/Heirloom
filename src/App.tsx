@@ -975,8 +975,8 @@ export default function App() {
           refresh={(share) => firestoreService.refreshShare(share, sharingRecipe)}
           stop={(share) => firestoreService.deleteShare(share.id)}
           listInvites={(share) => firestoreService.listInvitesForShare(user.id, share.id)}
-          sendInvite={async (share, to) => {
-            const invite = await firestoreService.sendShareInvite(share, to);
+          sendInvite={async (share, to, note) => {
+            const invite = await firestoreService.sendShareInvite(share, to, note);
             // A push is a courtesy: the invite is already in their Inbox whether or not this succeeds.
             apiFetch('/api/push/inbox', { method: 'POST', body: JSON.stringify({ inviteId: invite.id }) }).catch(() => undefined);
             return invite;

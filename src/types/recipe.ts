@@ -173,6 +173,8 @@ export interface ShareInvite {
   toEmail: string;
   recipeTitle: string;
   heroImage: string;
+  /** A line from the sender, shown on the letter when the envelope opens. */
+  note?: string;
   createdAt: string;
 }
 
