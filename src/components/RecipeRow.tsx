@@ -38,13 +38,14 @@ export const RecipeRow: React.FC<RecipeRowProps> = ({ recipe, onSelect, onStartC
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-serif text-lg leading-snug text-stone-900 line-clamp-2">{recipe.title}</span>
+          {/* line-clamp sets its own display, so this must not also be "block" or the clamp is ignored */}
+          <span className="font-serif text-lg leading-snug text-stone-900 line-clamp-2">{recipe.title}</span>
           <span className="block text-sm text-stone-600 truncate">{facts}</span>
           <span className="block text-sm text-stone-500">
             {recipe.ingredients.length} {recipe.ingredients.length === 1 ? 'ingredient' : 'ingredients'}
           </span>
         </span>
-        <ChevronRight className="w-5 h-5 shrink-0 text-stone-400" aria-hidden="true" />
+        <ChevronRight className="hidden sm:block w-5 h-5 shrink-0 text-stone-400" aria-hidden="true" />
       </button>
       <button
         type="button"
