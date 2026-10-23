@@ -15,7 +15,7 @@ import {
   Mic,
   MicOff,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { CookingFinish } from './CookingFinish.tsx';
 import { Recipe } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, formatStepTemperatures, UnitSystem } from '../utils/units.ts';
 import { ingredientsForStep } from '../utils/stepIngredients.ts';
@@ -26,6 +26,8 @@ interface InstagramCookingModeProps {
   servings: number;
   unitSystem: UnitSystem;
   onClose: () => void;
+  /** Called with a note for next time when the person writes one at the end. */
+  onFinished?: (note: string) => void;
   onAddStepIngredientsToGroceries?: (stepIngredients: string[]) => void;
 }
 
@@ -86,6 +88,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   servings,
   unitSystem,
   onClose,
+  onFinished,
 }) => {
   const totalSteps = recipe.steps.length;
   const cookingSessionStorageKey = getCookingSessionStorageKey(recipe.id);
@@ -98,6 +101,8 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     () => restoredSessionRef.current?.currentStepIndex || 0
   );
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [finished, setFinished] = useState(false);
+  const startedAtRef = useRef(Date.now());
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -264,13 +269,9 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(cookingSessionStorageKey);
       }
-      confetti({
-        particleCount: 90,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#D97706', '#059669', '#E11D48', '#F59E0B'],
-      });
-      speakNotification("Bon appétit! You've finished cooking this recipe.");
+      setFinished(true);
+      // Spoken only when the person already turned the voice guide on.
+      speakNotification('Enjoy your meal.');
     }
   };
 
@@ -298,6 +299,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   };
 
   const handleStoryTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (finished) return;
     if (Date.now() < ignoreTapUntilRef.current) return;
     const target = e.target as HTMLElement;
     if (target.closest('button, a, input, select, textarea, label, summary, [data-no-tap]')) return;
@@ -331,6 +333,10 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   };
 
   const handleStoryTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (finished) {
+      swipeStartRef.current = null;
+      return;
+    }
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
     const touch = e.changedTouches[0];
@@ -488,6 +494,10 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   // Keyboard navigation (Arrow keys & Space for timer)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (finished) {
+        if (e.key === 'Escape') onClose();
+        return;
+      }
       if (e.key === 'ArrowRight') handleNextStep();
       if (e.key === 'ArrowLeft') handlePrevStep();
       if (e.key === 'Escape') onClose();
@@ -498,7 +508,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentStepIndex, timerSecondsLeft]);
+  }, [currentStepIndex, timerSecondsLeft, finished]);
 
   // Format MM:SS
   const formatTime = (secs: number) => {
@@ -512,6 +522,18 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
 
   return (
     <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} onClick={handleStoryTap} onTouchStart={handleStoryTouchStart} onTouchEnd={handleStoryTouchEnd} data-story-surface className="stone-original fixed inset-0 z-[60] cursor-pointer bg-ink-deep/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
+      {finished && (
+        <CookingFinish
+          title={recipe.title}
+          minutes={hasRestoredSession ? null : Math.round((Date.now() - startedAtRef.current) / 60000)}
+          onBack={() => setFinished(false)}
+          onDone={(note) => {
+            if (note) onFinished?.(note);
+            onClose();
+          }}
+        />
+      )}
+
       {/* Background Ambient Glow */}
       <div
         className="absolute inset-0 bg-cover bg-center opacity-15 filter blur-3xl scale-110 pointer-events-none"

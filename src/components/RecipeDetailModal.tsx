@@ -210,6 +210,18 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             </div>
           )}
 
+          {recipe.cookNotes && recipe.cookNotes.length > 0 && (
+            <section aria-label="Your notes" className="rounded-2xl bg-amber-50 border border-amber-200/70 px-4 py-3 flex flex-col gap-1.5">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-amber-800">For next time</h2>
+              {[...recipe.cookNotes].reverse().slice(0, 3).map((n, i) => (
+                <p key={`${n.date}-${i}`} className="text-base text-stone-800">
+                  <span className="text-sm text-stone-600">{new Date(n.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · </span>
+                  {n.note}
+                </p>
+              ))}
+            </section>
+          )}
+
           {recipe.description && <p className="text-stone-700 text-base leading-relaxed">{recipe.description}</p>}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
