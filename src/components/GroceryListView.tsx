@@ -24,6 +24,7 @@ import { predictGroceryItem, PredictiveGroceryItem } from '../utils/searchEngine
 import { inviteLink } from '../utils/invite.ts';
 import { dayLabel, groupItemsByMeal, toDateKey } from '../utils/mealPlan.ts';
 import { STORE_NAMES } from '../utils/storeOptions.ts';
+import { SwipeRow } from './ui/SwipeRow.tsx';
 import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
 
 interface GroceryListViewProps {
@@ -88,6 +89,30 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     } catch {
       // Storage unavailable: the choice just lasts for this visit.
     }
+  };
+  // Deleting is quick (swipe or tap), so it is always undoable for a few seconds.
+  const [undoItem, setUndoItem] = useState<GroceryItem | null>(null);
+  const undoTimer = React.useRef<number | undefined>(undefined);
+  const deleteWithUndo = (item: GroceryItem) => {
+    if (!currentList) return;
+    onDeleteItem(currentList.id, item.id);
+    setUndoItem(item);
+    window.clearTimeout(undoTimer.current);
+    undoTimer.current = window.setTimeout(() => setUndoItem(null), 6000);
+  };
+  const undoDelete = () => {
+    if (!undoItem || !currentList) return;
+    window.clearTimeout(undoTimer.current);
+    onAddItem(currentList.id, {
+      name: undoItem.name,
+      amount: undoItem.amount,
+      unit: undoItem.unit,
+      category: undoItem.category,
+      assignedTo: undoItem.assignedTo,
+      recipeId: undoItem.recipeId,
+      recipeTitle: undoItem.recipeTitle,
+    });
+    setUndoItem(null);
   };
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -379,15 +404,10 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
       {/* Real-time Partner Activity Banner */}
       {partnerNotification && (
-        <div className="sticky top-20 z-30 p-3.5 rounded-2xl bg-amber-500 text-on-accent shadow-xl flex items-center justify-between gap-3 animate-in slide-in-from-top duration-300">
-          <div className="flex items-center gap-2 text-xs font-semibold">
-            <Bell className="w-4 h-4 animate-bounce" />
-            <span>{partnerNotification}</span>
-          </div>
-          <span className="text-xs uppercase tracking-wider bg-ink-deep/15 px-2 py-0.5 rounded-full font-bold">
-            Live Sync
-          </span>
-        </div>
+        <p role="status" className="px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200/70 text-sm text-stone-800 flex items-center gap-2">
+          <Bell className="w-4 h-4 shrink-0 text-amber-700" aria-hidden="true" />
+          <span>{partnerNotification}</span>
+        </p>
       )}
 
       {actionMessage && (
@@ -430,7 +450,6 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
               Grocery list
             </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Real-time multi-user sync connected" />
           </div>
           <h1 className="font-serif text-3xl sm:text-4xl text-stone-900">
             {currentList.title}
@@ -750,15 +769,21 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                 {items.map((item) => {
                   const qty = formatFraction(item.amount);
                   return (
+                    <SwipeRow key={item.id} onSwipeDelete={() => deleteWithUndo(item)}>
                     <div
-                      key={item.id}
-                      className="p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-4 hover:bg-stone-50/70 transition-colors group min-w-0"
+                      className="px-3 py-2 sm:p-4 min-h-14 flex items-center justify-between gap-3 sm:gap-4 hover:bg-stone-50/70 transition-colors group min-w-0"
                     >
-                      {/* Checkbox & Item Name */}
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {/* Checkbox & Item Name: the whole left side is one big tap target */}
+                      <div
+                        className="flex items-center gap-3 flex-1 min-w-0 self-stretch cursor-pointer"
+                        onClick={(e) => {
+                          if ((e.target as HTMLElement).closest('button')) return;
+                          handleToggleCheck(item);
+                        }}
+                      >
                         <button
                           onClick={() => handleToggleCheck(item)}
-                          className="hit-area w-5 h-5 shrink-0 rounded-md border-2 border-stone-300 hover:border-stone-900 flex items-center justify-center transition-all bg-surface"
+                          className="hit-area w-6 h-6 shrink-0 rounded-md border-2 border-stone-300 hover:border-stone-900 flex items-center justify-center transition-all bg-surface"
                           title="Check off item" aria-label={`Check off ${item.name}`}
                         >
                           {item.checked && <Check className="w-3.5 h-3.5 text-stone-900 stroke-[3]" />}
@@ -767,11 +792,11 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                         <div className="flex flex-col min-w-0 flex-1">
                           <div className="flex items-baseline gap-1.5 min-w-0">
                             {qty && (
-                              <span className="font-semibold text-stone-900 text-xs sm:text-sm shrink-0">
+                              <span className="font-semibold text-stone-900 text-base sm:text-sm shrink-0">
                                 {qty} {item.unit}
                               </span>
                             )}
-                            <span className="text-stone-800 text-xs sm:text-sm font-medium truncate">
+                            <span className="text-stone-800 text-base sm:text-sm font-medium truncate">
                               {item.name}
                             </span>
                             {item.recipeTitle && (
@@ -795,9 +820,17 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
                       {/* Right Meta: Assignee pill & Actions */}
                       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-                        <span className="sm:hidden max-w-[78px] truncate text-xs font-medium px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-600">
-                          {item.assignedTo === user?.name ? 'Me' : item.assignedTo}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const i = assigneeOptions.indexOf(item.assignedTo);
+                            onUpdateItem(currentList.id, item.id, { assignedTo: assigneeOptions[(i + 1) % assigneeOptions.length] });
+                          }}
+                          aria-label={`Assigned to ${item.assignedTo}. Tap to change.`}
+                          className="sm:hidden min-h-11 max-w-[88px] truncate text-sm font-medium px-2 rounded-lg text-stone-600 active:bg-stone-100"
+                        >
+                          {item.assignedTo === user?.name ? 'Me' : item.assignedTo === 'Anyone' ? 'Anyone' : item.assignedTo}
+                        </button>
 
                         <select
                           value={item.assignedTo}
@@ -817,14 +850,15 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                         </select>
 
                         <button
-                          onClick={() => onDeleteItem(currentList.id, item.id)}
-                          className="hit-area opacity-60 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 p-1 rounded-lg text-stone-400 hover:text-rose-600 transition-all dark:hover:text-rose-400"
+                          onClick={() => deleteWithUndo(item)}
+                          className="max-sm:sr-only hit-area sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 p-1 rounded-lg text-stone-400 hover:text-rose-600 transition-all dark:hover:text-rose-400"
                           title="Delete item" aria-label={`Delete ${item.name}`}
                         >
                           <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </button>
                       </div>
                     </div>
+                    </SwipeRow>
                   );
                 })}
               </div>
@@ -863,7 +897,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                   </div>
 
                   <button
-                    onClick={() => onDeleteItem(currentList.id, item.id)}
+                    onClick={() => deleteWithUndo(item)}
                     className="hit-area p-1 text-stone-400 hover:text-rose-600 dark:hover:text-rose-400"
                     aria-label={`Delete ${item.name}`}
                   >
@@ -875,6 +909,15 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           </div>
         )}
       </div>
+
+      {undoItem && (
+        <div role="status" className="fixed z-40 left-1/2 -translate-x-1/2 bottom-24 xl:bottom-8 max-w-[calc(100vw-2rem)] flex items-center gap-3 pl-4 pr-1 rounded-2xl bg-ink text-white shadow-xl">
+          <span className="py-3 text-sm truncate">Deleted {undoItem.name}</span>
+          <button type="button" onClick={undoDelete} className="min-h-11 px-4 text-sm font-semibold text-amber-300 hover:text-amber-200">
+            Undo
+          </button>
+        </div>
+      )}
 
       {newListModal}
       <ConfirmSheet
