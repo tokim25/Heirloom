@@ -253,6 +253,11 @@ export const firestoreService = {
     await updateDoc(doc(recipesCol(hid), recipeId), changes);
   },
 
+  /** Adds a note-to-self to a recipe without rewriting the rest of it. */
+  async addCookNote(hid: string, recipeId: string, entry: { date: string; note: string }) {
+    await updateDoc(doc(recipesCol(hid), recipeId), { cookNotes: arrayUnion(entry) });
+  },
+
   async deleteRecipe(hid: string, id: string) {
     await deleteDoc(doc(recipesCol(hid), id));
   },

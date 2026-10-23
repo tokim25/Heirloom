@@ -108,6 +108,8 @@ export interface Recipe {
   /** How many times this recipe was planned or cooked. Counts up when it joins the meal plan or you start cooking. */
   /** Who this recipe came from in the family, like Halmoni or Dad. Shown as a handwritten signature. */
   fromName?: string;
+  /** Notes to self written at the end of cooking, oldest first. Private: never included in a shared recipe. */
+  cookNotes?: { date: string; note: string }[];
   /** A line or two of story: why it matters, what to remember. */
   story?: string;
   useCount?: number;

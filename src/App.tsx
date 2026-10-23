@@ -885,6 +885,10 @@ export default function App() {
           recipe={cookingState.recipe}
           servings={cookingState.servings}
           unitSystem={cookingState.unitSystem}
+          onFinished={(note) => {
+            const householdId = user?.householdId;
+            if (householdId) runWrite(firestoreService.addCookNote(householdId, cookingState.recipe.id, { date: new Date().toISOString(), note }), 'Could not save your note.');
+          }}
           onClose={() => {
             // Leaving the cooking view returns to the recipe you were cooking.
             const cooked = cookingState.recipe;

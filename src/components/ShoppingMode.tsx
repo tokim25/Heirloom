@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Sprout } from './ui/Sprout.tsx';
 import { Check, ClipboardCopy, ExternalLink, Loader2, Plus, RefreshCw, Share2 } from 'lucide-react';
 import { GroceryItem, GroceryList, PantryItem } from '../types/recipe.ts';
 import { Sheet } from './ui/Sheet.tsx';
@@ -404,9 +405,12 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
       </div>
 
       {remaining.length === 0 ? (
-        <div className="py-10 text-center">
-          <p className="font-serif text-2xl text-stone-900">Everything is added.</p>
-          <p className="text-sm text-stone-600 mt-1">Head to Instacart to check out.</p>
+        <div className="py-10 text-center flex flex-col items-center gap-2">
+          <Sprout size={56} className="text-stone-800" />
+          <p className="font-serif text-2xl text-stone-900">That's the lot</p>
+          <p className="text-base text-stone-600">
+            {total} {total === 1 ? 'thing' : 'things'} in your cart. Head to Instacart to check out.
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-5">
