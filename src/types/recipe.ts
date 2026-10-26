@@ -100,6 +100,8 @@ export interface RecipeStep {
   timerSeconds?: number;
   temperature?: string;
   tips?: string;
+  /** How to tell the step is done, in the source's words ("until deep golden", "juices run clear"). Only when the source says so. */
+  lookFor?: string;
   stepIngredients?: string[];
 }
 

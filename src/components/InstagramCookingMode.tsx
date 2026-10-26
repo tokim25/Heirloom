@@ -14,8 +14,12 @@ import {
   Sparkles,
   Mic,
   MicOff,
+  ShieldAlert,
+  ChevronDown,
 } from 'lucide-react';
 import { CookingFinish } from './CookingFinish.tsx';
+import { CookingPrep } from './CookingPrep.tsx';
+import { formatClock, formatDurationWords, nextUp, ovenTemperature, portionUsed, safetyNotes, stepLabel } from '../utils/cookingGuide.ts';
 import { Recipe } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, formatStepTemperatures, UnitSystem } from '../utils/units.ts';
 import { ingredientsForStep } from '../utils/stepIngredients.ts';
@@ -31,12 +35,19 @@ interface InstagramCookingModeProps {
   onAddStepIngredientsToGroceries?: (stepIngredients: string[]) => void;
 }
 
+/** One timer per step that has one. It keeps running when you move to another step. */
+interface StepTimer {
+  duration: number;
+  /** Seconds left while paused. */
+  remaining: number;
+  /** When it will finish (ms since epoch) while running, otherwise null. Wall-clock, so a locked phone loses nothing. */
+  endsAt: number | null;
+}
+
 interface StoredCookingSession {
   recipeId: string;
   currentStepIndex: number;
-  timerSecondsLeft: number | null;
-  isTimerRunning: boolean;
-  initialTimerDuration: number | null;
+  timers: Record<string, StepTimer>;
   updatedAt: string;
 }
 
@@ -53,33 +64,39 @@ const readStoredCookingSession = (
     const raw = window.localStorage.getItem(storageKey);
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw) as Partial<StoredCookingSession>;
+    const parsed = JSON.parse(raw) as Partial<StoredCookingSession> & { timerSecondsLeft?: number | null; isTimerRunning?: boolean; initialTimerDuration?: number | null };
     if (parsed.recipeId !== recipeId || typeof parsed.currentStepIndex !== 'number') {
       return null;
     }
 
     const currentStepIndex = Math.max(0, Math.min(totalSteps - 1, parsed.currentStepIndex));
-    const timerSecondsLeft =
-      typeof parsed.timerSecondsLeft === 'number' && parsed.timerSecondsLeft >= 0
-        ? parsed.timerSecondsLeft
-        : null;
-    const initialTimerDuration =
-      typeof parsed.initialTimerDuration === 'number' && parsed.initialTimerDuration > 0
-        ? parsed.initialTimerDuration
-        : timerSecondsLeft;
+    const timers: Record<string, StepTimer> = {};
+    if (parsed.timers && typeof parsed.timers === 'object') {
+      for (const [key, t] of Object.entries(parsed.timers)) {
+        if (t && typeof t.duration === 'number' && t.duration > 0 && typeof t.remaining === 'number') {
+          timers[key] = { duration: t.duration, remaining: Math.max(0, t.remaining), endsAt: typeof t.endsAt === 'number' ? t.endsAt : null };
+        }
+      }
+    } else if (typeof parsed.timerSecondsLeft === 'number' && parsed.timerSecondsLeft >= 0) {
+      // A session saved before timers outlived steps: one timer, on the step you were on.
+      const duration = typeof parsed.initialTimerDuration === 'number' && parsed.initialTimerDuration > 0 ? parsed.initialTimerDuration : parsed.timerSecondsLeft;
+      if (duration > 0) {
+        timers[String(currentStepIndex)] = {
+          duration,
+          remaining: parsed.timerSecondsLeft,
+          endsAt: parsed.isTimerRunning && parsed.timerSecondsLeft > 0 ? Date.now() + parsed.timerSecondsLeft * 1000 : null,
+        };
+      }
+    }
 
-    return {
-      recipeId,
-      currentStepIndex,
-      timerSecondsLeft,
-      isTimerRunning: Boolean(parsed.isTimerRunning && timerSecondsLeft !== null && timerSecondsLeft > 0),
-      initialTimerDuration,
-      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
-    };
+    return { recipeId, currentStepIndex, timers, updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString() };
   } catch {
     return null;
   }
 };
+
+const secondsLeftOf = (timer: StepTimer, at: number): number =>
+  timer.endsAt !== null ? Math.max(0, Math.ceil((timer.endsAt - at) / 1000)) : timer.remaining;
 
 const COOKING_HINT_KEY = 'heirloom_cooking_hint_seen';
 
@@ -102,6 +119,8 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   );
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [finished, setFinished] = useState(false);
+  // A fresh start opens on "Before you start"; resuming goes straight back to where you were.
+  const [showPrep, setShowPrep] = useState(() => restoredSessionRef.current === null);
   const startedAtRef = useRef(Date.now());
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -109,17 +128,24 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   const [recognizedCommand, setRecognizedCommand] = useState<string | null>(null);
   const [voiceSupported, setVoiceSupported] = useState(true);
 
-  // Timer state for current step
-  const [timerSecondsLeft, setTimerSecondsLeft] = useState<number | null>(
-    () => restoredSessionRef.current?.timerSecondsLeft ?? null
-  );
-  const [isTimerRunning, setIsTimerRunning] = useState(
-    () => restoredSessionRef.current?.isTimerRunning || false
-  );
-  const [initialTimerDuration, setInitialTimerDuration] = useState<number | null>(
-    () => restoredSessionRef.current?.initialTimerDuration ?? null
-  );
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Timers: one per step that has one, all of them keep counting whichever step is on screen.
+  const [timers, setTimers] = useState<Record<number, StepTimer>>(() => {
+    const out: Record<number, StepTimer> = {};
+    recipe.steps.forEach((step, i) => {
+      if (step.timerSeconds && step.timerSeconds > 0) out[i] = { duration: step.timerSeconds, remaining: step.timerSeconds, endsAt: null };
+    });
+    const saved = restoredSessionRef.current;
+    if (saved) {
+      for (const [key, t] of Object.entries(saved.timers)) {
+        const i = Number(key);
+        if (out[i]) out[i] = t;
+      }
+    }
+    return out;
+  });
+  const [now, setNow] = useState(() => Date.now());
+  const [timerAlert, setTimerAlert] = useState<number | null>(null);
+  const anyTimerRunning = Object.values(timers).some((t) => t.endsAt !== null);
   const recognitionRef = useRef<any>(null);
 
   const [showHint, setShowHint] = useState(() => {
@@ -133,81 +159,73 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   const currentStep = recipe.steps[currentStepIndex];
   const isLastStep = currentStepIndex === totalSteps - 1;
 
-  // Sync step timer whenever step changes
-  useEffect(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
+  // The timer for the step on screen, in the shape the rest of this screen already uses.
+  const currentTimer: StepTimer | undefined = timers[currentStepIndex];
+  const timerSecondsLeft: number | null = currentTimer ? secondsLeftOf(currentTimer, now) : null;
+  const isTimerRunning = !!currentTimer && currentTimer.endsAt !== null;
+  const initialTimerDuration: number | null = currentTimer?.duration ?? null;
 
-    const restoredSession = restoredSessionRef.current;
-    if (restoredSession && restoredSession.currentStepIndex === currentStepIndex) {
-      setTimerSecondsLeft(restoredSession.timerSecondsLeft);
-      setInitialTimerDuration(restoredSession.initialTimerDuration);
-      setIsTimerRunning(restoredSession.isTimerRunning);
-      restoredSessionRef.current = null;
-      return;
-    }
+  const updateCurrentTimer = (change: (timer: StepTimer, at: number) => StepTimer) =>
+    setTimers((prev) => {
+      const timer = prev[currentStepIndex];
+      return timer ? { ...prev, [currentStepIndex]: change(timer, Date.now()) } : prev;
+    });
+  const setIsTimerRunning = (value: boolean | ((running: boolean) => boolean)) =>
+    updateCurrentTimer((timer, at) => {
+      const running = timer.endsAt !== null;
+      const next = typeof value === 'function' ? value(running) : value;
+      if (next === running) return timer;
+      if (next) {
+        const remaining = timer.remaining > 0 ? timer.remaining : timer.duration;
+        return { ...timer, remaining, endsAt: at + remaining * 1000 };
+      }
+      return { ...timer, remaining: secondsLeftOf(timer, at), endsAt: null };
+    });
+  const setTimerSecondsLeft = (value: number | ((seconds: number | null) => number | null)) =>
+    updateCurrentTimer((timer, at) => {
+      const next = typeof value === 'function' ? value(secondsLeftOf(timer, at)) : value;
+      if (next === null) return timer;
+      return timer.endsAt !== null ? { ...timer, endsAt: at + next * 1000 } : { ...timer, remaining: next };
+    });
 
-    restoredSessionRef.current = null;
-    setIsTimerRunning(false);
-
-    if (currentStep?.timerSeconds && currentStep.timerSeconds > 0) {
-      setTimerSecondsLeft(currentStep.timerSeconds);
-      setInitialTimerDuration(currentStep.timerSeconds);
-    } else {
-      setTimerSecondsLeft(null);
-      setInitialTimerDuration(null);
-    }
-  }, [currentStepIndex, currentStep]);
-
-  // Auto-save cooking progress so closing Stories mode does not lose place.
+  // Auto-save cooking progress so closing Stories mode does not lose place or running timers.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
     const session: StoredCookingSession = {
       recipeId: recipe.id,
       currentStepIndex,
-      timerSecondsLeft,
-      isTimerRunning,
-      initialTimerDuration,
+      timers: Object.fromEntries(Object.entries(timers).map(([k, t]) => [k, t])),
       updatedAt: new Date().toISOString(),
     };
-
     try {
       window.localStorage.setItem(cookingSessionStorageKey, JSON.stringify(session));
     } catch {}
-  }, [
-    cookingSessionStorageKey,
-    currentStepIndex,
-    initialTimerDuration,
-    isTimerRunning,
-    recipe.id,
-    timerSecondsLeft,
-  ]);
+  }, [cookingSessionStorageKey, currentStepIndex, recipe.id, timers]);
 
-  // Timer countdown loop
+  // Tick while anything is running; the display is computed from the clock, so a slow or paused page catches up.
   useEffect(() => {
-    if (isTimerRunning && timerSecondsLeft !== null && timerSecondsLeft > 0) {
-      timerRef.current = setInterval(() => {
-        setTimerSecondsLeft((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(timerRef.current!);
-            setIsTimerRunning(false);
-            if (soundEnabled) {
-              sounds.playTimerComplete();
-            }
-            speakNotification("Timer complete! Your step is done.");
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (timerSecondsLeft === 0) {
-      setIsTimerRunning(false);
-    }
+    if (!anyTimerRunning) return;
+    const id = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, [anyTimerRunning]);
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isTimerRunning, timerSecondsLeft, soundEnabled]);
+  // When a timer reaches zero: stop it, and tell the person whichever step they are on.
+  useEffect(() => {
+    const done = Object.entries(timers).filter(([, t]) => t.endsAt !== null && t.endsAt <= now);
+    if (done.length === 0) return;
+    setTimers((prev) => {
+      const next = { ...prev };
+      done.forEach(([key]) => (next[Number(key)] = { ...prev[Number(key)], remaining: 0, endsAt: null }));
+      return next;
+    });
+    const first = Number(done[0][0]);
+    setTimerAlert(first);
+    if (soundEnabled) sounds.playTimerComplete();
+    try {
+      navigator.vibrate?.([200, 100, 200, 100, 400]);
+    } catch {}
+    speakNotification(`Timer finished. ${stepLabel(recipe.steps[first])}.`);
+  }, [now, timers]);
 
   // Speech Synthesis: Read step instructions aloud hands-free
   const speakCurrentStep = (stepIdx: number = currentStepIndex) => {
@@ -299,7 +317,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   };
 
   const handleStoryTap = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (finished) return;
+    if (finished || showPrep) return;
     if (Date.now() < ignoreTapUntilRef.current) return;
     const target = e.target as HTMLElement;
     if (target.closest('button, a, input, select, textarea, label, summary, [data-no-tap]')) return;
@@ -333,7 +351,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   };
 
   const handleStoryTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (finished) {
+    if (finished || showPrep) {
       swipeStartRef.current = null;
       return;
     }
@@ -498,6 +516,10 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         if (e.key === 'Escape') onClose();
         return;
       }
+      if (showPrep) {
+        if (e.key === 'Escape') onClose();
+        return;
+      }
       if (e.key === 'ArrowRight') handleNextStep();
       if (e.key === 'ArrowLeft') handlePrevStep();
       if (e.key === 'Escape') onClose();
@@ -508,7 +530,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentStepIndex, timerSecondsLeft, finished]);
+  }, [currentStepIndex, timerSecondsLeft, finished, showPrep]);
 
   // Format MM:SS
   const formatTime = (secs: number) => {
@@ -519,9 +541,16 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
 
   // Get ingredients used specifically in this step
   const stepIngredientItems = ingredientsForStep(recipe.ingredients, currentStep);
+  const ovenNow = currentStep.temperature ? null : ovenTemperature(recipe.steps, currentStepIndex);
+  const safety = safetyNotes(currentStep, stepIngredientItems);
+  const upNext = nextUp(recipe.steps, currentStepIndex);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  useEffect(() => setSafetyOpen(false), [currentStepIndex]);
 
   return (
     <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} onClick={handleStoryTap} onTouchStart={handleStoryTouchStart} onTouchEnd={handleStoryTouchEnd} data-story-surface className="stone-original fixed inset-0 z-[60] cursor-pointer bg-ink-deep/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
+      {showPrep && <CookingPrep recipe={recipe} servings={servings} unitSystem={unitSystem} onStart={() => setShowPrep(false)} onClose={onClose} />}
+
       {finished && (
         <CookingFinish
           title={recipe.title}
@@ -572,6 +601,45 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
           })}
         </div>
 
+        {timerAlert !== null && (
+          <div role="alert" className="rounded-2xl bg-emerald-500 text-on-accent px-4 py-3 flex items-center gap-3">
+            <span className="flex-1 min-w-0 text-base font-semibold">Timer finished: {stepLabel(recipe.steps[timerAlert])}</span>
+            {timerAlert !== currentStepIndex && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentStepIndex(timerAlert);
+                  setTimerAlert(null);
+                }}
+                className="min-h-11 px-3 rounded-xl bg-black/15 text-sm font-semibold"
+              >
+                Go to step
+              </button>
+            )}
+            <button type="button" onClick={() => setTimerAlert(null)} className="min-h-11 px-3 rounded-xl bg-black/15 text-sm font-semibold">
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {Object.entries(timers).some(([k, t]) => Number(k) !== currentStepIndex && t.endsAt !== null) && (
+          <div className="flex flex-wrap gap-2" aria-label="Timers running on other steps">
+            {Object.entries(timers)
+              .filter(([k, t]) => Number(k) !== currentStepIndex && t.endsAt !== null)
+              .map(([k, t]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setCurrentStepIndex(Number(k))}
+                  className="min-h-11 px-4 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-100 text-sm font-semibold inline-flex items-center gap-2"
+                >
+                  <span className="truncate max-w-[9rem]">{stepLabel(recipe.steps[Number(k)])}</span>
+                  <span className="tabular-nums">{formatClock(secondsLeftOf(t, now))}</span>
+                </button>
+              ))}
+          </div>
+        )}
+
         {showHint && (
           <p role="status" className="self-center rounded-full bg-white/10 px-4 py-2 text-sm text-white/90 text-center">
             Tap the right side for next, the left for back. Swipe up to close.
@@ -590,10 +658,10 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
               <X className="w-5 h-5" />
             </button>
             <div className="flex flex-col min-w-0">
-              <span className="text-xs font-medium tracking-wider uppercase text-amber-300">
+              <span className="text-sm font-semibold tracking-wider uppercase text-amber-300">
                 Step {currentStepIndex + 1} of {totalSteps}
               </span>
-              <span className="text-xs text-white/80 font-serif italic truncate max-w-[110px] xs:max-w-[160px] sm:max-w-md">
+              <span className="text-sm text-white/80 font-serif italic truncate max-w-[120px] xs:max-w-[180px] sm:max-w-md">
                 {recipe.title}
               </span>
               {hasRestoredSession && (
@@ -618,7 +686,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                 }
               }}
               disabled={!voiceSupported}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 min-h-11 px-3 rounded-full text-sm font-medium transition-all ${
                 !voiceSupported
                   ? 'bg-white/5 text-white/35 cursor-not-allowed'
                   : isVoiceActive
@@ -648,7 +716,8 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
 
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/80 transition-all"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/80 transition-all"
+              aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
               title={soundEnabled ? 'Mute Sounds' : 'Unmute Sounds'}
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-stone-400" />}
@@ -672,110 +741,87 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       <div className="relative w-full max-w-2xl px-4 py-2 my-auto">
         {/* The Card */}
         <div className="w-full bg-ink/80 border border-white/15 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6 relative z-20">
-          {/* Step Header */}
-          <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-            <div>
-              <span className="text-xs font-semibold tracking-widest uppercase text-amber-400">
-                Action {currentStepIndex + 1}
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-serif tracking-tight text-white mt-1">
-                {currentStep.title || `Step ${currentStep.stepNumber}`}
-              </h2>
+          {/* Step title (only when the recipe gave one) and the heat */}
+          {(currentStep.title || currentStep.temperature || ovenNow) && (
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+              {currentStep.title ? <h2 className="text-2xl sm:text-3xl font-serif tracking-tight text-white">{currentStep.title}</h2> : <span />}
+              {(currentStep.temperature || ovenNow) && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-200 text-base font-semibold shrink-0">
+                  <Flame className="w-4 h-4 text-amber-400" aria-hidden="true" />
+                  <span>{currentStep.temperature || `Oven ${ovenNow}`}</span>
+                </div>
+              )}
             </div>
-            {currentStep.temperature && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-medium">
-                <Flame className="w-3.5 h-3.5 text-amber-400" />
-                <span>{currentStep.temperature}</span>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Step Instruction Text */}
-          <p className="text-lg sm:text-xl text-stone-100 leading-relaxed font-normal tracking-wide">
+          <p className="text-2xl sm:text-3xl text-stone-50 leading-snug font-normal">
             {formatStepTemperatures(currentStep.instruction, unitSystem)}
           </p>
 
-          {/* Interactive Cooking Timer (if step has timer) */}
-          {timerSecondsLeft !== null && (
-            <div className="bg-ink-deep/45 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-inner">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                {/* Circular timer progress badge */}
-                <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
-                  <svg className="w-16 h-16 -rotate-90">
-                    <circle
-                      cx="32"
-                      cy="32"
-                      r="27"
-                      className="text-white/10 stroke-current"
-                      strokeWidth="3"
-                      fill="transparent"
-                    />
-                    <circle
-                      cx="32"
-                      cy="32"
-                      r="27"
-                      className={`transition-all duration-1000 ${
-                        timerSecondsLeft === 0
-                          ? 'text-emerald-400 animate-pulse'
-                          : isTimerRunning
-                          ? 'text-amber-400'
-                          : 'text-white/50'
-                      } stroke-current`}
-                      strokeWidth="3.5"
-                      strokeDasharray={169.6}
-                      strokeDashoffset={
-                        initialTimerDuration
-                          ? 169.6 * (1 - timerSecondsLeft / initialTimerDuration)
-                          : 0
-                      }
-                      strokeLinecap="round"
-                      fill="transparent"
-                    />
-                  </svg>
-                  <span className="absolute font-mono text-sm font-bold text-white tracking-tight">
-                    {formatTime(timerSecondsLeft)}
-                  </span>
-                </div>
+          {currentStep.lookFor && (
+            <p className="text-xl text-emerald-200 leading-snug">
+              <span className="font-semibold">Look for: </span>
+              {currentStep.lookFor}
+            </p>
+          )}
 
-                <div className="min-w-0">
-                  <div className="text-xs text-white/45 uppercase tracking-[0.22em] font-semibold">
-                    {timerSecondsLeft === 0 ? 'Timer Done' : 'Step Timer'}
-                  </div>
-                  <div className="text-lg font-semibold text-amber-300 leading-snug">
-                    {isTimerRunning ? 'Running in kitchen…' : timerSecondsLeft === 0 ? 'Ready to move to next step!' : 'Paused'}
-                  </div>
-                  <div className="text-xs text-white/45 mt-0.5">
-                    {isTimerRunning ? 'You can keep cooking; this will alert you.' : 'Start when this step begins.'}
-                  </div>
+          {/* The timer: big enough to read from across the kitchen. It keeps running when you move to another step. */}
+          {timerSecondsLeft !== null && (
+            <div className="bg-ink-deep/45 border border-white/10 rounded-2xl p-4 flex flex-col gap-3 shadow-inner" aria-live="off">
+              <div className="flex flex-col gap-1.5">
+                <div
+                  className={`font-mono font-bold tabular-nums leading-none ${(initialTimerDuration ?? 0) >= 3600 ? 'text-4xl sm:text-6xl' : 'text-5xl sm:text-6xl'} ${
+                    timerSecondsLeft === 0 ? 'text-emerald-300' : isTimerRunning ? 'text-white' : 'text-white/70'
+                  }`}
+                  role="timer"
+                  aria-label={`${formatDurationWords(timerSecondsLeft)} left`}
+                >
+                  {formatClock(timerSecondsLeft)}
                 </div>
+                <p className="text-base text-stone-300">
+                  {timerSecondsLeft === 0
+                    ? 'Finished'
+                    : isTimerRunning
+                    ? `of ${formatDurationWords(initialTimerDuration ?? 0)}, running`
+                    : `${formatDurationWords(initialTimerDuration ?? 0)} timer`}
+                </p>
               </div>
 
-              <div className="grid grid-cols-[1fr_auto_auto] gap-2 sm:flex sm:items-center sm:justify-end">
+              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden" aria-hidden="true">
+                <div
+                  className={`h-full transition-all duration-500 ${timerSecondsLeft === 0 ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                  style={{ width: `${initialTimerDuration ? (1 - timerSecondsLeft / initialTimerDuration) * 100 : 0}%` }}
+                />
+              </div>
+
+              <div className="grid grid-cols-[1fr_auto_auto] gap-2">
                 <button
                   onClick={() => setIsTimerRunning(!isTimerRunning)}
-                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md transition-all ${
-                    isTimerRunning
-                      ? 'bg-white/20 hover:bg-white/30 text-white'
-                      : 'bg-amber-500 hover:bg-amber-400 text-on-accent'
+                  className={`flex items-center justify-center gap-2 min-h-14 px-3 rounded-xl font-semibold text-lg whitespace-nowrap shadow-md transition-all ${
+                    isTimerRunning ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-amber-500 hover:bg-amber-400 text-on-accent'
                   }`}
                 >
                   {isTimerRunning ? (
                     <>
-                      <Pause className="w-3.5 h-3.5" /> Pause
+                      <Pause className="w-5 h-5" /> Pause
+                    </>
+                  ) : timerSecondsLeft === 0 ? (
+                    <>
+                      <RotateCcw className="w-5 h-5" /> Run it again
                     </>
                   ) : (
                     <>
-                      <Play className="w-3.5 h-3.5 fill-current" /> Start
+                      <Play className="w-5 h-5 fill-current" /> Start timer
                     </>
                   )}
                 </button>
 
                 <button
-                  onClick={() => {
-                    setTimerSecondsLeft((prev) => (prev ? prev + 60 : 60));
-                  }}
-                  className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 text-xs font-semibold"
+                  onClick={() => setTimerSecondsLeft((prev) => (prev ? prev + 60 : 60))}
+                  className="min-h-14 min-w-14 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 text-base font-semibold"
                   title="Add 1 minute"
+                  aria-label="Add one minute"
                 >
                   +1m
                 </button>
@@ -785,35 +831,35 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                     setIsTimerRunning(false);
                     setTimerSecondsLeft(initialTimerDuration || 0);
                   }}
-                  className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 flex items-center justify-center"
-                  title="Reset Timer"
+                  className="min-h-14 min-w-14 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 flex items-center justify-center"
+                  title="Reset timer"
+                  aria-label="Reset timer"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RotateCcw className="w-5 h-5" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step Specific Ingredients Pill Rack */}
+          {/* Ingredients for this step, with how much of each this step uses */}
           {stepIngredientItems.length > 0 && (
             <div className="flex flex-col gap-2 pt-1">
-              <span className="text-xs uppercase tracking-wider text-white/50 font-medium">
-                Ingredients Needed for this step
-              </span>
-              <div className="flex flex-wrap gap-2">
+              <span className="text-sm text-white/60 font-medium">For this step</span>
+              <div className="flex flex-col gap-2">
                 {stepIngredientItems.map((ing) => {
+                  const portion = portionUsed(currentStep.instruction, ing);
                   const scaledAmount = scaleQuantity(ing.amount, recipe.defaultServings, servings);
-                  const converted = convertUnit(scaledAmount, ing.unit, ing.name, unitSystem);
+                  const usedAmount = portion?.fraction ? (scaledAmount === null ? null : scaledAmount * portion.fraction) : scaledAmount;
+                  const converted = convertUnit(usedAmount, ing.unit, ing.name, unitSystem);
                   const formattedFraction = formatFraction(converted.amount);
+                  const quantity = portion?.word === 'rest' ? 'the rest of' : formattedFraction ? `${formattedFraction} ${converted.unit}` : converted.unit;
                   return (
-                    <div
-                      key={ing.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-xs text-stone-200"
-                    >
-                      <span className="font-semibold text-amber-300">
-                        {formattedFraction ? `${formattedFraction} ${converted.unit}` : converted.unit}
+                    <div key={ing.id} className="flex items-baseline gap-2 px-4 py-2.5 rounded-xl bg-white/10 border border-white/10 text-base text-stone-100">
+                      <span className="font-semibold text-amber-300 shrink-0">{quantity}</span>
+                      <span>
+                        {ing.name}
+                        {ing.notes ? <span className="text-stone-400">, {ing.notes}</span> : null}
                       </span>
-                      <span>{ing.name}</span>
                     </div>
                   );
                 })}
@@ -823,13 +869,45 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
 
           {/* Chef's Pro-Tip */}
           {currentStep.tips && (
-            <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200/90 text-xs leading-relaxed">
-              <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-100 text-base leading-relaxed">
+              <Lightbulb className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <span className="font-semibold text-amber-300 mr-1">Chef’s Note:</span>
                 {currentStep.tips}
               </div>
             </div>
+          )}
+
+          {/* General food-safety reminders, folded away unless asked for, and labelled as not part of the recipe */}
+          {safety.length > 0 && (
+            <div className="rounded-2xl border border-white/10 bg-white/5">
+              <button
+                type="button"
+                onClick={() => setSafetyOpen((open) => !open)}
+                aria-expanded={safetyOpen}
+                className="w-full min-h-12 px-4 flex items-center gap-2 text-left text-base text-stone-200"
+              >
+                <ShieldAlert className="w-5 h-5 text-amber-300 shrink-0" aria-hidden="true" />
+                <span className="flex-1">Safety reminder</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${safetyOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+              </button>
+              {safetyOpen && (
+                <div className="px-4 pb-4 flex flex-col gap-2 text-base text-stone-200">
+                  {safety.map((note) => (
+                    <p key={note}>{note}</p>
+                  ))}
+                  <p className="text-sm text-stone-400">General kitchen guidance, not from this recipe.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* What comes next, especially useful while a timer runs */}
+          {upNext && (
+            <p className="text-base text-stone-400 border-t border-white/10 pt-4">
+              <span className="font-semibold text-stone-300">{timerSecondsLeft !== null ? 'While you wait, next up: ' : 'Next: '}</span>
+              {upNext}
+            </p>
           )}
         </div>
       </div>

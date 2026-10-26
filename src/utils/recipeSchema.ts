@@ -53,6 +53,7 @@ export const RECIPE_JSON_SCHEMA = {
           timerSeconds: { type: 'number', description: 'Seconds to wait if the step is timed, otherwise 0.' },
           temperature: { type: 'string', description: 'Only if the source states one, for example "375°F / 190°C".' },
           tips: { type: 'string' },
+          lookFor: { type: 'string', description: 'How to tell this step is done, only if the source says so (colour, texture, sound, smell, internal temperature), in the source\'s words. Empty otherwise.' },
           stepIngredients: { type: 'array', items: { type: 'string' } },
         },
         required: ['instruction'],
@@ -123,6 +124,7 @@ export function normalizeParsedRecipe(raw: unknown): ParsedRecipeFields {
       timer: Math.round(asNumber(step?.timerSeconds)),
       temperature: asString(step?.temperature),
       tips: asString(step?.tips),
+      lookFor: asString(step?.lookFor),
       stepIngredients: Array.isArray(step?.stepIngredients)
         ? step.stepIngredients.map(asString).filter(Boolean)
         : [],
@@ -135,6 +137,7 @@ export function normalizeParsedRecipe(raw: unknown): ParsedRecipeFields {
       ...(step.timer > 0 ? { timerSeconds: step.timer } : {}),
       ...(step.temperature ? { temperature: step.temperature } : {}),
       ...(step.tips ? { tips: step.tips } : {}),
+      ...(step.lookFor ? { lookFor: step.lookFor } : {}),
       ...(step.stepIngredients.length ? { stepIngredients: step.stepIngredients } : {}),
     }));
 
