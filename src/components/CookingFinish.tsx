@@ -22,7 +22,7 @@ export const CookingFinish: React.FC<CookingFinishProps> = ({ title, minutes, on
   const hasNote = note.trim().length > 0;
 
   return (
-    <div role="group" aria-label="Finished cooking" className="absolute inset-0 z-30 bg-ink-deep/95 flex flex-col items-center justify-center gap-6 px-6 text-center text-stone-100">
+    <div role="group" aria-label="Finished cooking" className="absolute inset-0 z-30 bg-ink-deep flex flex-col items-center justify-center gap-6 px-6 text-center text-stone-100">
       <Sprout size={84} className="text-stone-100" />
       <div className="flex flex-col gap-1">
         <h2 className="font-serif text-4xl">Dinner is served</h2>

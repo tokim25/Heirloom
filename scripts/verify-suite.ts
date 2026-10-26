@@ -19,6 +19,7 @@ import { dinnerMessage, inboxMessage, dateKeyInZone, wantsPush } from '../src/ut
 import { signature, isFavorite, FAVORITE_AT } from '../src/utils/recipePeople.ts';
 import { greeting, timeOfDay, tonightsDinner } from '../src/utils/greeting.ts';
 import { parallaxOffset, heroShift } from '../src/utils/parallax.ts';
+import { formatClock, formatDurationWords, totalWaitSeconds, stepLabel, nextUp, equipmentFromSteps, ovenTemperature, portionUsed, safetyNotes } from '../src/utils/cookingGuide.ts';
 import { generateInviteCode, normalizeInviteCode, formatInviteCode, inviteLink } from '../src/utils/invite.ts';
 import { parseChatEmbeds } from '../src/utils/chatEmbeds.ts';
 import { CHEF_EXAMPLE, CHEF_TONIGHT_EXAMPLE, checkChefAnswer, unwrapChefAnswer } from '../src/utils/chefLibrary.ts';
@@ -483,6 +484,51 @@ try {
   assert(wantsPush(undefined, 'inbox') && wantsPush({ dinner: true }, 'dinner') && !wantsPush({ inbox: false }, 'inbox') && wantsPush({ inbox: false }, 'dinner'), 'Push', 'Both kinds are on until switched off, independently');
 } catch (e: any) {
   results.push({ suite: 'Push', name: 'Exception in suite', passed: false, error: e.message });
+}
+
+// Cooking guide
+try {
+  assert(formatClock(1078) === '17:58' && formatClock(43200) === '12:00:00' && formatClock(-5) === '00:00', 'Cooking', 'Clocks read mm:ss, and h:mm:ss for long waits');
+  assert(formatDurationWords(43200) === '12 hr' && formatDurationWords(2700) === '45 min' && formatDurationWords(5400) === '1 hr 30 min' && formatDurationWords(90) === '1 min 30 sec', 'Cooking', 'Durations read in words');
+  assert(totalWaitSeconds([{ timerSeconds: 60 }, {}, { timerSeconds: 120 }]) === 180, 'Cooking', 'Waiting time adds up the timers');
+  assert(stepLabel({ instruction: 'Cook the rice. Then rest it.', stepNumber: 1 }) === 'Cook the rice' && stepLabel({ title: 'Sear', instruction: 'x', stepNumber: 2 }) === 'Sear', 'Cooking', 'A step is labelled by its title or first sentence');
+  assert(nextUp([{ instruction: 'A.' }, { instruction: 'Add the garlic. Stir.' }], 0) === 'Add the garlic.' && nextUp([{ instruction: 'A.' }], 0) === null, 'Cooking', 'Next up is the next step\'s first sentence');
+  const ing = (name: string, amount = 1) => ({ id: name, name, amount, unit: '', category: 'Other' as const });
+  const pantry2 = [ing('chicken thighs'), ing('Thai basil leaves'), ing('garlic'), ing('garlic powder'), ing('whole chicken'), ing('chicken stock')];
+  const stepNames = (instruction: string, list = pantry2) => ingredientsForStep(list, { instruction }).map((i) => i.name).join('|');
+  assert(stepNames('Add the chicken and spread it out.', [ing('chicken thighs'), ing('soy sauce')]) === 'chicken thighs', 'Cooking', '"chicken" finds "chicken thighs"');
+  assert(stepNames('Fold in the basil until wilted.', [ing('Thai basil leaves'), ing('soy sauce')]) === 'Thai basil leaves', 'Cooking', '"basil" finds "Thai basil leaves", plural leaves included');
+  assert(stepNames('Take the chicken out of the fridge.') === 'whole chicken', 'Cooking', 'A chicken step does not also claim the chicken stock');
+  assert(stepNames('Add the garlic.') === 'garlic', 'Cooking', 'Garlic is not confused with garlic powder');
+  const portion = (text: string, name: string) => portionUsed(text, { name });
+  assert(portion('Stuff the cavity with the lemon and half the thyme.', 'thyme')?.fraction === 0.5, 'Cooking', '"half the thyme" uses half');
+  assert(portion('Add a quarter of the butter.', 'butter')?.fraction === 0.25 && portion('Stir in the rest of the butter.', 'butter')?.word === 'rest', 'Cooking', 'Quarters and "the rest of" are found');
+  assert(portion('Let the chicken rest for 15 minutes.', 'chicken') === null && portion('Cut the lemon into halves.', 'lemon') === null && portion('Add the garlic.', 'garlic') === null, 'Cooking', 'Rest, halves and plain mentions are not portions');
+  const eq = equipmentFromSteps([{ instruction: 'Place a Dutch oven with its lid in the oven.' }, { instruction: 'Lower the dough on parchment into the pot.' }, { instruction: 'Roast until the thigh reads 165°F.' }]);
+  assert(eq.join('|') === 'Dutch oven|Parchment paper|Thermometer|Oven' || eq.join('|') === 'Dutch oven|Oven|Parchment paper|Thermometer', 'Cooking', 'Equipment is read from the steps');
+  const withLook = normalizeParsedRecipe({ foundRecipe: true, title: 'T', ingredients: [{ name: 'x', amount: 1, unit: 'cup', category: 'Other' }], steps: [{ instruction: 'Sear.', lookFor: 'deep golden crust' }, { instruction: 'Rest.' }] });
+  assert(withLook.steps[0].lookFor === 'deep golden crust' && !('lookFor' in withLook.steps[1]), 'Cooking', 'A doneness cue from the source is kept, and absent when the source gave none');
+  const steps = [{ instruction: 'Heat the oven to 425°F.', temperature: '425°F' }, { instruction: 'Season.' }, { instruction: 'Roast.' }, { instruction: 'Turn off the oven.' }, { instruction: 'Rest.' }];
+  assert(ovenTemperature(steps, 2) === '425°F' && ovenTemperature(steps, 0) === '425°F' && ovenTemperature(steps, 4) === null, 'Cooking', 'The oven temperature carries forward until the oven is turned off');
+  const roastSteps = [
+    { instruction: 'Heat the oven to 425°F.', temperature: '425°F' },
+    { instruction: 'Season.' },
+    { instruction: 'Roast until the thigh reads 165°F.', timerSeconds: 4200 },
+    { instruction: 'Move the chicken to a board and let it rest.', timerSeconds: 900 },
+    { instruction: 'Make the gravy.' },
+  ];
+  assert(ovenTemperature(roastSteps, 2) === '425°F' && ovenTemperature(roastSteps, 3) === null && ovenTemperature(roastSteps, 4) === null, 'Cooking', 'The oven temperature stops once the roast is out');
+  const breadSteps = [
+    { instruction: 'Heat the Dutch oven to 450°F.', temperature: '450°F', timerSeconds: 1800 },
+    { instruction: 'Cover and bake.', timerSeconds: 1800 },
+    { instruction: 'Remove the lid and bake until deep brown.', timerSeconds: 900 },
+    { instruction: 'Cool on a wire rack.', timerSeconds: 3600 },
+  ];
+  assert(ovenTemperature(breadSteps, 2) === '450°F' && ovenTemperature(breadSteps, 3) === null, 'Cooking', 'A second baking step keeps the oven temperature, the cooling step drops it');
+  assert(safetyNotes({ instruction: 'Sear the chicken.' }).length === 1 && safetyNotes({ instruction: 'Stir the rice.' }).length === 0, 'Cooking', 'Safety notes appear only where they apply');
+  assert(safetyNotes({ instruction: 'Lower the dough into the hot Dutch oven.', temperature: '450°F' }).some((n) => /oven mitts/.test(n)), 'Cooking', 'Hot pots get an oven-mitt reminder');
+} catch (e: any) {
+  results.push({ suite: 'Cooking', name: 'Exception in suite', passed: false, error: e.message });
 }
 
 // Parallax

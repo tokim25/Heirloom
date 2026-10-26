@@ -234,7 +234,8 @@ Hard rules:
 3. If a quantity, unit, time or serving count is not stated, use 0 (or an empty string). Do not estimate.
 4. Ingredient names are clean item names; put preparation like "diced" in notes. Assign the closest supermarket category.
 5. Break the method into short sequential steps with one action each. Set timerSeconds only for steps that involve waiting (for example 5 minutes = 300).
-6. Keep the source's wording and measurements where possible; convert only to make units standard (cups, tbsp, tsp, g, oz, lb, clove).`;
+6. Keep the source's wording and measurements where possible; convert only to make units standard (cups, tbsp, tsp, g, oz, lb, clove).
+7. If the source says how to tell a step is done (a colour, texture, sound, smell or internal temperature), put that in lookFor using the source's words. Never write a doneness cue the source does not give.`;
 
 app.post('/api/recipes/parse', async (req: Request, res: Response) => {
   try {
