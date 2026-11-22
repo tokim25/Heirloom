@@ -28,8 +28,10 @@ export const Quantity: React.FC<{ value: string; className?: string }> = ({ valu
       <span aria-hidden="true">
         {whole}
         {whole && ' '}
-        <span className="text-[0.62em] tracking-[0.02em]">
-          <sup className="text-[1em] leading-none align-[0.5em]">{num}</sup>⁄<span className="leading-none">{den}</span>
+        <span className="text-[0.68em]">
+          <span className="relative -top-[0.5em]">{num}</span>
+          <span className="mx-[-0.05em]">⁄</span>
+          {den}
         </span>
       </span>
     </span>

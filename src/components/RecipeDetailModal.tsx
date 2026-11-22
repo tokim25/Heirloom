@@ -350,8 +350,8 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
 
                       <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
                         {step.timerSeconds ? (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800/50">
-                            <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
+                            <Clock className="w-3 h-3 text-amber-600" aria-hidden="true" />
                             {Math.round(step.timerSeconds / 60)} min
                           </span>
                         ) : null}
@@ -369,7 +369,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                     </p>
 
                     {step.tips && (
-                      <div className="text-sm text-amber-900 bg-amber-50/70 p-3 rounded-xl border border-amber-100 dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-900/40">
+                      <div className="text-sm text-amber-900 bg-amber-50/70 p-3 rounded-xl border border-amber-100">
                         <span className="font-semibold">Tip: </span>
                         {step.tips}
                       </div>
