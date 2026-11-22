@@ -26,6 +26,7 @@ import {
 import { Recipe, Ingredient, GroceryList } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, UnitSystem, formatStepTemperatures } from '../utils/units.ts';
 import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
+import { isLiveSession, useCookingSessions } from '../utils/cookingSession.ts';
 
 export interface AddToGroceryListResult {
   success: boolean;
@@ -64,6 +65,8 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   onPlanRecipe,
 }) => {
   const [servings, setServings] = useState(recipe.defaultServings || 2);
+  // A cook of this recipe already in progress on this device: the main button picks it back up.
+  const cookInProgress = useCookingSessions().find((c) => c.recipeId === recipe.id && isLiveSession(c, Date.now()));
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('imperial');
   const [selectedListId, setSelectedListId] = useState(currentListId || groceryLists[0]?.id || '');
   const [addListStatus, setAddListStatus] = useState<AddToGroceryListResult | null>(null);
@@ -416,7 +419,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             className="flex-1 min-h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-on-accent text-base font-semibold shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all"
           >
             <Play className="w-4 h-4 fill-current" aria-hidden="true" />
-            Start cooking
+            {cookInProgress ? `Resume · step ${Math.min(cookInProgress.currentStepIndex, recipe.steps.length - 1) + 1}` : 'Start cooking'}
           </button>
 
           <button

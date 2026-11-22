@@ -14,7 +14,7 @@ const tabForPath = (path: string): TabId => {
   if (path === '/add') return 'add';
   if (path === '/plan') return 'plan';
   if (path === '/profile') return 'profile';
-  if (path === '/groceries') return 'groceries';
+  if (path === '/groceries' || path.startsWith('/shop/')) return 'groceries';
   return 'recipes';
 };
 

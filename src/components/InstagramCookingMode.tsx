@@ -24,6 +24,7 @@ import { Recipe } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, formatStepTemperatures, UnitSystem } from '../utils/units.ts';
 import { ingredientsForStep } from '../utils/stepIngredients.ts';
 import { sounds } from '../utils/sound.ts';
+import { StepTimer, StoredCookingSession, clearCookingSession, readStoredCookingSession, saveCookingSession, secondsLeftOf } from '../utils/cookingSession.ts';
 
 interface InstagramCookingModeProps {
   recipe: Recipe;
@@ -35,69 +36,6 @@ interface InstagramCookingModeProps {
   onAddStepIngredientsToGroceries?: (stepIngredients: string[]) => void;
 }
 
-/** One timer per step that has one. It keeps running when you move to another step. */
-interface StepTimer {
-  duration: number;
-  /** Seconds left while paused. */
-  remaining: number;
-  /** When it will finish (ms since epoch) while running, otherwise null. Wall-clock, so a locked phone loses nothing. */
-  endsAt: number | null;
-}
-
-interface StoredCookingSession {
-  recipeId: string;
-  currentStepIndex: number;
-  timers: Record<string, StepTimer>;
-  updatedAt: string;
-}
-
-const getCookingSessionStorageKey = (recipeId: string) => `heirloom_cooking_session_${recipeId}`;
-
-const readStoredCookingSession = (
-  storageKey: string,
-  recipeId: string,
-  totalSteps: number
-): StoredCookingSession | null => {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as Partial<StoredCookingSession> & { timerSecondsLeft?: number | null; isTimerRunning?: boolean; initialTimerDuration?: number | null };
-    if (parsed.recipeId !== recipeId || typeof parsed.currentStepIndex !== 'number') {
-      return null;
-    }
-
-    const currentStepIndex = Math.max(0, Math.min(totalSteps - 1, parsed.currentStepIndex));
-    const timers: Record<string, StepTimer> = {};
-    if (parsed.timers && typeof parsed.timers === 'object') {
-      for (const [key, t] of Object.entries(parsed.timers)) {
-        if (t && typeof t.duration === 'number' && t.duration > 0 && typeof t.remaining === 'number') {
-          timers[key] = { duration: t.duration, remaining: Math.max(0, t.remaining), endsAt: typeof t.endsAt === 'number' ? t.endsAt : null };
-        }
-      }
-    } else if (typeof parsed.timerSecondsLeft === 'number' && parsed.timerSecondsLeft >= 0) {
-      // A session saved before timers outlived steps: one timer, on the step you were on.
-      const duration = typeof parsed.initialTimerDuration === 'number' && parsed.initialTimerDuration > 0 ? parsed.initialTimerDuration : parsed.timerSecondsLeft;
-      if (duration > 0) {
-        timers[String(currentStepIndex)] = {
-          duration,
-          remaining: parsed.timerSecondsLeft,
-          endsAt: parsed.isTimerRunning && parsed.timerSecondsLeft > 0 ? Date.now() + parsed.timerSecondsLeft * 1000 : null,
-        };
-      }
-    }
-
-    return { recipeId, currentStepIndex, timers, updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString() };
-  } catch {
-    return null;
-  }
-};
-
-const secondsLeftOf = (timer: StepTimer, at: number): number =>
-  timer.endsAt !== null ? Math.max(0, Math.ceil((timer.endsAt - at) / 1000)) : timer.remaining;
-
 const COOKING_HINT_KEY = 'heirloom_cooking_hint_seen';
 
 export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
@@ -108,10 +46,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   onFinished,
 }) => {
   const totalSteps = recipe.steps.length;
-  const cookingSessionStorageKey = getCookingSessionStorageKey(recipe.id);
-  const restoredSessionRef = useRef<StoredCookingSession | null>(
-    readStoredCookingSession(cookingSessionStorageKey, recipe.id, totalSteps)
-  );
+  const restoredSessionRef = useRef<StoredCookingSession | null>(readStoredCookingSession(recipe.id, totalSteps));
   const [hasRestoredSession] = useState(() => restoredSessionRef.current !== null);
 
   const [currentStepIndex, setCurrentStepIndex] = useState(
@@ -144,7 +79,8 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     return out;
   });
   const [now, setNow] = useState(() => Date.now());
-  const [timerAlert, setTimerAlert] = useState<number | null>(null);
+  // A timer that finished while this screen was closed is shown again on return.
+  const [timerAlert, setTimerAlert] = useState<number | null>(() => restoredSessionRef.current?.alertStep ?? null);
   const anyTimerRunning = Object.values(timers).some((t) => t.endsAt !== null);
   const recognitionRef = useRef<any>(null);
 
@@ -155,6 +91,42 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       return true;
     }
   });
+
+  // Leaving with timers running asks first. The timers keep going either way: the app shell rings them.
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const runningTimerCount = Object.values(timers).filter((t) => t.endsAt !== null).length;
+  const requestClose = () => {
+    if (runningTimerCount > 0 && !finished && !showPrep) setConfirmLeave(true);
+    else onClose();
+  };
+
+  // Keep the screen on while cooking, so the phone doesn't lock on the counter. The browser drops the
+  // lock whenever the page is hidden, so it is asked for again each time the page comes back.
+  useEffect(() => {
+    const nav = navigator as Navigator & { wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> } };
+    if (!nav.wakeLock) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    let cancelled = false;
+    const acquire = () => {
+      if (document.visibilityState !== 'visible') return;
+      nav.wakeLock!.request('screen').then(
+        (l) => {
+          if (cancelled) void l.release().catch(() => {});
+          else lock = l;
+        },
+        () => {
+          // Refused (low battery, unsupported): the screen just follows the phone's own setting.
+        }
+      );
+    };
+    acquire();
+    document.addEventListener('visibilitychange', acquire);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', acquire);
+      void lock?.release().catch(() => {});
+    };
+  }, []);
 
   const currentStep = recipe.steps[currentStepIndex];
   const isLastStep = currentStepIndex === totalSteps - 1;
@@ -189,18 +161,19 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     });
 
   // Auto-save cooking progress so closing Stories mode does not lose place or running timers.
+  // Finishing clears the saved cook, so nothing is written after that.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const session: StoredCookingSession = {
+    if (typeof window === 'undefined' || finished) return;
+    saveCookingSession({
       recipeId: recipe.id,
       currentStepIndex,
       timers: Object.fromEntries(Object.entries(timers).map(([k, t]) => [k, t])),
       updatedAt: new Date().toISOString(),
-    };
-    try {
-      window.localStorage.setItem(cookingSessionStorageKey, JSON.stringify(session));
-    } catch {}
-  }, [cookingSessionStorageKey, currentStepIndex, recipe.id, timers]);
+      servings,
+      unitSystem,
+      alertStep: null,
+    });
+  }, [currentStepIndex, recipe.id, timers, servings, unitSystem, finished]);
 
   // Tick while anything is running; the display is computed from the clock, so a slow or paused page catches up.
   useEffect(() => {
@@ -284,10 +257,8 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       setCurrentStepIndex((prev) => prev + 1);
     } else {
       // Completed all steps!
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(cookingSessionStorageKey);
-      }
       setFinished(true);
+      clearCookingSession(recipe.id);
       // Spoken only when the person already turned the voice guide on.
       speakNotification('Enjoy your meal.');
     }
@@ -302,7 +273,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   };
 
   // Story navigation, like Instagram: tap the left third of the screen to go back and the rest to
-  // go forward; swipe left/right to move and swipe up to close. Buttons, links and form fields keep
+  // go forward; swipe left/right to move. Closing is only ever the labelled X button. Buttons, links and form fields keep
   // their own behavior, and text selection or scrolling a long step never navigates.
   const swipeStartRef = useRef<{ x: number; y: number; inScrollable: boolean } | null>(null);
   const ignoreTapUntilRef = useRef(0);
@@ -362,12 +333,6 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
 
-    // Swipe up closes the cooking view (unless the finger was scrolling a long step).
-    if (dy < -80 && Math.abs(dy) > Math.abs(dx) * 1.5 && !start.inScrollable) {
-      ignoreTapUntilRef.current = Date.now() + 400;
-      onClose();
-      return;
-    }
     if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
     ignoreTapUntilRef.current = Date.now() + 400; // a swipe must not also count as a tap
     dismissHint();
@@ -520,9 +485,13 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         if (e.key === 'Escape') onClose();
         return;
       }
+      if (confirmLeave) {
+        if (e.key === 'Escape') setConfirmLeave(false);
+        return;
+      }
       if (e.key === 'ArrowRight') handleNextStep();
       if (e.key === 'ArrowLeft') handlePrevStep();
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') requestClose();
       if (e.key === ' ' && timerSecondsLeft !== null) {
         e.preventDefault();
         setIsTimerRunning((prev) => !prev);
@@ -530,7 +499,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentStepIndex, timerSecondsLeft, finished, showPrep]);
+  }, [currentStepIndex, timerSecondsLeft, finished, showPrep, confirmLeave, runningTimerCount]);
 
   // Format MM:SS
   const formatTime = (secs: number) => {
@@ -561,6 +530,25 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
             onClose();
           }}
         />
+      )}
+
+      {confirmLeave && (
+        <div data-no-tap className="absolute inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] cursor-default">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="leave-cooking-title" aria-describedby="leave-cooking-body" className="w-full max-w-sm rounded-3xl bg-stone-900 border border-white/10 p-6 flex flex-col gap-4 text-stone-100">
+            <h2 id="leave-cooking-title" className="text-2xl text-white">Leave cooking?</h2>
+            <p id="leave-cooking-body" className="text-base text-white/80 leading-relaxed">
+              {runningTimerCount === 1 ? '1 timer is' : `${runningTimerCount} timers are`} still running. {runningTimerCount === 1 ? 'It keeps' : 'They keep'} going, and Heirloom will ring when {runningTimerCount === 1 ? 'it finishes' : 'they finish'}.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button type="button" autoFocus onClick={() => setConfirmLeave(false)} className="min-h-12 rounded-2xl bg-amber-500 hover:bg-amber-400 text-on-accent text-base font-semibold">
+                Keep cooking
+              </button>
+              <button type="button" onClick={onClose} className="min-h-12 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-base font-semibold">
+                Leave cooking
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Background Ambient Glow */}
@@ -642,7 +630,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
 
         {showHint && (
           <p role="status" className="self-center rounded-full bg-white/10 px-4 py-2 text-sm text-white/90 text-center">
-            Tap the right side for next, the left for back. Swipe up to close.
+            Tap the right side for next, the left for back.
           </p>
         )}
 
@@ -650,7 +638,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         <div className="flex items-center justify-between text-white/90">
           <div className="flex items-center gap-3">
             <button
-              onClick={onClose}
+              onClick={requestClose}
               className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-md"
               title="Close Cooking Mode"
               aria-label="Close cooking mode"

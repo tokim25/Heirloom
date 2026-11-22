@@ -11,6 +11,9 @@ import { useSyncExternalStore } from 'react';
  *   /r/:recipeId    A recipe (sheet over Recipes)
  *   /s/:shareId     A recipe someone shared (sheet)
  *   /join/:code     An invite to join someone's household (sheet)
+ *   /cook/:recipeId Cooking mode (full screen). ?servings=6&units=metric keep the amounts you chose.
+ *   /shop/:listId   Shopping for a list (sheet over Groceries)
+ * Anything that covers the screen has its own address, so Back always closes the thing on top.
  * Vercel already serves index.html for every non-API path, so all of these work as links.
  */
 
@@ -88,6 +91,39 @@ export const joinPath = (code: string) => `/join/${encodeURIComponent(code)}`;
 /** The invite code in `/join/:code`, or null. */
 export const joinCodeFromPath = (path: string): string | null => {
   const match = path.match(/^\/join\/([^/]+)$/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+};
+
+/** `/cook/:id`, carrying the servings and units chosen on the recipe. */
+export const cookPath = (id: string, servings?: number, units?: 'imperial' | 'metric') => {
+  const query = new URLSearchParams();
+  if (servings) query.set('servings', String(servings));
+  if (units === 'metric') query.set('units', 'metric');
+  const search = query.toString();
+  return `/cook/${encodeURIComponent(id)}${search ? `?${search}` : ''}`;
+};
+
+/** The recipe id in `/cook/:id`, or null. */
+export const cookIdFromPath = (path: string): string | null => {
+  const match = path.match(/^\/cook\/([^/]+)$/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+};
+
+export const shopPath = (listId: string) => `/shop/${encodeURIComponent(listId)}`;
+
+/** The grocery list id in `/shop/:id`, or null. */
+export const shopIdFromPath = (path: string): string | null => {
+  const match = path.match(/^\/shop\/([^/]+)$/);
   if (!match) return null;
   try {
     return decodeURIComponent(match[1]);
