@@ -175,6 +175,13 @@
     letter-spacing: -0.01em;
   }
 
+  /* Bricolage at regular weight looks too close to body text, so headlines default to semibold.
+     A weight class on the element (font-medium, font-bold) still wins, since utilities outrank this layer. */
+  h1:not(.font-sans), h2:not(.font-sans), h3:not(.font-sans), .font-editorial, .font-serif {
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
   .font-hand {
     font-family: var(--font-hand);
     font-weight: 500;
