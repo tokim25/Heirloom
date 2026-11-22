@@ -701,7 +701,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 flex flex-col gap-6 sm:gap-8 w-full max-w-full">
             {/* A friendly line, and tonight's dinner when there is one */}
             <div className="flex flex-col gap-3 -mb-2">
-              <p className="font-hand text-2xl leading-none text-amber-700">{greeting(new Date().getHours(), user.name)}</p>
+              <p className="text-base font-semibold text-amber-700">{greeting(new Date().getHours(), user.name)}</p>
               {tonight && tonightRecipe && (
                 <div className="flex items-center gap-3 rounded-2xl bg-surface border border-stone-200/80 pl-4 pr-2 py-2 shadow-[0_2px_12px_rgba(43,53,62,0.04)]">
                   <button type="button" onClick={() => openRecipe(tonightRecipe)} className="min-w-0 flex-1 text-left min-h-11">

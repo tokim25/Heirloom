@@ -24,6 +24,7 @@ import { Recipe } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, formatStepTemperatures, UnitSystem } from '../utils/units.ts';
 import { ingredientsForStep } from '../utils/stepIngredients.ts';
 import { sounds } from '../utils/sound.ts';
+import { Quantity } from './ui/Quantity.tsx';
 import { StepTimer, StoredCookingSession, clearCookingSession, readStoredCookingSession, saveCookingSession, secondsLeftOf } from '../utils/cookingSession.ts';
 
 interface InstagramCookingModeProps {
@@ -873,7 +874,9 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                   const quantity = portion?.word === 'rest' ? 'the rest of' : formattedFraction ? `${formattedFraction} ${converted.unit}` : converted.unit;
                   return (
                     <div key={ing.id} className="flex items-baseline gap-3 px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-xl sm:text-2xl leading-snug text-stone-100">
-                      <span className="font-serif font-semibold tabular-nums text-amber-300 shrink-0">{quantity}</span>
+                      <span className="font-serif font-semibold text-amber-300 shrink-0">
+                        {portion?.word === 'rest' ? quantity : formattedFraction ? <><Quantity value={formattedFraction} /> {converted.unit}</> : converted.unit}
+                      </span>
                       <span>
                         {ing.name}
                         {ing.notes ? <span className="text-stone-400 text-lg sm:text-xl">, {ing.notes}</span> : null}

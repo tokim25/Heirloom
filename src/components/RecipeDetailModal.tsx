@@ -26,6 +26,7 @@ import {
 import { Recipe, Ingredient, GroceryList } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, UnitSystem, formatStepTemperatures } from '../utils/units.ts';
 import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
+import { Quantity } from './ui/Quantity.tsx';
 import { isLiveSession, useCookingSessions } from '../utils/cookingSession.ts';
 
 export interface AddToGroceryListResult {
@@ -305,11 +306,13 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                         const displayQty = formatFraction(converted.amount);
 
                         return (
-                          <li key={ing.id} className="py-3 px-2 flex items-baseline gap-2 text-base">
-                            <span className="font-semibold text-stone-900 whitespace-nowrap">
-                              {displayQty ? `${displayQty} ${converted.unit}` : converted.unit}
+                          // A ledger: amounts in a right-aligned column, so every ingredient name starts at the same edge.
+                          <li key={ing.id} className="py-3 px-2 grid grid-cols-[3.75rem_1fr] gap-x-3 items-baseline text-base">
+                            <span className="text-right">
+                              {displayQty && <Quantity value={displayQty} className="font-serif text-lg font-semibold text-stone-900" />}
                             </span>
-                            <span className="text-stone-800">
+                            <span className="text-stone-800 min-w-0">
+                              {converted.unit && <span className="text-sm text-stone-600 mr-1.5">{converted.unit}</span>}
                               {ing.name}
                               {ing.notes && <span className="text-stone-600 text-sm italic"> ({ing.notes})</span>}
                             </span>
@@ -331,16 +334,19 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                 <span className="text-sm text-stone-600">{recipe.steps.length} steps</span>
               </div>
 
-              <ol className="flex flex-col gap-3">
+              <ol className="flex flex-col">
                 {recipe.steps.map((step, idx) => (
-                  <li key={step.stepNumber} className="p-4 rounded-2xl bg-surface border border-stone-200/80 shadow-xs flex flex-col gap-2">
+                  // No cards: a large numeral in the margin carries the sequence, and a hairline separates steps.
+                  <li key={step.stepNumber} className="grid grid-cols-[2.25rem_1fr] gap-x-3 py-4 border-t border-stone-200/80 first:border-t-0 first:pt-1">
+                    <span aria-hidden="true" className="font-serif text-3xl font-semibold leading-none text-amber-700 tabular-nums text-right pt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0 flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-7 h-7 shrink-0 rounded-full bg-ink text-white text-sm font-medium flex items-center justify-center">
-                          {idx + 1}
-                        </span>
-                        <h3 className="font-serif text-lg font-medium text-stone-900">{step.title || `Step ${idx + 1}`}</h3>
-                      </div>
+                      <h3 className="font-serif text-lg font-semibold text-stone-900 min-w-0">
+                        <span className="sr-only">Step {idx + 1}: </span>
+                        {step.title || `Step ${idx + 1}`}
+                      </h3>
 
                       <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
                         {step.timerSeconds ? (
@@ -358,7 +364,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                       </div>
                     </div>
 
-                    <p className="text-base text-stone-700 leading-relaxed">
+                    <p className="text-[1.0625rem] text-stone-900 leading-[1.6] max-w-[62ch]">
                       {formatStepTemperatures(step.instruction, unitSystem)}
                     </p>
 
@@ -368,6 +374,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                         {step.tips}
                       </div>
                     )}
+                    </div>
                   </li>
                 ))}
               </ol>
