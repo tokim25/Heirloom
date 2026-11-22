@@ -442,6 +442,19 @@ export const firestoreService = {
     await updateDoc(doc(listsCol(hid), listId), first as FieldPath, firstValue, ...rest);
   },
 
+  /** Puts deleted items back exactly as they were: same id, check state, swap and place in the list. */
+  async restoreGroceryItems(hid: string, listId: string, items: GroceryItem[]) {
+    if (items.length === 0) return;
+    const args: unknown[] = [];
+    items.forEach((item) => {
+      const clean = Object.fromEntries(Object.entries(item).filter(([, v]) => v !== undefined));
+      args.push(itemField(item.id), { ...clean, listId });
+    });
+    args.push('updatedAt', now());
+    const [first, firstValue, ...rest] = args;
+    await updateDoc(doc(listsCol(hid), listId), first as FieldPath, firstValue, ...rest);
+  },
+
   async updateGroceryItem(hid: string, listId: string, itemId: string, updates: Partial<GroceryItem>) {
     const args: unknown[] = [];
     (Object.keys(updates) as (keyof GroceryItem)[]).forEach((key) => {

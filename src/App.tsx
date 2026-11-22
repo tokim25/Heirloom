@@ -627,6 +627,12 @@ export default function App() {
     );
   };
 
+  const handleRestoreGroceryItems = (listId: string, items: GroceryItem[]) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    runWrite(firestoreService.restoreGroceryItems(householdId, listId, items), 'Could not bring those items back. Try again.');
+  };
+
   const handleClearCompletedGroceries = async (listId: string) => {
     const householdId = requireHousehold();
     const list = groceryLists.find((l) => l.id === listId);
@@ -848,6 +854,7 @@ export default function App() {
           /* Shared Groceries Tab */
           <Suspense fallback={<div className="flex justify-center py-32" aria-label="Loading groceries"><div className="h-8 w-8 rounded-full border-2 border-stone-300 border-t-stone-900 animate-spin" /></div>}>
           <GroceryListView
+            onRestoreItems={handleRestoreGroceryItems}
             groceryLists={householdLists}
             currentList={currentGroceryList}
             plannedMeals={plannedMeals}

@@ -34,6 +34,8 @@ interface GroceryListViewProps {
   onUpdateItem: (listId: string, itemId: string, updates: Partial<GroceryItem>) => void;
   onDeleteItem: (listId: string, itemId: string) => void;
   onAddItem: (listId: string, item: Partial<GroceryItem>) => void;
+  /** Puts deleted items back as they were (used by Undo). */
+  onRestoreItems: (listId: string, items: GroceryItem[]) => void;
   onClearCompleted: (listId: string) => void;
   onCreateList: (title: string, store: string) => void;
   onJoinList: (inviteCode: string) => void;
@@ -63,6 +65,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   onUpdateItem,
   onDeleteItem,
   onAddItem,
+  onRestoreItems,
   onClearCompleted,
   onCreateList,
   onJoinList,
@@ -90,29 +93,23 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       // Storage unavailable: the choice just lasts for this visit.
     }
   };
-  // Deleting is quick (swipe or tap), so it is always undoable for a few seconds.
-  const [undoItem, setUndoItem] = useState<GroceryItem | null>(null);
+  // Deleting is quick (swipe or tap), so it is always undoable for a few seconds. Deletes made close
+  // together are gathered, so a second delete never throws away the chance to undo the first.
+  const [undone, setUndone] = useState<{ listId: string; items: GroceryItem[] } | null>(null);
   const undoTimer = React.useRef<number | undefined>(undefined);
   const deleteWithUndo = (item: GroceryItem) => {
     if (!currentList) return;
-    onDeleteItem(currentList.id, item.id);
-    setUndoItem(item);
+    const listId = currentList.id;
+    onDeleteItem(listId, item.id);
+    setUndone((prev) => ({ listId, items: prev && prev.listId === listId ? [...prev.items, item] : [item] }));
     window.clearTimeout(undoTimer.current);
-    undoTimer.current = window.setTimeout(() => setUndoItem(null), 6000);
+    undoTimer.current = window.setTimeout(() => setUndone(null), 6000);
   };
   const undoDelete = () => {
-    if (!undoItem || !currentList) return;
+    if (!undone) return;
     window.clearTimeout(undoTimer.current);
-    onAddItem(currentList.id, {
-      name: undoItem.name,
-      amount: undoItem.amount,
-      unit: undoItem.unit,
-      category: undoItem.category,
-      assignedTo: undoItem.assignedTo,
-      recipeId: undoItem.recipeId,
-      recipeTitle: undoItem.recipeTitle,
-    });
-    setUndoItem(null);
+    onRestoreItems(undone.listId, undone.items);
+    setUndone(null);
   };
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -910,9 +907,10 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         )}
       </div>
 
-      {undoItem && (
-        <div role="status" className="fixed z-40 left-1/2 -translate-x-1/2 bottom-24 xl:bottom-8 max-w-[calc(100vw-2rem)] flex items-center gap-3 pl-4 pr-1 rounded-2xl bg-ink text-white shadow-xl">
-          <span className="py-3 text-sm truncate">Deleted {undoItem.name}</span>
+      {/* Sits above the tab bar and the cooking strip, so neither covers it. */}
+      {undone && (
+        <div role="status" className="fixed z-40 left-1/2 -translate-x-1/2 bottom-[calc(9rem+env(safe-area-inset-bottom))] xl:bottom-24 max-w-[calc(100vw-2rem)] flex items-center gap-3 pl-4 pr-1 rounded-2xl bg-ink text-white shadow-xl">
+          <span className="py-3 text-sm truncate">Deleted {undone.items.length === 1 ? undone.items[0].name : `${undone.items.length} items`}</span>
           <button type="button" onClick={undoDelete} className="min-h-11 px-4 text-sm font-semibold text-amber-300 hover:text-amber-200">
             Undo
           </button>
