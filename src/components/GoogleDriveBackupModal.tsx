@@ -90,7 +90,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
         <div className="rounded-2xl bg-surface border border-stone-200 p-4 text-sm flex items-start gap-3">
           {isDriveCopyEnabled && googleAccessToken ? (
             <>
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 dark:text-emerald-400" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
                 <p className="font-semibold text-stone-900">On</p>
                 <p className="text-stone-600">
@@ -100,7 +100,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
             </>
           ) : needsReconnect ? (
             <>
-              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 dark:text-amber-400" />
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
               <div>
                 <p className="font-semibold text-stone-900">Paused</p>
                 <p className="text-stone-600">Google limits Drive access to about an hour. Reconnect to resume copying.</p>
@@ -121,7 +121,7 @@ export const GoogleDriveBackupModal: React.FC<GoogleDriveBackupModalProps> = ({
           <p className="text-sm text-rose-700 dark:text-rose-300">{copyStatus.error}</p>
         )}
         {message && (
-          <p role="status" className={`text-sm ${message.type === 'error' ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+          <p role="status" className={`text-sm ${message.type === 'error' ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700'}`}>
             {message.text}
           </p>
         )}

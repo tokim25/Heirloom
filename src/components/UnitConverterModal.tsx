@@ -71,7 +71,7 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
               <Calculator className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
                 Kitchen Tool
               </span>
               <h2 className="font-serif text-2xl text-stone-900">
@@ -183,14 +183,14 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                   </div>
                 </div>
 
-                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl text-amber-950 dark:text-amber-100">
-                  <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider dark:text-amber-100">
+                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl text-amber-900">
+                  <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider">
                     Weight in Grams
                   </span>
-                  <p className="text-3xl font-serif font-bold text-amber-950 mt-1 dark:text-amber-100">
+                  <p className="text-3xl font-serif font-bold text-amber-900 mt-1">
                     {calculatedGrams()} g
                   </p>
-                  <span className="text-xs text-amber-800 mt-2 block dark:text-amber-200">
+                  <span className="text-xs text-amber-800 mt-2 block">
                     Exact weight for {selectedIngredient.name}
                   </span>
                 </div>
@@ -217,17 +217,17 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
                   </span>
                 </div>
 
-                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex flex-col text-amber-950 dark:text-amber-100">
-                  <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider dark:text-amber-100">
+                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex flex-col text-amber-900">
+                  <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider">
                     Celsius (°C)
                   </span>
                   <input
                     type="number"
                     value={tempC}
                     onChange={(e) => handleCelsiusChange(Number(e.target.value))}
-                    className="text-3xl font-serif text-amber-950 font-bold bg-transparent focus:outline-none mt-1 dark:text-amber-100"
+                    className="text-3xl font-serif text-amber-900 font-bold bg-transparent focus:outline-none mt-1"
                   />
-                  <span className="text-xs text-amber-800 mt-2 dark:text-amber-200">
+                  <span className="text-xs text-amber-800 mt-2">
                     European / Metric Oven
                   </span>
                 </div>
@@ -327,9 +327,9 @@ export const UnitConverterModal: React.FC<UnitConverterModalProps> = ({ onClose 
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-950 dark:text-amber-100">
-                  <span className="text-amber-800 font-semibold dark:text-amber-200">Grams (g):</span>
-                  <p className="text-xl font-serif font-bold text-amber-950 mt-0.5 dark:text-amber-100">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900">
+                  <span className="text-amber-800 font-semibold">Grams (g):</span>
+                  <p className="text-xl font-serif font-bold text-amber-900 mt-0.5">
                     {Math.round((parseFloat(ozInput) || 0) * 28.3495)} g
                   </p>
                 </div>

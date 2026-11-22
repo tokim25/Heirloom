@@ -183,7 +183,7 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
             </p>
           )}
           {suggestion && suggestion !== 'loading' && suggestion !== 'none' && (
-            <div className="mt-1.5 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/50 p-3 text-sm text-amber-900 dark:text-amber-100">
+            <div className="mt-1.5 rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
               <p className="font-semibold">{suggestion.name}</p>
               <p>{suggestion.ratio}</p>
               <div className="mt-2 flex gap-2">

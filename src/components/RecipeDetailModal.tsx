@@ -403,7 +403,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             role="status"
             className={`mx-4 mt-3 text-sm rounded-xl px-3 py-2 flex items-center justify-between gap-3 ${
               addListStatus.success
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800/50'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                 : 'bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800/50'
             }`}
           >
@@ -437,7 +437,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             title="Add ingredients to grocery list"
             className={`min-h-12 min-w-12 sm:px-4 inline-flex items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-60 ${
               addListStatus?.success
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700/60'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
                 : addListStatus
                 ? 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-700/60'
                 : 'bg-surface hover:bg-stone-50 text-stone-800 border-stone-300'

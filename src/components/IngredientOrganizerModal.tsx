@@ -117,7 +117,7 @@ export const IngredientOrganizerModal: React.FC<IngredientOrganizerModalProps> =
         {/* Header */}
         <div className="px-6 py-5 border-b border-stone-200/80 flex items-center justify-between bg-stone-50/70">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
               <Layers className="w-5 h-5" />
             </div>
             <div>
@@ -204,7 +204,7 @@ export const IngredientOrganizerModal: React.FC<IngredientOrganizerModalProps> =
             {activeIngredients.length > 0 && (
               <button
                 onClick={handleClear}
-                className="text-xs text-amber-700 hover:text-amber-800 font-medium flex items-center gap-1 dark:text-amber-300 dark:hover:text-amber-200"
+                className="text-xs text-amber-700 hover:text-amber-800 font-medium flex items-center gap-1"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset selection ({activeIngredients.length})</span>
@@ -215,8 +215,8 @@ export const IngredientOrganizerModal: React.FC<IngredientOrganizerModalProps> =
 
         {/* Selected Ingredients Pill Strip */}
         {activeIngredients.length > 0 && (
-          <div className="px-6 py-2.5 bg-amber-50/60 border-b border-amber-200/60 flex items-center gap-2 overflow-x-auto no-scrollbar dark:bg-amber-950/40 dark:border-amber-800/50">
-            <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider shrink-0 dark:text-amber-100">
+          <div className="px-6 py-2.5 bg-amber-50/60 border-b border-amber-200/60 flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider shrink-0">
               Selected:
             </span>
             {activeIngredients.map((item) => (
@@ -243,7 +243,7 @@ export const IngredientOrganizerModal: React.FC<IngredientOrganizerModalProps> =
                   onClick={() => toggleIngredient(facet.normalizedName)}
                   className={`flex items-center justify-between p-2.5 rounded-2xl border text-left transition-all ${
                     isSelected
-                      ? 'bg-amber-500/15 border-amber-500 text-amber-950 font-semibold shadow-xs dark:text-amber-100'
+                      ? 'bg-amber-500/15 border-amber-500 text-amber-900 font-semibold shadow-xs'
                       : 'bg-surface border-stone-200/80 text-stone-700 hover:border-stone-300 hover:bg-stone-50'
                   }`}
                 >

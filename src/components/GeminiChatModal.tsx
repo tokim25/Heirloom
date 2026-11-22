@@ -241,10 +241,10 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-200">
+                <span className="text-xs font-semibold uppercase tracking-wider text-amber-800">
                   Chef Gemini AI
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold dark:bg-amber-900/40 dark:text-amber-100">
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold">
                   Gemini 3.8 Flash
                 </span>
               </div>
@@ -356,10 +356,10 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                     const isRecipeSaving = savingRecipeIds.has(recipe.id);
                     const recipeSaveError = recipeSaveErrors[recipe.id];
                     return (
-                    <div key={recipe.id} className="mt-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 flex flex-col gap-2.5 dark:bg-amber-950/40 dark:border-amber-800/50">
+                    <div key={recipe.id} className="mt-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 flex flex-col gap-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
+                          <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
                             Chef Recipe Generated
                           </span>
                           <h4 className="font-serif text-base text-stone-900 font-semibold mt-0.5">
@@ -374,7 +374,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
                           <img
                             src={recipe.heroImage}
                             alt={recipe.title}
-                            className="w-14 h-14 rounded-lg object-cover border border-amber-200 shrink-0 dark:border-amber-800/50"
+                            className="w-14 h-14 rounded-lg object-cover border border-amber-200 shrink-0"
                           />
                         )}
                       </div>
@@ -428,12 +428,12 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
 
                   {/* Interactive Grocery List Embed Box */}
                   {m.parsedGroceryItems && m.parsedGroceryItems.length > 0 && (
-                    <div className="mt-3 p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col gap-2.5 dark:bg-emerald-950/40 dark:border-emerald-800/50">
+                    <div className="mt-3 p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col gap-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
                           Suggested Shopping Items ({m.parsedGroceryItems.length})
                         </span>
-                        <ShoppingBag className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+                        <ShoppingBag className="w-4 h-4 text-emerald-700" />
                       </div>
 
                       <ul className="text-xs text-stone-700 space-y-1">
@@ -482,7 +482,7 @@ export const GeminiChatModal: React.FC<GeminiChatModalProps> = ({
 
           {isLoading && !messages.some((m) => m.streaming) && (
             <div className="flex items-center gap-2 p-3.5 bg-surface border border-stone-200/80 rounded-2xl rounded-bl-xs w-fit text-xs text-stone-500 shadow-xs">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600 dark:text-amber-400" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
               <span>Chef Gemini is thinking…</span>
             </div>
           )}

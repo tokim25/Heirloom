@@ -176,7 +176,7 @@ export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) 
           <button
             type="button"
             onClick={addIngredient}
-            className="inline-flex items-center gap-1 min-h-11 px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 rounded-xl dark:hover:bg-amber-950/40 dark:text-amber-200"
+            className="inline-flex items-center gap-1 min-h-11 px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 rounded-xl"
           >
             <Plus className="w-4 h-4" />
             Add ingredient
@@ -238,7 +238,7 @@ export const RecipeEditor: React.FC<RecipeEditorProps> = ({ recipe, onChange }) 
           <button
             type="button"
             onClick={addStep}
-            className="inline-flex items-center gap-1 min-h-11 px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 rounded-xl dark:hover:bg-amber-950/40 dark:text-amber-200"
+            className="inline-flex items-center gap-1 min-h-11 px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 rounded-xl"
           >
             <Plus className="w-4 h-4" />
             Add step

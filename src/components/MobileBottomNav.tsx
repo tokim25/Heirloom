@@ -60,7 +60,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ groceryPending
                   isActive ? 'text-stone-950' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                <span className={`relative flex items-center justify-center ${isActive ? 'text-amber-700 dark:text-amber-300' : ''}`}>
+                <span className={`relative flex items-center justify-center ${isActive ? 'text-amber-700' : ''}`}>
                   {tab.icon}
                   {tab.badge ? (
                     <span

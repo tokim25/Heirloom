@@ -101,7 +101,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <BookOpen
                 className={`w-4 h-4 shrink-0 transition-colors ${
                   activeTab === 'cookbook'
-                    ? 'text-amber-600 stroke-[2.2] dark:text-amber-400'
+                    ? 'text-amber-600 stroke-[2.2]'
                     : 'text-stone-400 group-hover:text-stone-600 stroke-[1.8]'
                 }`}
               />
@@ -119,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <ShoppingBag
                 className={`w-4 h-4 shrink-0 transition-colors ${
                   activeTab === 'groceries'
-                    ? 'text-amber-600 stroke-[2.2] dark:text-amber-400'
+                    ? 'text-amber-600 stroke-[2.2]'
                     : 'text-stone-400 group-hover:text-stone-600 stroke-[1.8]'
                 }`}
               />
@@ -144,10 +144,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Ask Chef AI (Desktop - on mobile it lives in the thumb-accessible bottom bar) */}
           <button
             onClick={onOpenChat}
-            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-950 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] shadow-xs dark:text-amber-100"
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-900 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] shadow-xs"
             title="Chat with Chef AI (Find recipes, fix formatting, grocery help)"
           >
-            <Sparkles className="w-4 h-4 text-amber-600 fill-amber-500/30 shrink-0 dark:text-amber-400" />
+            <Sparkles className="w-4 h-4 text-amber-600 fill-amber-500/30 shrink-0" />
             <span>Ask Chef AI</span>
           </button>
 
@@ -223,7 +223,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       }}
                       className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                     >
-                      <Cloud className="w-4 h-4 text-amber-600 shrink-0 dark:text-amber-400" />
+                      <Cloud className="w-4 h-4 text-amber-600 shrink-0" />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium">Google Drive Copy</span>
                         <span className="text-xs text-stone-600 truncate">Automatic copy of your cookbook</span>
@@ -239,7 +239,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       }}
                       className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                     >
-                      <Layers className="w-4 h-4 text-amber-600 shrink-0 dark:text-amber-400" />
+                      <Layers className="w-4 h-4 text-amber-600 shrink-0" />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium">Organize by Ingredient</span>
                         <span className="text-xs text-stone-600 truncate">Find recipes by what you have</span>
@@ -254,7 +254,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                   >
-                    <UtensilsCrossed className="w-4 h-4 text-emerald-600 shrink-0 dark:text-emerald-400" />
+                    <UtensilsCrossed className="w-4 h-4 text-emerald-600 shrink-0" />
                     <div className="flex flex-col min-w-0">
                       <span className="font-medium">Pantry Checklist</span>
                       <span className="text-xs text-stone-600 truncate">Track staples you already have</span>
@@ -268,7 +268,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="w-full px-3.5 py-2 text-xs text-left text-stone-800 hover:bg-stone-50 flex items-center gap-2.5 transition-colors"
                   >
-                    <Calculator className="w-4 h-4 text-amber-600 shrink-0 dark:text-amber-400" />
+                    <Calculator className="w-4 h-4 text-amber-600 shrink-0" />
                     <div className="flex flex-col min-w-0">
                       <span className="font-medium">Culinary Converter</span>
                       <span className="text-xs text-stone-600 truncate">Cups to Grams, °F to °C</span>
