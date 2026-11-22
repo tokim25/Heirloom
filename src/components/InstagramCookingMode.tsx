@@ -661,7 +661,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
               <span className="text-sm font-semibold tracking-wider uppercase text-amber-300">
                 Step {currentStepIndex + 1} of {totalSteps}
               </span>
-              <span className="text-sm text-white/80 font-serif italic truncate max-w-[120px] xs:max-w-[180px] sm:max-w-md">
+              <span className="text-sm text-white/80 italic truncate max-w-[120px] xs:max-w-[180px] sm:max-w-md">
                 {recipe.title}
               </span>
               {hasRestoredSession && (

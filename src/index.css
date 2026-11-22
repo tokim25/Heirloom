@@ -51,9 +51,12 @@
   --color-stone-900: #212a31;
   --color-stone-950: #12171b;
 
-  /* Headlines use Fraunces with its "soft" axis turned up: rounder, warmer, a little more like handwriting. */
-  --font-serif: 'Fraunces', 'Instrument Serif', Georgia, serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Plus Jakarta Sans', system-ui, sans-serif;
+  /* Headlines use Bricolage Grotesque, which grows more characterful at large sizes. The token keeps its old
+     "serif" name so every font-serif class keeps working; it now holds the display face. It has no italic, so
+     italic text uses the body face instead. */
+  --font-serif: 'Bricolage Grotesque', 'Hanken Grotesk', system-ui, sans-serif;
+  /* Body text is Hanken Grotesk on every device; the system font is only a fallback while it loads. */
+  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   /* A small handwritten voice, only for signatures like "from Halmoni's kitchen". */
   --font-hand: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive;
 }

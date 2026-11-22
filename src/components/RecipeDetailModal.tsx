@@ -208,7 +208,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               {signature(recipe)?.kind === 'family' && <p className="font-hand text-3xl leading-none text-amber-700">{signature(recipe)!.text}</p>}
               {signature(recipe)?.kind === 'sent' && <p className="text-sm font-semibold text-stone-700">{signature(recipe)!.text}</p>}
               {recipe.story?.trim() && (
-                <blockquote className="border-l-2 border-amber-500/60 pl-4 font-serif text-lg italic text-stone-800 leading-relaxed">{recipe.story.trim()}</blockquote>
+                <blockquote className="border-l-2 border-amber-500/60 pl-4 text-lg italic text-stone-800 leading-relaxed">{recipe.story.trim()}</blockquote>
               )}
             </div>
           )}
