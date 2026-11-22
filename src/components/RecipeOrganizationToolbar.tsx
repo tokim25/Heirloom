@@ -109,7 +109,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
               }`}
               title="Filter recipes by ingredients in your pantry"
             >
-              <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <Layers className="w-3.5 h-3.5 text-amber-600" />
               <span>Ingredients</span>
               {selectedIngredientsCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full bg-ink text-white text-xs font-mono">
@@ -123,12 +123,12 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
             onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
               isAdvancedOpen || hasActiveFilters
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-950 font-semibold dark:text-amber-100'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 font-semibold'
                 : 'bg-surface border-stone-200/80 text-stone-700 hover:bg-stone-50'
             }`}
             title="Filter by prep time or cooking duration"
           >
-            <Filter className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <Filter className="w-3.5 h-3.5 text-amber-600" />
             <span>Filters</span>
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isAdvancedOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -138,14 +138,14 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
       {/* Active Filter Badges */}
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-          <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1 dark:text-amber-100">
-            <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
+            <Layers className="w-3.5 h-3.5 text-amber-600" />
             Active Filters:
           </span>
           {activeFilterBadges.map((badge) => (
             <span
               key={badge}
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface border border-amber-300/80 rounded-xl text-xs font-semibold text-stone-900 shadow-2xs dark:border-amber-700/60"
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface border border-amber-300/80 rounded-xl text-xs font-semibold text-stone-900 shadow-2xs"
             >
               {badge}
             </span>
@@ -153,7 +153,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
           {filter.selectedIngredients.map((ing) => (
             <span
               key={ing}
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface border border-amber-300/80 rounded-xl text-xs font-semibold text-stone-900 shadow-2xs dark:border-amber-700/60"
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface border border-amber-300/80 rounded-xl text-xs font-semibold text-stone-900 shadow-2xs"
             >
               <span>{ing}</span>
               <button
@@ -167,7 +167,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
           ))}
           <button
             onClick={handleResetFilters}
-            className="text-xs font-medium text-amber-800 hover:text-amber-950 underline underline-offset-2 ml-1 dark:text-amber-200 dark:hover:text-amber-100"
+            className="text-xs font-medium text-amber-800 hover:text-amber-900 underline underline-offset-2 ml-1"
           >
             Clear filters
           </button>
@@ -337,7 +337,7 @@ export const RecipeOrganizationToolbar: React.FC<RecipeOrganizationToolbarProps>
             {hasActiveFilters && (
               <button
                 onClick={handleResetFilters}
-                className="flex items-center gap-1 text-xs text-amber-800 hover:text-amber-950 font-medium transition-colors dark:text-amber-200 dark:hover:text-amber-100"
+                className="flex items-center gap-1 text-xs text-amber-800 hover:text-amber-900 font-medium transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset all filters</span>

@@ -51,9 +51,12 @@
   --color-stone-900: #212a31;
   --color-stone-950: #12171b;
 
-  /* Headlines use Fraunces with its "soft" axis turned up: rounder, warmer, a little more like handwriting. */
-  --font-serif: 'Fraunces', 'Instrument Serif', Georgia, serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Plus Jakarta Sans', system-ui, sans-serif;
+  /* Headlines use Bricolage Grotesque, which grows more characterful at large sizes. The token keeps its old
+     "serif" name so every font-serif class keeps working; it now holds the display face. It has no italic, so
+     italic text uses the body face instead. */
+  --font-serif: 'Bricolage Grotesque', 'Hanken Grotesk', system-ui, sans-serif;
+  /* Body text is Hanken Grotesk on every device; the system font is only a fallback while it loads. */
+  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   /* A small handwritten voice, only for signatures like "from Halmoni's kitchen". */
   --font-hand: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive;
 }
@@ -170,6 +173,13 @@
     font-family: var(--font-serif);
     font-optical-sizing: auto;
     letter-spacing: -0.01em;
+  }
+
+  /* Bricolage at regular weight looks too close to body text, so headlines default to semibold.
+     A weight class on the element (font-medium, font-bold) still wins, since utilities outrank this layer. */
+  h1:not(.font-sans), h2:not(.font-sans), h3:not(.font-sans), .font-editorial, .font-serif {
+    font-weight: 600;
+    letter-spacing: -0.015em;
   }
 
   .font-hand {

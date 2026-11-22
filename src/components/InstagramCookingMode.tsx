@@ -24,6 +24,8 @@ import { Recipe } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, formatStepTemperatures, UnitSystem } from '../utils/units.ts';
 import { ingredientsForStep } from '../utils/stepIngredients.ts';
 import { sounds } from '../utils/sound.ts';
+import { Quantity } from './ui/Quantity.tsx';
+import { StepTimer, StoredCookingSession, clearCookingSession, readStoredCookingSession, saveCookingSession, secondsLeftOf } from '../utils/cookingSession.ts';
 
 interface InstagramCookingModeProps {
   recipe: Recipe;
@@ -35,69 +37,6 @@ interface InstagramCookingModeProps {
   onAddStepIngredientsToGroceries?: (stepIngredients: string[]) => void;
 }
 
-/** One timer per step that has one. It keeps running when you move to another step. */
-interface StepTimer {
-  duration: number;
-  /** Seconds left while paused. */
-  remaining: number;
-  /** When it will finish (ms since epoch) while running, otherwise null. Wall-clock, so a locked phone loses nothing. */
-  endsAt: number | null;
-}
-
-interface StoredCookingSession {
-  recipeId: string;
-  currentStepIndex: number;
-  timers: Record<string, StepTimer>;
-  updatedAt: string;
-}
-
-const getCookingSessionStorageKey = (recipeId: string) => `heirloom_cooking_session_${recipeId}`;
-
-const readStoredCookingSession = (
-  storageKey: string,
-  recipeId: string,
-  totalSteps: number
-): StoredCookingSession | null => {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as Partial<StoredCookingSession> & { timerSecondsLeft?: number | null; isTimerRunning?: boolean; initialTimerDuration?: number | null };
-    if (parsed.recipeId !== recipeId || typeof parsed.currentStepIndex !== 'number') {
-      return null;
-    }
-
-    const currentStepIndex = Math.max(0, Math.min(totalSteps - 1, parsed.currentStepIndex));
-    const timers: Record<string, StepTimer> = {};
-    if (parsed.timers && typeof parsed.timers === 'object') {
-      for (const [key, t] of Object.entries(parsed.timers)) {
-        if (t && typeof t.duration === 'number' && t.duration > 0 && typeof t.remaining === 'number') {
-          timers[key] = { duration: t.duration, remaining: Math.max(0, t.remaining), endsAt: typeof t.endsAt === 'number' ? t.endsAt : null };
-        }
-      }
-    } else if (typeof parsed.timerSecondsLeft === 'number' && parsed.timerSecondsLeft >= 0) {
-      // A session saved before timers outlived steps: one timer, on the step you were on.
-      const duration = typeof parsed.initialTimerDuration === 'number' && parsed.initialTimerDuration > 0 ? parsed.initialTimerDuration : parsed.timerSecondsLeft;
-      if (duration > 0) {
-        timers[String(currentStepIndex)] = {
-          duration,
-          remaining: parsed.timerSecondsLeft,
-          endsAt: parsed.isTimerRunning && parsed.timerSecondsLeft > 0 ? Date.now() + parsed.timerSecondsLeft * 1000 : null,
-        };
-      }
-    }
-
-    return { recipeId, currentStepIndex, timers, updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString() };
-  } catch {
-    return null;
-  }
-};
-
-const secondsLeftOf = (timer: StepTimer, at: number): number =>
-  timer.endsAt !== null ? Math.max(0, Math.ceil((timer.endsAt - at) / 1000)) : timer.remaining;
-
 const COOKING_HINT_KEY = 'heirloom_cooking_hint_seen';
 
 export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
@@ -108,10 +47,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   onFinished,
 }) => {
   const totalSteps = recipe.steps.length;
-  const cookingSessionStorageKey = getCookingSessionStorageKey(recipe.id);
-  const restoredSessionRef = useRef<StoredCookingSession | null>(
-    readStoredCookingSession(cookingSessionStorageKey, recipe.id, totalSteps)
-  );
+  const restoredSessionRef = useRef<StoredCookingSession | null>(readStoredCookingSession(recipe.id, totalSteps));
   const [hasRestoredSession] = useState(() => restoredSessionRef.current !== null);
 
   const [currentStepIndex, setCurrentStepIndex] = useState(
@@ -144,7 +80,8 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     return out;
   });
   const [now, setNow] = useState(() => Date.now());
-  const [timerAlert, setTimerAlert] = useState<number | null>(null);
+  // A timer that finished while this screen was closed is shown again on return.
+  const [timerAlert, setTimerAlert] = useState<number | null>(() => restoredSessionRef.current?.alertStep ?? null);
   const anyTimerRunning = Object.values(timers).some((t) => t.endsAt !== null);
   const recognitionRef = useRef<any>(null);
 
@@ -155,6 +92,68 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       return true;
     }
   });
+
+  // Leaving with timers running asks first. The timers keep going either way: the app shell rings them.
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const runningTimerCount = Object.values(timers).filter((t) => t.endsAt !== null).length;
+  const requestClose = () => {
+    if (runningTimerCount > 0 && !finished && !showPrep) setConfirmLeave(true);
+    else onClose();
+  };
+
+  // Keep the screen on while cooking, so the phone doesn't lock on the counter. The browser drops the
+  // lock whenever the page is hidden, so it is asked for again each time the page comes back.
+  useEffect(() => {
+    const nav = navigator as Navigator & { wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> } };
+    if (!nav.wakeLock) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    let cancelled = false;
+    const acquire = () => {
+      if (document.visibilityState !== 'visible') return;
+      nav.wakeLock!.request('screen').then(
+        (l) => {
+          if (cancelled) void l.release().catch(() => {});
+          else lock = l;
+        },
+        () => {
+          // Refused (low battery, unsupported): the screen just follows the phone's own setting.
+        }
+      );
+    };
+    acquire();
+    document.addEventListener('visibilitychange', acquire);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', acquire);
+      void lock?.release().catch(() => {});
+    };
+  }, []);
+
+  // Every step change can be taken back for a few seconds, whatever caused it.
+  const [undoStep, setUndoStep] = useState<{ from: number; to: number } | null>(null);
+  const previousStepRef = useRef(currentStepIndex);
+  const skipUndoRef = useRef(false);
+  useEffect(() => {
+    const from = previousStepRef.current;
+    previousStepRef.current = currentStepIndex;
+    if (from === currentStepIndex) return;
+    if (skipUndoRef.current) {
+      skipUndoRef.current = false;
+      setUndoStep(null);
+      return;
+    }
+    setUndoStep({ from, to: currentStepIndex });
+    const id = window.setTimeout(() => setUndoStep(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [currentStepIndex]);
+  const undoStepChange = () => {
+    if (!undoStep) return;
+    skipUndoRef.current = true;
+    setCurrentStepIndex(undoStep.from);
+  };
+
+  // Jumping to a step goes through a list with full-height rows, never the thin progress bar.
+  const [stepsOpen, setStepsOpen] = useState(false);
 
   const currentStep = recipe.steps[currentStepIndex];
   const isLastStep = currentStepIndex === totalSteps - 1;
@@ -189,18 +188,19 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     });
 
   // Auto-save cooking progress so closing Stories mode does not lose place or running timers.
+  // Finishing clears the saved cook, so nothing is written after that.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const session: StoredCookingSession = {
+    if (typeof window === 'undefined' || finished) return;
+    saveCookingSession({
       recipeId: recipe.id,
       currentStepIndex,
       timers: Object.fromEntries(Object.entries(timers).map(([k, t]) => [k, t])),
       updatedAt: new Date().toISOString(),
-    };
-    try {
-      window.localStorage.setItem(cookingSessionStorageKey, JSON.stringify(session));
-    } catch {}
-  }, [cookingSessionStorageKey, currentStepIndex, recipe.id, timers]);
+      servings,
+      unitSystem,
+      alertStep: null,
+    });
+  }, [currentStepIndex, recipe.id, timers, servings, unitSystem, finished]);
 
   // Tick while anything is running; the display is computed from the clock, so a slow or paused page catches up.
   useEffect(() => {
@@ -284,10 +284,8 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       setCurrentStepIndex((prev) => prev + 1);
     } else {
       // Completed all steps!
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(cookingSessionStorageKey);
-      }
       setFinished(true);
+      clearCookingSession(recipe.id);
       // Spoken only when the person already turned the voice guide on.
       speakNotification('Enjoy your meal.');
     }
@@ -301,11 +299,12 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     }
   };
 
-  // Story navigation, like Instagram: tap the left third of the screen to go back and the rest to
-  // go forward; swipe left/right to move and swipe up to close. Buttons, links and form fields keep
-  // their own behavior, and text selection or scrolling a long step never navigates.
-  const swipeStartRef = useRef<{ x: number; y: number; inScrollable: boolean } | null>(null);
-  const ignoreTapUntilRef = useRef(0);
+  // Moving between steps is deliberate: the Back and Next buttons, arrow keys, voice, or a sideways swipe
+  // that follows the finger and only commits past about a third of the screen (or on a quick flick).
+  // A tap anywhere else does nothing, so a wrist or a wipe of steam never changes the step.
+  const dragRef = useRef<{ x: number; y: number; t: number; axis: 'x' | 'y' | null } | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
 
   const dismissHint = () => {
     setShowHint(false);
@@ -316,62 +315,39 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     }
   };
 
-  const handleStoryTap = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (finished || showPrep) return;
-    if (Date.now() < ignoreTapUntilRef.current) return;
-    const target = e.target as HTMLElement;
-    if (target.closest('button, a, input, select, textarea, label, summary, [data-no-tap]')) return;
-    if (window.getSelection()?.toString()) return;
-    dismissHint();
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (e.clientX - rect.left < rect.width * 0.3) {
-      handlePrevStep();
-    } else if (!isLastStep) {
-      // On the last step only the Finish button finishes, so a stray tap cannot fire the confetti.
-      handleNextStep();
-    }
-  };
-
-  // True when the touch began inside something that can still scroll vertically (a long step).
-  const startsInScrollableArea = (target: EventTarget | null, root: HTMLElement) => {
-    let node = target as HTMLElement | null;
-    while (node && node !== root) {
-      const overflowY = window.getComputedStyle(node).overflowY;
-      if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 1) return true;
-      node = node.parentElement;
-    }
-    return false;
-  };
-
-  const handleStoryTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleDragStart = (e: React.TouchEvent<HTMLDivElement>) => {
     const touch = e.touches[0];
-    swipeStartRef.current = touch
-      ? { x: touch.clientX, y: touch.clientY, inScrollable: startsInScrollableArea(e.target, e.currentTarget) }
-      : null;
+    dragRef.current = touch && !finished && !showPrep ? { x: touch.clientX, y: touch.clientY, t: Date.now(), axis: null } : null;
   };
 
-  const handleStoryTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (finished || showPrep) {
-      swipeStartRef.current = null;
-      return;
-    }
-    const start = swipeStartRef.current;
-    swipeStartRef.current = null;
-    const touch = e.changedTouches[0];
+  const handleDragMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = dragRef.current;
+    const touch = e.touches[0];
     if (!start || !touch) return;
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
+    if (start.axis === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) start.axis = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y';
+    if (start.axis !== 'x') return;
+    // Past the first or last step the card resists instead of following.
+    const atEdge = (dx > 0 && currentStepIndex === 0) || (dx < 0 && isLastStep);
+    setDragging(true);
+    setDragX(atEdge ? dx * 0.25 : dx);
+  };
 
-    // Swipe up closes the cooking view (unless the finger was scrolling a long step).
-    if (dy < -80 && Math.abs(dy) > Math.abs(dx) * 1.5 && !start.inScrollable) {
-      ignoreTapUntilRef.current = Date.now() + 400;
-      onClose();
-      return;
-    }
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    ignoreTapUntilRef.current = Date.now() + 400; // a swipe must not also count as a tap
+  const handleDragEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = dragRef.current;
+    dragRef.current = null;
+    setDragging(false);
+    setDragX(0);
+    const touch = e.changedTouches[0];
+    if (!start || !touch || start.axis !== 'x') return;
+    const dx = touch.clientX - start.x;
+    const speed = Math.abs(dx) / Math.max(1, Date.now() - start.t);
+    const committed = Math.abs(dx) > window.innerWidth * 0.35 || (speed > 0.6 && Math.abs(dx) > 40);
+    if (!committed) return; // let go early: the card springs back
     dismissHint();
     if (dx < 0) {
+      // On the last step only the Finish button finishes, so a stray swipe cannot fire the confetti.
       if (!isLastStep) handleNextStep();
     } else {
       handlePrevStep();
@@ -520,9 +496,17 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         if (e.key === 'Escape') onClose();
         return;
       }
+      if (confirmLeave) {
+        if (e.key === 'Escape') setConfirmLeave(false);
+        return;
+      }
+      if (stepsOpen) {
+        if (e.key === 'Escape') setStepsOpen(false);
+        return;
+      }
       if (e.key === 'ArrowRight') handleNextStep();
       if (e.key === 'ArrowLeft') handlePrevStep();
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') requestClose();
       if (e.key === ' ' && timerSecondsLeft !== null) {
         e.preventDefault();
         setIsTimerRunning((prev) => !prev);
@@ -530,7 +514,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentStepIndex, timerSecondsLeft, finished, showPrep]);
+  }, [currentStepIndex, timerSecondsLeft, finished, showPrep, confirmLeave, stepsOpen, runningTimerCount]);
 
   // Format MM:SS
   const formatTime = (secs: number) => {
@@ -548,7 +532,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
   useEffect(() => setSafetyOpen(false), [currentStepIndex]);
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} onClick={handleStoryTap} onTouchStart={handleStoryTouchStart} onTouchEnd={handleStoryTouchEnd} data-story-surface className="stone-original fixed inset-0 z-[60] cursor-pointer bg-ink-deep/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label={`Cooking mode: ${recipe.title}`} data-story-surface className="stone-original fixed inset-0 z-[60] bg-ink-deep/95 backdrop-blur-xl flex flex-col items-center justify-between text-stone-100 select-none overflow-hidden animate-in fade-in duration-200">
       {showPrep && <CookingPrep recipe={recipe} servings={servings} unitSystem={unitSystem} onStart={() => setShowPrep(false)} onClose={onClose} />}
 
       {finished && (
@@ -563,6 +547,25 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         />
       )}
 
+      {confirmLeave && (
+        <div data-no-tap className="absolute inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] cursor-default">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="leave-cooking-title" aria-describedby="leave-cooking-body" className="w-full max-w-sm rounded-3xl bg-stone-900 border border-white/10 p-6 flex flex-col gap-4 text-stone-100">
+            <h2 id="leave-cooking-title" className="text-2xl text-white">Leave cooking?</h2>
+            <p id="leave-cooking-body" className="text-base text-white/80 leading-relaxed">
+              {runningTimerCount === 1 ? '1 timer is' : `${runningTimerCount} timers are`} still running. {runningTimerCount === 1 ? 'It keeps' : 'They keep'} going, and Heirloom will ring when {runningTimerCount === 1 ? 'it finishes' : 'they finish'}.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button type="button" autoFocus onClick={() => setConfirmLeave(false)} className="min-h-12 rounded-2xl bg-amber-500 hover:bg-amber-400 text-on-accent text-base font-semibold">
+                Keep cooking
+              </button>
+              <button type="button" onClick={onClose} className="min-h-12 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-base font-semibold">
+                Leave cooking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Background Ambient Glow */}
       <div
         className="absolute inset-0 bg-cover bg-center opacity-15 filter blur-3xl scale-110 pointer-events-none"
@@ -570,33 +573,32 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       />
 
       {/* Top Header & Instagram Story Progress Bars */}
-      <div className="w-full max-w-2xl px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-2 z-20 flex flex-col gap-5">
+      <div className="relative w-full max-w-2xl px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-2 z-20 flex flex-col gap-5">
+        {/* Undo for the last step change. It sits over the top of the card (the step's small title), never
+            over a control, so reaching for the timer or the step's buttons can't hit it by mistake. */}
+        {undoStep && (
+          <div role="status" className="absolute top-full inset-x-0 mt-1 flex justify-center px-4 pointer-events-none">
+            <div className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-stone-100 text-stone-900 pl-4 pr-1 py-1 shadow-lg text-sm font-semibold">
+              <span>Now on step {undoStep.to + 1}</span>
+              <button type="button" onClick={undoStepChange} className="min-h-10 px-3 rounded-full hover:bg-stone-200 underline underline-offset-2">
+                Back to {undoStep.from + 1}
+              </button>
+            </div>
+          </div>
+        )}
         {/* Progress Segments */}
         <div className="flex items-center gap-1.5 w-full">
           {recipe.steps.map((_, idx) => {
             const isCompleted = idx < currentStepIndex;
             const isCurrent = idx === currentStepIndex;
             return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setCurrentStepIndex(idx)}
-                aria-label={`Go to step ${idx + 1} of ${totalSteps}`}
-                aria-current={isCurrent ? 'step' : undefined}
-                className="group flex-1 py-5 -my-5 cursor-pointer"
-              >
-                <span className="block h-1 rounded-full bg-white/20 overflow-hidden transition-all group-hover:h-1.5">
-                  <span
-                    className={`block h-full transition-all duration-300 ${
-                      isCompleted
-                        ? 'bg-amber-400 w-full'
-                        : isCurrent
-                        ? 'bg-white w-full shadow-[0_0_8px_rgba(255,255,255,0.8)]'
-                        : 'w-0'
-                    }`}
-                  />
-                </span>
-              </button>
+              <span key={idx} aria-hidden="true" className="flex-1 block h-1 rounded-full bg-white/20 overflow-hidden">
+                <span
+                  className={`block h-full transition-all duration-300 ${
+                    isCompleted ? 'bg-amber-400 w-full' : isCurrent ? 'bg-white w-full shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'w-0'
+                  }`}
+                />
+              </span>
             );
           })}
         </div>
@@ -642,7 +644,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
 
         {showHint && (
           <p role="status" className="self-center rounded-full bg-white/10 px-4 py-2 text-sm text-white/90 text-center">
-            Tap the right side for next, the left for back. Swipe up to close.
+            Swipe the card or use the buttons at the bottom.
           </p>
         )}
 
@@ -650,7 +652,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         <div className="flex items-center justify-between text-white/90">
           <div className="flex items-center gap-3">
             <button
-              onClick={onClose}
+              onClick={requestClose}
               className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-md"
               title="Close Cooking Mode"
               aria-label="Close cooking mode"
@@ -658,10 +660,17 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
               <X className="w-5 h-5" />
             </button>
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-semibold tracking-wider uppercase text-amber-300">
+              <button
+                type="button"
+                onClick={() => setStepsOpen(true)}
+                aria-haspopup="dialog"
+                className="self-start min-h-8 inline-flex items-center gap-1 text-sm font-semibold tracking-wider uppercase text-amber-300 hover:text-amber-200"
+              >
                 Step {currentStepIndex + 1} of {totalSteps}
-              </span>
-              <span className="text-sm text-white/80 font-serif italic truncate max-w-[120px] xs:max-w-[180px] sm:max-w-md">
+                <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                <span className="sr-only">: show all steps</span>
+              </button>
+              <span className="text-sm text-white/80 italic truncate max-w-[120px] xs:max-w-[180px] sm:max-w-md">
                 {recipe.title}
               </span>
               {hasRestoredSession && (
@@ -722,7 +731,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-stone-400" />}
             </button>
-            <div className="px-2.5 py-1 rounded-full bg-white/10 text-xs font-medium tracking-wide">
+            <div className="px-2.5 py-1 rounded-full bg-white/10 text-xs font-medium tracking-wide whitespace-nowrap">
               {servings} {servings === 1 ? 'serving' : 'servings'}
             </div>
           </div>
@@ -737,14 +746,24 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
       </div>
 
       {/* Main Story Content Card. Long steps scroll inside this area. */}
-      <div className="flex-1 min-h-0 w-full flex justify-center overflow-y-auto overscroll-contain z-10">
-      <div className="relative w-full max-w-2xl px-4 py-2 my-auto">
+      <div
+        onTouchStart={handleDragStart}
+        onTouchMove={handleDragMove}
+        onTouchEnd={handleDragEnd}
+        onTouchCancel={handleDragEnd}
+        className="flex-1 min-h-0 w-full flex justify-center overflow-y-auto overflow-x-hidden overscroll-contain z-10 touch-pan-y"
+      >
+      <div
+        className={`relative w-full max-w-2xl px-4 py-2 my-auto ${dragging ? '' : 'transition-transform duration-200 ease-out motion-reduce:transition-none'}`}
+        style={dragX ? { transform: `translateX(${dragX}px)` } : undefined}
+      >
         {/* The Card */}
         <div className="w-full bg-ink/80 border border-white/15 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6 relative z-20">
           {/* Step title (only when the recipe gave one) and the heat */}
           {(currentStep.title || currentStep.temperature || ovenNow) && (
             <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-              {currentStep.title ? <h2 className="text-2xl sm:text-3xl font-serif tracking-tight text-white">{currentStep.title}</h2> : <span />}
+              {/* The title is a small running head, so the instruction is the only large text. */}
+              {currentStep.title ? <h2 className="font-sans text-sm font-semibold uppercase tracking-wider text-white/70 pt-2">{currentStep.title}</h2> : <span />}
               {(currentStep.temperature || ovenNow) && (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-200 text-base font-semibold shrink-0">
                   <Flame className="w-4 h-4 text-amber-400" aria-hidden="true" />
@@ -771,7 +790,7 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
             <div className="bg-ink-deep/45 border border-white/10 rounded-2xl p-4 flex flex-col gap-3 shadow-inner" aria-live="off">
               <div className="flex flex-col gap-1.5">
                 <div
-                  className={`font-mono font-bold tabular-nums leading-none ${(initialTimerDuration ?? 0) >= 3600 ? 'text-4xl sm:text-6xl' : 'text-5xl sm:text-6xl'} ${
+                  className={`font-serif font-semibold tabular-nums leading-none ${(initialTimerDuration ?? 0) >= 3600 ? 'text-5xl sm:text-6xl' : 'text-6xl sm:text-7xl'} ${
                     timerSecondsLeft === 0 ? 'text-emerald-300' : isTimerRunning ? 'text-white' : 'text-white/70'
                   }`}
                   role="timer"
@@ -854,11 +873,13 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
                   const formattedFraction = formatFraction(converted.amount);
                   const quantity = portion?.word === 'rest' ? 'the rest of' : formattedFraction ? `${formattedFraction} ${converted.unit}` : converted.unit;
                   return (
-                    <div key={ing.id} className="flex items-baseline gap-2 px-4 py-2.5 rounded-xl bg-white/10 border border-white/10 text-base text-stone-100">
-                      <span className="font-semibold text-amber-300 shrink-0">{quantity}</span>
+                    <div key={ing.id} className="flex items-baseline gap-3 px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-xl sm:text-2xl leading-snug text-stone-100">
+                      <span className="font-serif font-semibold text-amber-300 shrink-0">
+                        {portion?.word === 'rest' ? quantity : formattedFraction ? <><Quantity value={formattedFraction} /> {converted.unit}</> : converted.unit}
+                      </span>
                       <span>
                         {ing.name}
-                        {ing.notes ? <span className="text-stone-400">, {ing.notes}</span> : null}
+                        {ing.notes ? <span className="text-stone-400 text-lg sm:text-xl">, {ing.notes}</span> : null}
                       </span>
                     </div>
                   );
@@ -944,43 +965,81 @@ export const InstagramCookingMode: React.FC<InstagramCookingModeProps> = ({
         </div>
       )}
 
-      {/* Bottom Floating Navigation Controls */}
-      <div className="w-full max-w-2xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] z-20 flex items-center justify-between gap-4">
-        <button
-          onClick={handlePrevStep}
-          disabled={currentStepIndex === 0}
-          aria-label="Previous step"
-          className={`flex items-center gap-1.5 min-h-12 px-5 rounded-xl text-sm font-medium backdrop-blur-md transition-all ${
-            currentStepIndex === 0
-              ? 'opacity-30 cursor-not-allowed text-white/40'
-              : 'bg-white/10 hover:bg-white/20 text-white'
-          }`}
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>Previous</span>
-        </button>
-
-        <span className="text-xs text-white/60 font-medium hidden sm:inline">
-          Tap the sides, swipe, or use arrow keys. Swipe up to close.
-        </span>
-
-        <button
-          onClick={handleNextStep}
-          className="flex items-center gap-2 min-h-12 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 text-on-accent text-sm font-semibold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
-        >
-          {isLastStep ? (
-            <>
-              <Sparkles className="w-4 h-4" />
-              <span>Finish Recipe!</span>
-            </>
-          ) : (
-            <>
-              <span>Next Step</span>
-              <ChevronRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
+      {/* Thumb bar: Back takes a third, Next two thirds, tall enough to hit without looking. */}
+      <div className="relative w-full max-w-2xl px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] z-20">
+        <div className="grid grid-cols-[1fr_2fr] gap-2">
+          <button
+            type="button"
+            onClick={handlePrevStep}
+            disabled={currentStepIndex === 0}
+            aria-label="Previous step"
+            className="min-h-[4.5rem] rounded-2xl inline-flex items-center justify-center gap-1.5 text-lg font-semibold bg-white/10 hover:bg-white/20 text-white disabled:opacity-30 disabled:hover:bg-white/10"
+          >
+            <ChevronLeft className="w-5 h-5" aria-hidden="true" />
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={handleNextStep}
+            className="min-h-[4.5rem] rounded-2xl inline-flex items-center justify-center gap-2 text-lg font-semibold bg-amber-500 hover:bg-amber-400 text-on-accent shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-transform motion-reduce:transition-none"
+          >
+            {isLastStep ? (
+              <>
+                <Sparkles className="w-5 h-5" aria-hidden="true" />
+                Finish
+              </>
+            ) : (
+              <>
+                Next step
+                <ChevronRight className="w-5 h-5" aria-hidden="true" />
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {stepsOpen && (
+        <div className="absolute inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" onClick={() => setStepsOpen(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="all-steps-title"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md max-h-[80vh] flex flex-col rounded-3xl bg-stone-900 border border-white/10 text-stone-100 overflow-hidden"
+          >
+            <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3">
+              <h2 id="all-steps-title" className="text-2xl text-white">All steps</h2>
+              <button type="button" onClick={() => setStepsOpen(false)} className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Close step list">
+                <X className="w-5 h-5" aria-hidden="true" />
+              </button>
+            </div>
+            <ol className="overflow-y-auto px-3 pb-3 flex flex-col gap-1">
+              {recipe.steps.map((step, idx) => {
+                const timer = timers[idx];
+                const running = timer && timer.endsAt !== null;
+                return (
+                  <li key={idx}>
+                    <button
+                      type="button"
+                      autoFocus={idx === currentStepIndex}
+                      onClick={() => {
+                        setCurrentStepIndex(idx);
+                        setStepsOpen(false);
+                      }}
+                      aria-current={idx === currentStepIndex ? 'step' : undefined}
+                      className={`w-full min-h-14 px-3 rounded-2xl flex items-center gap-3 text-left ${idx === currentStepIndex ? 'bg-amber-500/20 text-white' : 'hover:bg-white/10'}`}
+                    >
+                      <span className={`font-serif text-2xl tabular-nums w-8 shrink-0 text-right ${idx < currentStepIndex ? 'text-amber-400' : 'text-white/60'}`}>{idx + 1}</span>
+                      <span className="flex-1 min-w-0 text-base font-medium">{stepLabel(step)}</span>
+                      {running && <span className="shrink-0 text-sm font-semibold tabular-nums text-amber-300">{formatClock(secondsLeftOf(timer, now))}</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

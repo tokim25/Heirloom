@@ -404,7 +404,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
           {parsedRecipe ? (
             <>
               {warnings.length > 0 && (
-                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex flex-col gap-1.5 dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-800/50">
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex flex-col gap-1.5">
                   <span className="font-semibold">Worth a look</span>
                   <ul className="list-disc pl-5">
                     {warnings.map((warning) => (
@@ -440,7 +440,7 @@ export const RecipeImportModal: React.FC<RecipeImportModalProps> = ({ onClose, o
                     <button
                       type="button"
                       onClick={onAskChefAi}
-                      className="self-start inline-flex items-center gap-1.5 min-h-11 -ml-1 px-2 text-sm font-semibold text-amber-800 hover:text-amber-950 rounded-xl dark:text-amber-200 dark:hover:text-amber-100"
+                      className="self-start inline-flex items-center gap-1.5 min-h-11 -ml-1 px-2 text-sm font-semibold text-amber-800 hover:text-amber-900 rounded-xl"
                     >
                       <Sparkles className="w-4 h-4" aria-hidden="true" />
                       No recipe yet? Ask Chef AI

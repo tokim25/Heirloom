@@ -34,6 +34,8 @@ interface GroceryListViewProps {
   onUpdateItem: (listId: string, itemId: string, updates: Partial<GroceryItem>) => void;
   onDeleteItem: (listId: string, itemId: string) => void;
   onAddItem: (listId: string, item: Partial<GroceryItem>) => void;
+  /** Puts deleted items back as they were (used by Undo). */
+  onRestoreItems: (listId: string, items: GroceryItem[]) => void;
   onClearCompleted: (listId: string) => void;
   onCreateList: (title: string, store: string) => void;
   onJoinList: (inviteCode: string) => void;
@@ -63,6 +65,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
   onUpdateItem,
   onDeleteItem,
   onAddItem,
+  onRestoreItems,
   onClearCompleted,
   onCreateList,
   onJoinList,
@@ -90,29 +93,23 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       // Storage unavailable: the choice just lasts for this visit.
     }
   };
-  // Deleting is quick (swipe or tap), so it is always undoable for a few seconds.
-  const [undoItem, setUndoItem] = useState<GroceryItem | null>(null);
+  // Deleting is quick (swipe or tap), so it is always undoable for a few seconds. Deletes made close
+  // together are gathered, so a second delete never throws away the chance to undo the first.
+  const [undone, setUndone] = useState<{ listId: string; items: GroceryItem[] } | null>(null);
   const undoTimer = React.useRef<number | undefined>(undefined);
   const deleteWithUndo = (item: GroceryItem) => {
     if (!currentList) return;
-    onDeleteItem(currentList.id, item.id);
-    setUndoItem(item);
+    const listId = currentList.id;
+    onDeleteItem(listId, item.id);
+    setUndone((prev) => ({ listId, items: prev && prev.listId === listId ? [...prev.items, item] : [item] }));
     window.clearTimeout(undoTimer.current);
-    undoTimer.current = window.setTimeout(() => setUndoItem(null), 6000);
+    undoTimer.current = window.setTimeout(() => setUndone(null), 6000);
   };
   const undoDelete = () => {
-    if (!undoItem || !currentList) return;
+    if (!undone) return;
     window.clearTimeout(undoTimer.current);
-    onAddItem(currentList.id, {
-      name: undoItem.name,
-      amount: undoItem.amount,
-      unit: undoItem.unit,
-      category: undoItem.category,
-      assignedTo: undoItem.assignedTo,
-      recipeId: undoItem.recipeId,
-      recipeTitle: undoItem.recipeTitle,
-    });
-    setUndoItem(null);
+    onRestoreItems(undone.listId, undone.items);
+    setUndone(null);
   };
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -415,14 +412,14 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           className={`sticky top-20 z-30 p-3.5 rounded-2xl border shadow-lg flex items-start justify-between gap-3 animate-in slide-in-from-top duration-300 ${
             actionMessage.type === 'error'
               ? 'bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100 dark:border-rose-800/50'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100 dark:border-emerald-800/50'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
           }`}
         >
           <div className="flex items-start gap-2 text-xs font-medium">
             {actionMessage.type === 'error' ? (
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
             ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 dark:text-emerald-400" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             )}
             <div>
               <p className="font-semibold">
@@ -447,7 +444,7 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-stone-200">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+            <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
               Grocery list
             </span>
           </div>
@@ -535,8 +532,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
           >
             {copiedCode ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-emerald-700 font-semibold dark:text-emerald-300">Invite Copied!</span>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-700 font-semibold">Invite Copied!</span>
               </>
             ) : (
               <>
@@ -599,10 +596,10 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
                   key={`${pred.name}-${i}`}
                   type="button"
                   onClick={() => handleSelectPrediction(pred)}
-                  className="w-full px-3 py-2 text-left hover:bg-amber-50/60 flex items-center justify-between gap-2 transition-colors group dark:hover:bg-amber-950/40"
+                  className="w-full px-3 py-2 text-left hover:bg-amber-50/60 flex items-center justify-between gap-2 transition-colors group"
                 >
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-medium text-stone-900 group-hover:text-amber-900 truncate dark:group-hover:text-amber-100">
+                    <span className="text-xs font-medium text-stone-900 group-hover:text-amber-900 truncate">
                       {pred.name}
                     </span>
                     {pred.recipeTitle && (
@@ -808,8 +805,8 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
 
                           {/* Substitution details if out of stock */}
                           {item.isOutOfStock && item.substitution && (
-                            <div className="mt-1 flex items-center gap-1.5 text-xs sm:text-xs text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 w-fit dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800/50">
-                              <Sparkles className="w-3 h-3 text-amber-600 shrink-0 dark:text-amber-400" />
+                            <div className="mt-1 flex items-center gap-1.5 text-xs sm:text-xs text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 w-fit">
+                              <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
                               <span className="truncate max-w-[220px] sm:max-w-none">
                                 Sub: {item.substitution.name} ({item.substitution.ratio})
                               </span>
@@ -910,9 +907,10 @@ export const GroceryListView: React.FC<GroceryListViewProps> = ({
         )}
       </div>
 
-      {undoItem && (
-        <div role="status" className="fixed z-40 left-1/2 -translate-x-1/2 bottom-24 xl:bottom-8 max-w-[calc(100vw-2rem)] flex items-center gap-3 pl-4 pr-1 rounded-2xl bg-ink text-white shadow-xl">
-          <span className="py-3 text-sm truncate">Deleted {undoItem.name}</span>
+      {/* Sits above the tab bar and the cooking strip, so neither covers it. */}
+      {undone && (
+        <div role="status" className="fixed z-40 left-1/2 -translate-x-1/2 bottom-[calc(9rem+env(safe-area-inset-bottom))] xl:bottom-24 max-w-[calc(100vw-2rem)] flex items-center gap-3 pl-4 pr-1 rounded-2xl bg-ink text-white shadow-xl">
+          <span className="py-3 text-sm truncate">Deleted {undone.items.length === 1 ? undone.items[0].name : `${undone.items.length} items`}</span>
           <button type="button" onClick={undoDelete} className="min-h-11 px-4 text-sm font-semibold text-amber-300 hover:text-amber-200">
             Undo
           </button>

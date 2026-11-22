@@ -144,7 +144,7 @@ export const SharedRecipeSheet: React.FC<SharedRecipeSheetProps> = ({ shareId, l
             {recipe.steps.length} {recipe.steps.length === 1 ? 'step' : 'steps'}
           </p>
 
-          {savedRecipe && <p className="text-sm text-emerald-700 dark:text-emerald-300">This recipe is already in your cookbook.</p>}
+          {savedRecipe && <p className="text-sm text-emerald-700">This recipe is already in your cookbook.</p>}
           {error && (
             <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">
               {error}

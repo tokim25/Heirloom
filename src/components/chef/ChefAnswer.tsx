@@ -92,7 +92,7 @@ const Tip = defineComponent({
     <div
       className={`rounded-xl px-3 py-2.5 text-xs leading-relaxed ${
         props.tone === 'warning'
-          ? 'bg-amber-50 text-amber-900 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-800/50'
+          ? 'bg-amber-50 text-amber-900 border border-amber-200'
           : 'bg-stone-50 text-stone-700 border border-stone-200'
       }`}
     >
@@ -133,7 +133,7 @@ const RecipeChoices = defineComponent({
               <div
                 key={r.id}
                 className={`rounded-xl border p-3 flex flex-col gap-2 bg-surface ${
-                  isPicked ? 'border-amber-400 bg-amber-50/60 dark:bg-amber-950/30' : 'border-stone-200'
+                  isPicked ? 'border-amber-400 bg-amber-50/60' : 'border-stone-200'
                 }`}
               >
                 <label className={`flex items-start gap-2 ${multiple && !saved ? 'cursor-pointer' : ''}`}>
@@ -155,7 +155,7 @@ const RecipeChoices = defineComponent({
                 </label>
                 <div className="flex items-center gap-2">
                   {saved && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
                       <Check className="w-3.5 h-3.5" /> Saved
                     </span>
                   )}
@@ -286,12 +286,12 @@ const GroceryList = defineComponent({
     const key = `${messageId}-groceries`;
     const added = addedGroceryKeys.has(key);
     return (
-      <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col gap-2.5 dark:bg-emerald-950/40 dark:border-emerald-800/50">
+      <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
+          <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
             Suggested Shopping Items ({items.length})
           </span>
-          <ShoppingBag className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+          <ShoppingBag className="w-4 h-4 text-emerald-700" />
         </div>
         <ul className="text-xs text-stone-700 space-y-1">
           {items.map((item, i) => (

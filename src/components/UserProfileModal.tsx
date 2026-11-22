@@ -161,7 +161,7 @@ const Avatar: React.FC<{ name: string; url?: string; size?: number }> = ({ name,
   ) : (
     <span
       style={{ width: size, height: size }}
-      className="rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 flex items-center justify-center font-serif font-semibold shrink-0"
+      className="rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-serif font-semibold shrink-0"
       aria-hidden="true"
     >
       {(name || '?').charAt(0).toUpperCase()}
@@ -326,7 +326,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, rec
           <Group title="Sync">
             <Row>
               <span className="flex-1 text-base text-stone-900">Cookbook and lists</span>
-              <span className="text-sm text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5">
+              <span className="text-sm text-emerald-700 inline-flex items-center gap-1.5">
                 <Check className="w-4 h-4" aria-hidden="true" />
                 Synced
               </span>
@@ -341,7 +341,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, rec
                 className="w-full min-h-14 px-4 py-2.5 flex items-center gap-3 text-left hover:bg-stone-50 active:bg-stone-100"
               >
                 <span className="flex-1 text-base text-stone-900">Google Drive copy</span>
-                <span className={`text-sm ${driveStatus === 'On' ? 'text-emerald-700 dark:text-emerald-300' : 'text-stone-600'}`}>{driveStatus}</span>
+                <span className={`text-sm ${driveStatus === 'On' ? 'text-emerald-700' : 'text-stone-600'}`}>{driveStatus}</span>
                 <ChevronRight className="w-5 h-5 text-stone-400" aria-hidden="true" />
               </button>
             )}

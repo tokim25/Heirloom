@@ -2,6 +2,7 @@ import React from 'react';
 import { Clock, X } from 'lucide-react';
 import { Recipe } from '../types/recipe.ts';
 import { convertUnit, formatFraction, scaleQuantity, UnitSystem } from '../utils/units.ts';
+import { Quantity } from './ui/Quantity.tsx';
 import { equipmentFromSteps, formatDurationWords, totalWaitSeconds } from '../utils/cookingGuide.ts';
 
 interface CookingPrepProps {
@@ -71,9 +72,10 @@ export const CookingPrep: React.FC<CookingPrepProps> = ({ recipe, servings, unit
               const converted = convertUnit(scaled, ing.unit, ing.name, unitSystem);
               const amount = formatFraction(converted.amount);
               return (
-                <li key={ing.id} className="px-4 py-2.5 flex items-baseline gap-3 text-base">
-                  <span className="w-24 shrink-0 font-semibold text-amber-300">{amount ? `${amount} ${converted.unit}` : converted.unit}</span>
-                  <span>
+                <li key={ing.id} className="px-4 py-2.5 grid grid-cols-[3.25rem_1fr] gap-x-3 items-baseline text-base">
+                  <span className="text-right">{amount && <Quantity value={amount} className="font-serif text-lg font-semibold text-amber-300" />}</span>
+                  <span className="min-w-0">
+                    {converted.unit && <span className="text-sm text-stone-400 mr-1.5">{converted.unit}</span>}
                     {ing.name}
                     {ing.notes ? <span className="text-stone-400">, {ing.notes}</span> : null}
                   </span>

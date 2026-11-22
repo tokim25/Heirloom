@@ -26,6 +26,8 @@ import {
 import { Recipe, Ingredient, GroceryList } from '../types/recipe.ts';
 import { scaleQuantity, formatFraction, convertUnit, UnitSystem, formatStepTemperatures } from '../utils/units.ts';
 import { ConfirmSheet, Sheet } from './ui/Sheet.tsx';
+import { Quantity } from './ui/Quantity.tsx';
+import { isLiveSession, useCookingSessions } from '../utils/cookingSession.ts';
 
 export interface AddToGroceryListResult {
   success: boolean;
@@ -64,6 +66,8 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   onPlanRecipe,
 }) => {
   const [servings, setServings] = useState(recipe.defaultServings || 2);
+  // A cook of this recipe already in progress on this device: the main button picks it back up.
+  const cookInProgress = useCookingSessions().find((c) => c.recipeId === recipe.id && isLiveSession(c, Date.now()));
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('imperial');
   const [selectedListId, setSelectedListId] = useState(currentListId || groceryLists[0]?.id || '');
   const [addListStatus, setAddListStatus] = useState<AddToGroceryListResult | null>(null);
@@ -208,7 +212,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               {signature(recipe)?.kind === 'family' && <p className="font-hand text-3xl leading-none text-amber-700">{signature(recipe)!.text}</p>}
               {signature(recipe)?.kind === 'sent' && <p className="text-sm font-semibold text-stone-700">{signature(recipe)!.text}</p>}
               {recipe.story?.trim() && (
-                <blockquote className="border-l-2 border-amber-500/60 pl-4 font-serif text-lg italic text-stone-800 leading-relaxed">{recipe.story.trim()}</blockquote>
+                <blockquote className="border-l-2 border-amber-500/60 pl-4 text-lg italic text-stone-800 leading-relaxed">{recipe.story.trim()}</blockquote>
               )}
             </div>
           )}
@@ -302,11 +306,13 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                         const displayQty = formatFraction(converted.amount);
 
                         return (
-                          <li key={ing.id} className="py-3 px-2 flex items-baseline gap-2 text-base">
-                            <span className="font-semibold text-stone-900 whitespace-nowrap">
-                              {displayQty ? `${displayQty} ${converted.unit}` : converted.unit}
+                          // A ledger: amounts in a right-aligned column, so every ingredient name starts at the same edge.
+                          <li key={ing.id} className="py-3 px-2 grid grid-cols-[3.75rem_1fr] gap-x-3 items-baseline text-base">
+                            <span className="text-right">
+                              {displayQty && <Quantity value={displayQty} className="font-serif text-lg font-semibold text-stone-900" />}
                             </span>
-                            <span className="text-stone-800">
+                            <span className="text-stone-800 min-w-0">
+                              {converted.unit && <span className="text-sm text-stone-600 mr-1.5">{converted.unit}</span>}
                               {ing.name}
                               {ing.notes && <span className="text-stone-600 text-sm italic"> ({ing.notes})</span>}
                             </span>
@@ -328,21 +334,24 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                 <span className="text-sm text-stone-600">{recipe.steps.length} steps</span>
               </div>
 
-              <ol className="flex flex-col gap-3">
+              <ol className="flex flex-col">
                 {recipe.steps.map((step, idx) => (
-                  <li key={step.stepNumber} className="p-4 rounded-2xl bg-surface border border-stone-200/80 shadow-xs flex flex-col gap-2">
+                  // No cards: a large numeral in the margin carries the sequence, and a hairline separates steps.
+                  <li key={step.stepNumber} className="grid grid-cols-[2.25rem_1fr] gap-x-3 py-4 border-t border-stone-200/80 first:border-t-0 first:pt-1">
+                    <span aria-hidden="true" className="font-serif text-3xl font-semibold leading-none text-amber-700 tabular-nums text-right pt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0 flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-7 h-7 shrink-0 rounded-full bg-ink text-white text-sm font-medium flex items-center justify-center">
-                          {idx + 1}
-                        </span>
-                        <h3 className="font-serif text-lg font-medium text-stone-900">{step.title || `Step ${idx + 1}`}</h3>
-                      </div>
+                      <h3 className="font-serif text-lg font-semibold text-stone-900 min-w-0">
+                        <span className="sr-only">Step {idx + 1}: </span>
+                        {step.title || `Step ${idx + 1}`}
+                      </h3>
 
                       <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
                         {step.timerSeconds ? (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800/50">
-                            <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
+                            <Clock className="w-3 h-3 text-amber-600" aria-hidden="true" />
                             {Math.round(step.timerSeconds / 60)} min
                           </span>
                         ) : null}
@@ -355,16 +364,17 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                       </div>
                     </div>
 
-                    <p className="text-base text-stone-700 leading-relaxed">
+                    <p className="text-[1.0625rem] text-stone-900 leading-[1.6] max-w-[62ch]">
                       {formatStepTemperatures(step.instruction, unitSystem)}
                     </p>
 
                     {step.tips && (
-                      <div className="text-sm text-amber-900 bg-amber-50/70 p-3 rounded-xl border border-amber-100 dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-900/40">
+                      <div className="text-sm text-amber-900 bg-amber-50/70 p-3 rounded-xl border border-amber-100">
                         <span className="font-semibold">Tip: </span>
                         {step.tips}
                       </div>
                     )}
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -393,7 +403,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             role="status"
             className={`mx-4 mt-3 text-sm rounded-xl px-3 py-2 flex items-center justify-between gap-3 ${
               addListStatus.success
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800/50'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                 : 'bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800/50'
             }`}
           >
@@ -416,7 +426,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             className="flex-1 min-h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-on-accent text-base font-semibold shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all"
           >
             <Play className="w-4 h-4 fill-current" aria-hidden="true" />
-            Start cooking
+            {cookInProgress ? `Resume · step ${Math.min(cookInProgress.currentStepIndex, recipe.steps.length - 1) + 1}` : 'Start cooking'}
           </button>
 
           <button
@@ -427,7 +437,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             title="Add ingredients to grocery list"
             className={`min-h-12 min-w-12 sm:px-4 inline-flex items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-60 ${
               addListStatus?.success
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700/60'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
                 : addListStatus
                 ? 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-700/60'
                 : 'bg-surface hover:bg-stone-50 text-stone-800 border-stone-300'

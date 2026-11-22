@@ -203,7 +203,7 @@ export const PredictiveSearchBar: React.FC<PredictiveSearchBarProps> = ({
                             {recipe.title}
                           </div>
                           <div className="flex items-center gap-2 text-xs text-stone-500 mt-0.5">
-                            <span className="font-medium text-amber-800 dark:text-amber-200">{recipe.cuisine}</span>
+                            <span className="font-medium text-amber-800">{recipe.cuisine}</span>
                             <span>•</span>
                             <span className="flex items-center gap-0.5">
                               <Clock className="w-2.5 h-2.5" />

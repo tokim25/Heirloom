@@ -42,7 +42,8 @@ import { useAuth } from './context/AuthContext.tsx';
 import { UnitSystem, scaleQuantity } from './utils/units.ts';
 import { firestoreService, formatInviteCode } from './utils/firestoreService.ts';
 import { planGroceryMerge } from './utils/groceryMerge.ts';
-import { closeOverlay, getPath, joinCodeFromPath, navigate, recipeIdFromPath, recipePath, shareIdFromPath, sharePath, usePath } from './utils/router.ts';
+import { closeOverlay, cookIdFromPath, cookPath, getPath, joinCodeFromPath, navigate, recipeIdFromPath, recipePath, shareIdFromPath, sharePath, shopIdFromPath, shopPath, usePath } from './utils/router.ts';
+import { CookingStrip } from './components/CookingStrip.tsx';
 import { sounds } from './utils/sound.ts';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { PredictiveSearchBar } from './components/PredictiveSearchBar.tsx';
@@ -173,12 +174,28 @@ export default function App() {
   const joinCode = joinCodeFromPath(path);
   const [joining, setJoining] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
-  const [cookingState, setCookingState] = useState<{
-    recipe: Recipe;
-    servings: number;
-    unitSystem: UnitSystem;
-  } | null>(null);
-  const [shoppingListId, setShoppingListId] = useState<string | null>(null);
+  // Cooking mode comes from /cook/:id. `cookingFallback` covers a recipe from Chef AI that is cooked
+  // before the cookbook listener delivers it.
+  const [cookingFallback, setCookingFallback] = useState<Recipe | null>(null);
+  const routeCookId = cookIdFromPath(path);
+  const cookingRecipe: Recipe | null = routeCookId
+    ? recipes.find((r) => r.id === routeCookId) ?? (cookingFallback?.id === routeCookId ? cookingFallback : null)
+    : null;
+  const cookingQuery = new URLSearchParams(routeCookId ? window.location.search : '');
+  const cookingState = cookingRecipe
+    ? {
+        recipe: cookingRecipe,
+        servings: Number(cookingQuery.get('servings')) || cookingRecipe.defaultServings,
+        unitSystem: (cookingQuery.get('units') === 'metric' ? 'metric' : 'imperial') as UnitSystem,
+      }
+    : null;
+  // A link to cook a recipe that is not in this cookbook (deleted, or someone else's) goes to the cookbook.
+  useEffect(() => {
+    if (routeCookId && recipesLoaded && !cookingRecipe) navigate('/', { replace: true });
+  }, [routeCookId, recipesLoaded, !!cookingRecipe]);
+  // Shopping comes from /shop/:listId.
+  const shoppingListId = shopIdFromPath(path);
+  const openShopping = (listId: string) => navigate(shopPath(listId));
   const [isConverterOpen, setIsConverterOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isPantryOpen, setIsPantryOpen] = useState(false);
@@ -401,12 +418,9 @@ export default function App() {
     if (householdId && shouldCountCooking(live, Date.now())) {
       runWrite(firestoreService.adjustRecipeUse(householdId, recipe.id, 1, new Date().toISOString()), 'Could not record that you cooked this.');
     }
-    closeRecipe();
-    setCookingState({
-      recipe,
-      servings: servings || recipe.defaultServings,
-      unitSystem: unitSystem || 'imperial',
-    });
+    setCookingFallback(recipe);
+    // Pushed on top of whatever is showing (often the recipe), so Back leaves cooking and lands there.
+    navigate(cookPath(recipe.id, servings || recipe.defaultServings, unitSystem || 'imperial'));
   };
 
   // Add all recipe ingredients to a shared grocery list (creating one if needed)
@@ -481,7 +495,7 @@ export default function App() {
   // "Shop" from a recipe: put its ingredients on the list (combining repeats), then open the shopping screen.
   const handleShopRecipe = async (recipe: Recipe, servings: number) => {
     const result = await handleAddRecipeToGroceryList(recipe, servings);
-    if (result.success && result.listId) setShoppingListId(result.listId);
+    if (result.success && result.listId) openShopping(result.listId);
     else showNotice('error', result.message);
   };
 
@@ -613,6 +627,12 @@ export default function App() {
     );
   };
 
+  const handleRestoreGroceryItems = (listId: string, items: GroceryItem[]) => {
+    const householdId = requireHousehold();
+    if (!householdId) return;
+    runWrite(firestoreService.restoreGroceryItems(householdId, listId, items), 'Could not bring those items back. Try again.');
+  };
+
   const handleClearCompletedGroceries = async (listId: string) => {
     const householdId = requireHousehold();
     const list = groceryLists.find((l) => l.id === listId);
@@ -687,7 +707,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 flex flex-col gap-6 sm:gap-8 w-full max-w-full">
             {/* A friendly line, and tonight's dinner when there is one */}
             <div className="flex flex-col gap-3 -mb-2">
-              <p className="font-hand text-2xl leading-none text-amber-700">{greeting(new Date().getHours(), user.name)}</p>
+              <p className="text-base font-semibold text-amber-700">{greeting(new Date().getHours(), user.name)}</p>
               {tonight && tonightRecipe && (
                 <div className="flex items-center gap-3 rounded-2xl bg-surface border border-stone-200/80 pl-4 pr-2 py-2 shadow-[0_2px_12px_rgba(43,53,62,0.04)]">
                   <button type="button" onClick={() => openRecipe(tonightRecipe)} className="min-w-0 flex-1 text-left min-h-11">
@@ -834,6 +854,7 @@ export default function App() {
           /* Shared Groceries Tab */
           <Suspense fallback={<div className="flex justify-center py-32" aria-label="Loading groceries"><div className="h-8 w-8 rounded-full border-2 border-stone-300 border-t-stone-900 animate-spin" /></div>}>
           <GroceryListView
+            onRestoreItems={handleRestoreGroceryItems}
             groceryLists={householdLists}
             currentList={currentGroceryList}
             plannedMeals={plannedMeals}
@@ -845,7 +866,7 @@ export default function App() {
             onCreateList={handleCreateNewList}
             onDeleteList={handleDeleteGroceryList}
             onJoinList={handleJoinHousehold}
-            onOpenInstacartForList={(list) => setShoppingListId(list.id)}
+            onOpenInstacartForList={(list) => openShopping(list.id)}
             partnerNotification={partnerNotification}
             actionMessage={null}
             onDismissActionMessage={() => setNotice(null)}
@@ -859,6 +880,9 @@ export default function App() {
       {user && (
       <MobileBottomNav groceryPendingCount={groceryPendingCount} />
       )}
+
+      {/* A cook in progress, while cooking mode is closed. It also rings timers that finish meanwhile. */}
+      {user && !cookingState && <CookingStrip recipes={recipes} onResume={(r, s, u) => navigate(cookPath(r.id, s || r.defaultServings, u))} />}
 
       {/* Modals (loaded on first use) */}
       <Suspense fallback={null}>
@@ -913,12 +937,8 @@ export default function App() {
             const householdId = user?.householdId;
             if (householdId) runWrite(firestoreService.addCookNote(householdId, cookingState.recipe.id, { date: new Date().toISOString(), note }), 'Could not save your note.');
           }}
-          onClose={() => {
-            // Leaving the cooking view returns to the recipe you were cooking.
-            const cooked = cookingState.recipe;
-            setCookingState(null);
-            openRecipe(cooked);
-          }}
+          // Same as Back: returns to wherever cooking was started, or to the recipe after a direct link.
+          onClose={() => closeOverlay('/cook', recipePath(cookingState.recipe.id))}
         />
       )}
 
@@ -941,7 +961,7 @@ export default function App() {
             localStorage.setItem('heirloom_preferred_store', storeName);
             updateProfile({ preferredStore: storeName }).catch(() => {});
           }}
-          onClose={() => setShoppingListId(null)}
+          onClose={() => closeOverlay('/shop', '/groceries')}
         />
       )}
 

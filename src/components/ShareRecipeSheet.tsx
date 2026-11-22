@@ -260,7 +260,7 @@ export const ShareRecipeSheet: React.FC<ShareRecipeSheetProps> = ({ recipe, load
           </form>
 
           {editedSinceShared && (
-            <div className="rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/50 p-3 text-sm text-amber-900 dark:text-amber-100 flex flex-col gap-2">
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900 flex flex-col gap-2">
               <p>You have edited this recipe since you shared it. People who open the link still see the older version.</p>
               <button
                 type="button"

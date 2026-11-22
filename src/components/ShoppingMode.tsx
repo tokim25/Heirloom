@@ -66,10 +66,19 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
 
   const total = list.items.length;
   const bought = list.items.filter((item) => item.checked).length;
+  // Items you tick on this visit stay where they are (struck through) instead of jumping to
+  // "Already added", so the next row never slides under your thumb. Ticks from others still move.
+  const [heldIds, setHeldIds] = useState<Set<string>>(() => new Set());
+  const toggleItem = (item: GroceryItem) => {
+    if (!item.checked) setHeldIds((prev) => new Set(prev).add(item.id));
+    onToggleItem(item);
+  };
   const remaining = list.items.filter((item) => !item.checked);
-  const inPantry = remaining.filter((item) => isIngredientInPantry(item.name, pantryItems));
-  const toBuy = remaining.filter((item) => !inPantry.includes(item));
-  const doneItems = list.items.filter((item) => item.checked);
+  const listed = list.items.filter((item) => !item.checked || heldIds.has(item.id));
+  const inPantry = listed.filter((item) => isIngredientInPantry(item.name, pantryItems));
+  const toBuy = listed.filter((item) => !inPantry.includes(item));
+  // Once everything is in the cart the list gives way to "That's the lot", so held items rejoin "Already added".
+  const doneItems = list.items.filter((item) => item.checked && (remaining.length === 0 || !heldIds.has(item.id)));
 
   const storeOptions = useMemo(() => visibleStoreNames(customStores, hiddenStores, storeName), [customStores, hiddenStores, storeName]);
   const notice = storeNotice(storeName);
@@ -142,7 +151,7 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
           role="checkbox"
           aria-checked={item.checked}
           aria-label={`${item.checked ? 'Put back' : 'Mark as added:'} ${item.name}`}
-          onClick={() => onToggleItem(item)}
+          onClick={() => toggleItem(item)}
           className="min-h-11 min-w-11 -ml-2 flex items-center justify-center shrink-0"
         >
           <span
@@ -183,7 +192,7 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({
             </p>
           )}
           {suggestion && suggestion !== 'loading' && suggestion !== 'none' && (
-            <div className="mt-1.5 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/50 p-3 text-sm text-amber-900 dark:text-amber-100">
+            <div className="mt-1.5 rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
               <p className="font-semibold">{suggestion.name}</p>
               <p>{suggestion.ratio}</p>
               <div className="mt-2 flex gap-2">

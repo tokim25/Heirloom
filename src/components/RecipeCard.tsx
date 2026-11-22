@@ -69,7 +69,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
       </div>
 
       <div className="px-5 py-4 flex flex-col gap-1">
-        <h3 className="font-serif text-xl sm:text-2xl font-normal text-stone-900 leading-snug line-clamp-2">{recipe.title}</h3>
+        <h3 className="font-serif text-xl sm:text-2xl font-semibold text-stone-900 leading-snug line-clamp-2">{recipe.title}</h3>
         {sig?.kind === 'family' ? (
           <p className="font-hand text-xl leading-none text-amber-700">{sig.text}</p>
         ) : sig ? (

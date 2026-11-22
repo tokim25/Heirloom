@@ -14,7 +14,7 @@ const tabForPath = (path: string): TabId => {
   if (path === '/add') return 'add';
   if (path === '/plan') return 'plan';
   if (path === '/profile') return 'profile';
-  if (path === '/groceries') return 'groceries';
+  if (path === '/groceries' || path.startsWith('/shop/')) return 'groceries';
   return 'recipes';
 };
 
@@ -27,8 +27,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ groceryPending
   const active = tabForPath(path);
 
   const tabs: { id: TabId; label: string; badge?: number; icon: React.ReactNode }[] = [
-    { id: 'recipes', label: 'Recipes', icon: <BookOpen className="w-6 h-6" aria-hidden="true" /> },
-    { id: 'plan', label: 'Plan', icon: <CalendarDays className="w-6 h-6" aria-hidden="true" /> },
+    { id: 'recipes', label: 'Cookbook', icon: <BookOpen className="w-6 h-6" aria-hidden="true" /> },
+    { id: 'plan', label: 'Meal plan', icon: <CalendarDays className="w-6 h-6" aria-hidden="true" /> },
     { id: 'add', label: 'Add', icon: <Plus className="w-6 h-6" aria-hidden="true" /> },
     { id: 'groceries', label: 'Groceries', badge: groceryPendingCount, icon: <ShoppingBag className="w-6 h-6" aria-hidden="true" /> },
     {
@@ -60,7 +60,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ groceryPending
                   isActive ? 'text-stone-950' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                <span className={`relative flex items-center justify-center ${isActive ? 'text-amber-700 dark:text-amber-300' : ''}`}>
+                <span className={`relative flex items-center justify-center ${isActive ? 'text-amber-700' : ''}`}>
                   {tab.icon}
                   {tab.badge ? (
                     <span

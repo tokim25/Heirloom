@@ -45,7 +45,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSignIn, errorMes
       <ul className="flex flex-col gap-4">
         {FEATURES.map(({ icon: Icon, title, body }) => (
           <li key={title} className="flex items-start gap-3">
-            <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center dark:bg-amber-900/40 dark:text-amber-200">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
               <Icon className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
