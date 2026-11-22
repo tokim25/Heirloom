@@ -27,8 +27,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ groceryPending
   const active = tabForPath(path);
 
   const tabs: { id: TabId; label: string; badge?: number; icon: React.ReactNode }[] = [
-    { id: 'recipes', label: 'Recipes', icon: <BookOpen className="w-6 h-6" aria-hidden="true" /> },
-    { id: 'plan', label: 'Plan', icon: <CalendarDays className="w-6 h-6" aria-hidden="true" /> },
+    { id: 'recipes', label: 'Cookbook', icon: <BookOpen className="w-6 h-6" aria-hidden="true" /> },
+    { id: 'plan', label: 'Meal plan', icon: <CalendarDays className="w-6 h-6" aria-hidden="true" /> },
     { id: 'add', label: 'Add', icon: <Plus className="w-6 h-6" aria-hidden="true" /> },
     { id: 'groceries', label: 'Groceries', badge: groceryPendingCount, icon: <ShoppingBag className="w-6 h-6" aria-hidden="true" /> },
     {

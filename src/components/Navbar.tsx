@@ -141,7 +141,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          {/* Ask Chef AI (Desktop - on mobile it lives in the thumb-accessible bottom bar) */}
+          {/* Ask Chef AI: an icon on phones and tablets, a labelled button on wide screens. */}
+          <button
+            type="button"
+            onClick={onOpenChat}
+            className="xl:hidden min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/15 text-amber-700 active:scale-[0.97] transition-all"
+            aria-label="Ask Chef AI"
+            title="Ask Chef AI"
+          >
+            <Sparkles className="w-5 h-5 fill-amber-500/30" aria-hidden="true" />
+          </button>
           <button
             onClick={onOpenChat}
             className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-900 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] shadow-xs"
@@ -151,13 +160,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Ask Chef AI</span>
           </button>
 
-          {/* Import Recipe (Desktop - on mobile it is the prominent center action in bottom bar) */}
+          {/* Add recipe (wide screens; phones use Add in the bottom bar) */}
           <button
             onClick={onOpenImport}
             className="hidden xl:flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-ink hover:bg-ink-hover rounded-xl shadow-xs transition-all active:scale-[0.98]"
           >
             <Plus className="w-4 h-4 stroke-[2.5] shrink-0 text-white" />
-            <span>Import Recipe</span>
+            <span>Add recipe</span>
           </button>
 
           {/* Meal plan (phones use the bottom bar) */}
